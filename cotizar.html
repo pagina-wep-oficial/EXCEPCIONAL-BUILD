@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Prepara una cotización estimada para el sitio web de tu negocio con Excepcional Build.">
+  <title>Cotiza tu sitio web | Excepcional Build</title>
+  <meta name="theme-color" content="#132a26">
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="glossary.css">
+</head>
+<body>
+  <a class="skip-link" href="#contenido">Saltar al contenido</a>
+  <header class="site-header" id="inicio">
+    <div class="nav-wrap">
+      <a class="brand" href="index.html" aria-label="Volver al inicio de Excepcional Build">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>EXCEPCIONAL BUILD</span>
+      </a>
+      <button class="menu-button" type="button" aria-expanded="false" aria-controls="site-nav">Menú</button>
+      <nav id="site-nav" aria-label="Navegación del cotizador">
+        <a href="index.html">Inicio</a>
+        <a href="index.html#planes">Ver servicio</a>
+        <a class="nav-cta" href="https://wa.me/529811332914" target="_blank" rel="noopener">Hablar por WhatsApp</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="contenido">
+    <section class="hero section-shell">
+      <div class="hero-copy reveal">
+        <p class="eyebrow"><span></span> Cotización sin compromiso</p>
+        <h1>Arma tu sitio.<br><em>Conoce cuánto invertirías.</em></h1>
+        <p class="hero-lead">Selecciona la dirección y el alojamiento que prefieres. Al final verás por separado el pago inicial estimado y las renovaciones futuras.</p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="#cotizador">Comenzar mi cotización <span>↓</span></a>
+          <a class="button button-ghost" href="https://wa.me/529811332914" target="_blank" rel="noopener">Prefiero hablar primero</a>
+        </div>
+        <div class="hero-facts" aria-label="Información principal de la cotización">
+          <div><strong>Desde $750</strong><span>Creación y publicación</span></div>
+          <div><strong>$0 al año</strong><span>Opción gratuita disponible</span></div>
+          <div><strong>Sin cobros</strong><span>Solo prepara tu solicitud</span></div>
+        </div>
+      </div>
+
+      <div class="hero-visual reveal" aria-label="Ejemplo de presencia digital para un negocio local">
+        <div class="visual-orbit orbit-one"></div>
+        <div class="visual-orbit orbit-two"></div>
+        <div class="browser-card">
+          <div class="browser-top"><span></span><span></span><span></span><small>tunegocio.mx</small></div>
+          <div class="browser-content">
+            <div class="mock-nav"><b>Tu Negocio</b><i></i><i></i><i></i></div>
+            <div class="mock-hero"><span>ABIERTO HOY</span><strong>Lo que haces,<br>bien presentado.</strong><button>Contactar</button></div>
+            <div class="mock-cards"><i></i><i></i><i></i></div>
+          </div>
+        </div>
+        <div class="floating-card floating-one"><span class="status-dot"></span><div><b>Nuevo contacto</b><small>Desde tu página web</small></div></div>
+        <div class="floating-card floating-two"><b>24/7</b><span>Tu negocio visible</span></div>
+      </div>
+    </section>
+
+    <section class="section-shell section-block" id="cotizador">
+      <div class="section-heading reveal">
+        <p class="eyebrow"><span></span> Prepara tu paquete</p>
+        <h2>Elige cómo quieres comenzar.</h2>
+        <p>Esta herramienta únicamente prepara una cotización estimada. No realiza compras ni cobros.</p>
+      </div>
+
+      <div class="contact-card">
+        <div class="contact-copy reveal">
+          <p class="eyebrow eyebrow-light"><span></span> Sitio Esencial</p>
+          <h2>Tu página comienza en $750.</h2>
+          <p>Incluye creación, configuración inicial y publicación. Puedes comenzar con una dirección gratuita o solicitar un dominio propio.</p>
+          <div class="contact-note">
+            <span>✓</span>
+            <p><strong>Sin compromiso.</strong><br>Confirmaremos contigo la disponibilidad y los precios antes de contratar cualquier servicio.</p>
+          </div>
+        </div>
+
+        <form class="lead-form" id="quote-form">
+          <label>
+            1. Dirección de tu sitio
+            <select name="tipo_direccion" id="quote-address">
+              <option value="gratis">Enlace gratuito de Cloudflare Pages — $0 al año</option>
+              <option value="dominio">Dominio propio — consultar disponibilidad y precio</option>
+            </select>
+          </label>
+
+          <p class="form-status" id="quote-url-preview">Ejemplo: nombre-del-negocio.pages.dev</p>
+
+          <label>
+            2. Alojamiento
+            <select name="tipo_alojamiento" id="quote-hosting">
+              <option value="cloudflare">Cloudflare Pages incluido — $0 al año</option>
+              <option value="hostinger">Hosting especializado de Hostinger — cotizar</option>
+            </select>
+          </label>
+
+          <article class="price-card" aria-live="polite">
+            <p class="plan-label">Resumen estimado</p>
+            <p class="price"><strong id="quote-initial-total">$750</strong><span>pago inicial</span></p>
+            <ul>
+              <li>Creación y publicación del sitio: $750</li>
+              <li id="quote-address-summary">Enlace gratuito: $0 al año</li>
+              <li id="quote-hosting-summary">Cloudflare Pages: $0 al año</li>
+            </ul>
+            <p class="form-status">Renovación anual estimada: <strong id="quote-renewal-total">$0</strong></p>
+          </article>
+
+          <button class="button button-accent" type="button" id="quote-continue">Continuar con mis datos <span>↓</span></button>
+        </form>
+      </div>
+    </section>
+
+    <section class="contact-section section-shell" id="contacto">
+      <div class="contact-card">
+        <div class="contact-copy reveal">
+          <p class="eyebrow eyebrow-light"><span></span> Último paso</p>
+          <h2>Completa tus datos.</h2>
+          <p>Guardaremos tu cotización y continuaremos la conversación contigo por WhatsApp.</p>
+          <div class="contact-note"><span>✓</span><p><strong>No realizaremos ningún cobro.</strong><br>Primero confirmaremos disponibilidad, precios y los datos del propietario.</p></div>
+        </div>
+        <form id="lead-form" class="lead-form reveal">
+          <div class="field-row"><label>Tu nombre<input name="nombre" autocomplete="name" required placeholder="¿Cómo te llamas?"></label><label>Nombre del negocio<input name="negocio" autocomplete="organization" required placeholder="Ej. Abarrotes Lupita"></label></div>
+          <div class="field-row"><label>Municipio o ciudad<input name="ubicacion" autocomplete="address-level2" required placeholder="Ej. Hopelchén, Campeche"></label><label>Tu WhatsApp<input name="telefono" type="tel" autocomplete="tel" required placeholder="10 dígitos"></label></div>
+          <label>¿Qué necesitas?<select name="necesidad" required><option value="">Selecciona una opción</option><option>Quiero que mi negocio aparezca en internet</option><option>Necesito renovar un sitio existente</option><option>Quiero vender o recibir solicitudes</option><option>Necesito un sistema para mejorar mi trabajo</option><option>No estoy seguro, necesito orientación</option></select></label>
+          <label>Resumen y detalles<textarea name="mensaje" rows="7" placeholder="Aquí aparecerá el paquete seleccionado. También puedes agregar detalles sobre tu negocio."></textarea></label>
+
+          <label hidden aria-hidden="true">
+            No llenes este campo
+            <input name="website" type="text" tabindex="-1" autocomplete="off">
+          </label>
+
+          <div
+            class="cf-turnstile"
+            data-sitekey="0x4AAAAAAEExYuwSZOxPCJF4"
+            data-action="contact_form"
+            data-theme="light"
+            data-size="flexible">
+          </div>
+
+          <label class="check-field"><input type="checkbox" name="consentimiento" required><span>Acepto que me contacten para confirmar esta cotización.</span></label>
+          <button class="button button-accent" type="submit">Solicitar esta cotización <span>→</span></button>
+          <p class="form-status" id="form-status" aria-live="polite"></p>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="section-shell footer-grid"><div><a class="brand brand-light" href="index.html"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>EXCEPCIONAL BUILD</span></a><p>Sitios web y soluciones digitales para negocios locales de México.</p></div><div><strong>Explora</strong><a href="index.html#servicios">Servicios</a><a href="index.html#proceso">Proceso</a><a href="index.html#planes">Planes</a></div><div><strong>Hablemos</strong><a href="index.html#contacto">Hablar sobre mi proyecto</a><a href="#cotizador">Preparar cotización</a></div></div>
+    <div class="section-shell footer-bottom"><span>© <span id="year"></span> Excepcional Build.</span><span>Hecho para impulsar negocios locales.</span></div>
+  </footer>
+  <script src="script.js"></script>
+  <script src="glossary.js"></script>
+</body>
+</html>
