@@ -110,14 +110,16 @@
           <p class="form-status" id="quote-url-preview">Ejemplo: nombre-del-negocio.pages.dev</p>
 
           <div class="domain-check">
-            <p class="domain-check-label">¿Ya sabes qué dominio quieres? Comprueba si está libre.</p>
+            <p class="domain-check-label" id="domain-check-label">Elige el nombre que quieres para tu sitio web.</p>
+            <p class="domain-check-hint" id="domain-check-hint">Solo minúsculas, sin espacios ni símbolos. Ej. abarroteslupita</p>
             <div class="domain-check-row">
-              <input id="domain-check-input" type="text" inputmode="url" autocomplete="off" placeholder="Ej. abarroteslupita" aria-label="Dominio a verificar">
+              <input id="domain-check-input" type="text" inputmode="url" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Ej. abarroteslupita" aria-label="Nombre o dominio a verificar">
               <button class="button button-ghost" type="button" id="domain-check-button">Verificar</button>
             </div>
+            <p class="form-status" id="domain-check-live" aria-live="polite"></p>
             <p class="form-status" id="domain-check-status" aria-live="polite"></p>
             <div class="domain-suggestions" id="domain-suggestions" hidden></div>
-            <button class="button button-accent" type="button" id="domain-use-button" hidden>Usar este dominio en mi cotización</button>
+            <button class="button button-accent" type="button" id="domain-use-button" hidden>Usar este nombre en mi cotización</button>
           </div>
 
           <label>
@@ -128,6 +130,16 @@
             </select>
           </label>
           <p class="form-status" id="hosting-price-note" hidden></p>
+          <p class="form-status" id="hosting-domain-note" hidden></p>
+
+          <label id="quote-period-wrap" hidden>
+            Periodo de pago
+            <select name="periodo" id="quote-period">
+              <option value="1">1 año</option>
+              <option value="2">2 años</option>
+              <option value="3">3 años</option>
+            </select>
+          </label>
 
           <article class="price-card" aria-live="polite">
             <p class="plan-label">Resumen estimado</p>
@@ -137,7 +149,9 @@
               <li id="quote-address-summary">Enlace gratuito: $0 al año</li>
               <li id="quote-hosting-summary">Cloudflare Pages: $0 al año</li>
             </ul>
-            <p class="form-status">Renovación anual estimada: <strong id="quote-renewal-total">$0</strong></p>
+            <p class="form-status">Total estimado del primer año: <strong id="quote-year1-total">$750</strong></p>
+            <p class="form-status">Renovación del segundo año: <strong id="quote-year2-total">Sin renovaciones</strong></p>
+            <p class="form-status" id="quote-years-total-wrap" hidden>Total por <span id="quote-years-label">1</span> año(s): <strong id="quote-years-total">$750</strong></p>
           </article>
 
           <button class="button button-accent" type="button" id="quote-continue">Continuar con mis datos <span>↓</span></button>

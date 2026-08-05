@@ -37,20 +37,34 @@ const quoteType = document.querySelector("#quote-type");
 const quoteDomainOption = document.querySelector("#quote-domain-option");
 const quoteDomainOptionWrap = document.querySelector("#quote-domain-option-wrap");
 const hostingPriceNote = document.querySelector("#hosting-price-note");
+const hostingDomainNote = document.querySelector("#hosting-domain-note");
 const quoteUrlPreview = document.querySelector("#quote-url-preview");
 const quoteAddressSummary = document.querySelector("#quote-address-summary");
 const quoteHostingSummary = document.querySelector("#quote-hosting-summary");
 const quoteInitialTotal = document.querySelector("#quote-initial-total");
-const quoteRenewalTotal = document.querySelector("#quote-renewal-total");
+const quoteYear1Total = document.querySelector("#quote-year1-total");
+const quoteYear2Total = document.querySelector("#quote-year2-total");
+const quoteYearsTotalWrap = document.querySelector("#quote-years-total-wrap");
+const quoteYearsLabel = document.querySelector("#quote-years-label");
+const quoteYearsTotal = document.querySelector("#quote-years-total");
+const quotePeriod = document.querySelector("#quote-period");
+const quotePeriodWrap = document.querySelector("#quote-period-wrap");
 const quoteContinue = document.querySelector("#quote-continue");
 
 let selectedDomain = "";
 let selectedDomainPrice = null;
+let selectedSiteName = "";
 let lastHostingPrice = null;
 let quoteRef = "";
 let quoteRefNegocio = "";
 let montoInicial = null;
 let montoRenovacion = null;
+let montoPeriodo = null;
+
+function formatNum(value) {
+  if (value == null || isNaN(value)) return "Por confirmar";
+  return `$${Math.round(value * 100) / 100}`;
+}
 
 function renderQuote() {
   if (!quoteAddress || !quoteHosting) return;
@@ -58,9 +72,24 @@ function renderQuote() {
   const usesCustomDomain = quoteAddress.value === "dominio";
   const usesHostinger = quoteHosting.value === "hostinger";
   const esEspecial = quoteType?.value === "especial";
+  const periodo = Number(quotePeriod?.value || 1);
 
   if (quoteDomainOptionWrap) {
     quoteDomainOptionWrap.hidden = !usesCustomDomain;
+  }
+
+  const domainCheckLabel = document.querySelector("#domain-check-label");
+  const domainCheckHint = document.querySelector("#domain-check-hint");
+  if (domainCheckLabel && domainCheckHint) {
+    if (usesCustomDomain) {
+      domainCheckLabel.textContent = quoteDomainOption?.value === "ya_tengo"
+        ? "Escribe el dominio que ya tienes."
+        : "Elige el nombre que quieres para tu dominio y verifica que esté libre.";
+      domainCheckHint.textContent = "Solo minúsculas, sin espacios ni símbolos. Puedes terminarlo con .mx, .com u otro. Ej. abarroteslupita.mx";
+    } else {
+      domainCheckLabel.textContent = "Elige el nombre que quieres para tu sitio web.";
+      domainCheckHint.textContent = "Solo minúsculas, sin espacios ni símbolos. Ej. abarroteslupita";
+    }
   }
 
   if (usesCustomDomain) {
@@ -78,11 +107,14 @@ function renderQuote() {
         : `Dominio propio: ${selectedDomain} (disponibilidad por confirmar)`
       : "Dominio propio: precio por confirmar";
   } else {
-    quoteUrlPreview.textContent = quoteRefNegocio && !selectedDomain
-      ? `Cotización preparada para ${quoteRefNegocio}. Confirma o ajusta los datos y el paquete.`
-      : "Ejemplo: nombre-del-negocio.pages.dev";
-    quoteAddressSummary.textContent =
-      "Enlace gratuito: $0 al año";
+    quoteUrlPreview.textContent = selectedSiteName
+      ? `Tu enlace gratuito será: ${selectedSiteName}.pages.dev`
+      : quoteRefNegocio && !selectedDomain
+        ? `Cotización preparada para ${quoteRefNegocio}. Confirma o ajusta los datos y el paquete.`
+        : "Ejemplo: nombre-del-negocio.pages.dev";
+    quoteAddressSummary.textContent = selectedSiteName
+      ? `Enlace gratuito: ${selectedSiteName}.pages.dev — $0 al año`
+      : "Enlace gratuito: $0 al año";
   }
 
   if (usesHostinger) {
@@ -97,32 +129,68 @@ function renderQuote() {
         : "Consultando precios reales de Hostinger...";
       hostingPriceNote.hidden = false;
     }
+    if (hostingDomainNote) {
+      hostingDomainNote.textContent = "Para poder elegir este hosting necesitas un dominio propio. Se activó la opción de dominio: verifica abajo el nombre que quieres.";
+      hostingDomainNote.hidden = false;
+    }
   } else {
     quoteHostingSummary.textContent =
       "Cloudflare Pages: $0 al año";
     if (hostingPriceNote) hostingPriceNote.hidden = true;
+    if (hostingDomainNote) hostingDomainNote.hidden = true;
+  }
+
+  if (quotePeriodWrap) {
+    quotePeriodWrap.hidden = !usesHostinger && !usesCustomDomain;
   }
 
   if (esEspecial) {
     quoteInitialTotal.textContent = "Personalizado";
-    quoteRenewalTotal.textContent = "Según proyecto";
+    if (quoteYear1Total) quoteYear1Total.textContent = "Según proyecto";
+    if (quoteYear2Total) quoteYear2Total.textContent = "Según proyecto";
+    if (quoteYearsTotalWrap) quoteYearsTotalWrap.hidden = true;
     return;
   }
 
-  if (!usesCustomDomain && !usesHostinger) {
-    quoteInitialTotal.textContent = "$750";
-    quoteRenewalTotal.textContent = "Sin renovaciones";
-    return;
-  }
+  const domPrimerAno = usesCustomDomain && selectedDomainPrice?.first_period_price != null
+    ? selectedDomainPrice.first_period_price / 100
+    : 0;
+  const domRenovacion = usesCustomDomain && selectedDomainPrice?.price != null
+    ? selectedDomainPrice.price / 100
+    : domPrimerAno;
+  const hostMensual = usesHostinger && lastHostingPrice ? lastHostingPrice.price / 100 : 0;
+  const hostAnual = hostMensual * 12;
 
-  if (usesCustomDomain && !usesHostinger) {
+  const totalAno1 = 750 + domPrimerAno + hostAnual;
+  const totalAno2 = domRenovacion + hostAnual;
+  const totalPeriodo = totalAno1 + totalAno2 * (periodo - 1);
+
+  const conPrecios = usesCustomDomain && selectedDomainPrice == null
+    ? false
+    : true;
+
+  if (conPrecios) {
+    quoteInitialTotal.textContent = formatNum(totalAno1);
+    if (quoteYear1Total) quoteYear1Total.textContent = formatNum(totalAno1);
+    if (totalAno2 > 0) {
+      if (quoteYear2Total) quoteYear2Total.textContent = formatNum(totalAno2);
+      if (quoteYearsTotalWrap && periodo > 1) {
+        quoteYearsLabel.textContent = String(periodo);
+        quoteYearsTotal.textContent = formatNum(totalPeriodo);
+        quoteYearsTotalWrap.hidden = false;
+      } else if (quoteYearsTotalWrap) {
+        quoteYearsTotalWrap.hidden = true;
+      }
+    } else {
+      if (quoteYear2Total) quoteYear2Total.textContent = "Sin renovaciones";
+      if (quoteYearsTotalWrap) quoteYearsTotalWrap.hidden = true;
+    }
+  } else {
     quoteInitialTotal.textContent = "$750 + dominio";
-    quoteRenewalTotal.textContent = "Dominio";
-    return;
+    if (quoteYear1Total) quoteYear1Total.textContent = "Por confirmar";
+    if (quoteYear2Total) quoteYear2Total.textContent = "Por confirmar";
+    if (quoteYearsTotalWrap) quoteYearsTotalWrap.hidden = true;
   }
-
-  quoteInitialTotal.textContent = "$750 + dominio + hosting";
-  quoteRenewalTotal.textContent = "Dominio + hosting";
 }
 
 function precargarDesdeUrl() {
@@ -141,16 +209,21 @@ function precargarDesdeUrl() {
   renderQuote();
 }
 
-quoteAddress?.addEventListener("change", () => {  if (quoteAddress.value === "gratis" && quoteHosting?.value === "hostinger") {
+quoteAddress?.addEventListener("change", () => {
+  if (quoteAddress.value === "gratis" && quoteHosting?.value === "hostinger") {
     quoteHosting.value = "cloudflare";
   }
-
   renderQuote();
+  updateLivePreview();
 });
 
 quoteHosting?.addEventListener("change", async () => {
   if (quoteHosting.value === "hostinger" && quoteAddress?.value === "gratis") {
     quoteAddress.value = "dominio";
+    setDomainStatus(
+      "Para poder elegir este hosting necesitas un dominio propio. Escribe abajo el nombre que quieres y verifícalo.",
+      ""
+    );
   }
 
   if (quoteHosting.value === "hostinger" && !lastHostingPrice) {
@@ -164,30 +237,51 @@ quoteHosting?.addEventListener("change", async () => {
   }
 
   renderQuote();
+  updateLivePreview();
 });
 
-quoteType?.addEventListener("change", renderQuote);
+quoteType?.addEventListener("change", () => {
+  renderQuote();
+  updateLivePreview();
+});
+
+quotePeriod?.addEventListener("change", renderQuote);
 
 quoteDomainOption?.addEventListener("change", () => {
   const yaTengo = quoteDomainOption.value === "ya_tengo";
   if (domainButton) domainButton.textContent = yaTengo ? "Usar mi dominio" : "Verificar";
   renderQuote();
+  updateLivePreview();
 });
 
 renderQuote();
 precargarDesdeUrl();
 
-// Verificador de dominios en tiempo real
+// Verificador de nombre / dominio en tiempo real
 const domainInput = document.querySelector("#domain-check-input");
 const domainButton = document.querySelector("#domain-check-button");
 const domainStatus = document.querySelector("#domain-check-status");
+const domainCheckLive = document.querySelector("#domain-check-live");
 const domainSuggestions = document.querySelector("#domain-suggestions");
 const domainUseButton = document.querySelector("#domain-use-button");
 let lastCheckedDomain = "";
 let lastDomainPrice = null;
 
+function normalizeSiteName(raw) {
+  let value = String(raw || "").trim().toLowerCase();
+  value = value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  value = value.replace(/^[a-z]+:\/\//, "");
+  value = value.replace(/^www\./, "");
+  value = value.split(/[/?#]/)[0];
+  value = value.replace(/\s+/g, "-");
+  value = value.replace(/[^a-z0-9.-]/g, "");
+  value = value.replace(/^\.+/, "").replace(/\.+$/, "");
+  return value.slice(0, 63);
+}
+
 function normalizeDomain(raw) {
   let value = String(raw || "").trim().toLowerCase();
+  value = value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   value = value.replace(/^[a-z]+:\/\//, "");
   value = value.replace(/^www\./, "");
   value = value.split(/[/?#]/)[0];
@@ -301,7 +395,12 @@ function buildSuggestions(name) {
   return [`${base}.mx`, `${base}.net`, `${base}.org`, `${base}-negocio.com`];
 }
 
-function renderSuggestions(names) {
+function buildNameSuggestions(name) {
+  const base = name.replace(/\.pages\.dev$/, "").replace(/\..*$/, "");
+  return [`${base}-negocio`, `${base}-tienda`, `${base}mx`, `${base}1`];
+}
+
+function renderSuggestions(names, onClick) {
   if (!domainSuggestions) return;
   domainSuggestions.hidden = false;
   domainSuggestions.textContent = "";
@@ -311,7 +410,7 @@ function renderSuggestions(names) {
     chip.type = "button";
     chip.className = "suggestion-chip";
     chip.textContent = candidate;
-    chip.addEventListener("click", () => useDomain(candidate));
+    chip.addEventListener("click", () => onClick(candidate));
     domainSuggestions.appendChild(chip);
   });
 }
@@ -321,6 +420,7 @@ function useDomain(name) {
   if (!clean || !quoteAddress) return;
   selectedDomain = clean;
   selectedDomainPrice = lastDomainPrice;
+  selectedSiteName = "";
   quoteAddress.value = "dominio";
   if (domainInput) domainInput.value = clean;
   if (domainSuggestions) domainSuggestions.hidden = true;
@@ -329,39 +429,107 @@ function useDomain(name) {
   renderQuote();
 }
 
-async function runDomainCheck() {
-  const name = normalizeDomain(domainInput?.value);
+function useSiteName(name) {
+  const clean = normalizeSiteName(name);
+  if (!clean || !quoteAddress) return;
+  selectedSiteName = clean;
+  selectedDomain = "";
+  selectedDomainPrice = null;
+  quoteAddress.value = "gratis";
+  if (domainInput) domainInput.value = clean;
+  if (domainSuggestions) domainSuggestions.hidden = true;
+  if (domainUseButton) domainUseButton.hidden = true;
+  setDomainStatus(`Nombre anotado: quedará como ${clean}.pages.dev`, "success");
+  renderQuote();
+}
+
+async function checkPagesDevName(name) {
+  try {
+    const data = await checkDomainViaEdge(name);
+    if (data.disponible === true) return "free";
+    if (data.disponible === false) return "taken";
+    return "unknown";
+  } catch (error) {
+    const response = await fetchWithTimeout(`https://dns.google/resolve?name=${name}.pages.dev&type=NS`);
+    const dns = await response.json().catch(() => null);
+    if (!dns) return "unknown";
+    if (dns.Status === 3) return "free";
+    return "taken";
+  }
+}
+
+function isFreeLinkMode() {
+  return quoteAddress?.value !== "dominio";
+}
+
+function runChecker() {
+  const usarDominio = isFreeLinkMode() ? false : true;
+  const name = usarDominio
+    ? normalizeDomain(domainInput?.value)
+    : normalizeSiteName(domainInput?.value);
   if (!name) {
-    setDomainStatus("Escribe un nombre válido, por ejemplo: tunegocio o tunegocio.com", "error");
+    setDomainStatus(
+      usarDominio
+        ? "Escribe un nombre válido, por ejemplo: tunegocio o tunegocio.com"
+        : "Escribe un nombre válido: solo minúsculas, sin espacios ni símbolos. Ej. abarroteslupita",
+      "error"
+    );
     return;
   }
 
-  setDomainStatus(`Comprobando ${name}...`, "");
+  setDomainStatus(usarDominio ? `Comprobando ${name}...` : `Comprobando ${name}.pages.dev...`, "");
   if (domainSuggestions) domainSuggestions.hidden = true;
   if (domainUseButton) domainUseButton.hidden = true;
   if (domainButton) domainButton.disabled = true;
 
-  try {
-    const { availability } = await checkDomainWithPricing(name);
-    lastCheckedDomain = name;
-    if (availability === "free") {
-      const priceText = lastDomainPrice != null ? ` ${formatPrice(lastDomainPrice)}` : "";
-      setDomainStatus(
-        `¡Buenas noticias! ${name} parece estar disponible${priceText}.`,
-        "success"
-      );
-      if (domainUseButton) domainUseButton.hidden = false;
-    } else if (availability === "taken") {
-      setDomainStatus(`${name} ya está registrado. Aquí tienes algunas alternativas:`, "error");
-      renderSuggestions(buildSuggestions(name));
-    } else {
-      setDomainStatus("No pudimos comprobarlo ahora mismo. Podemos confirmarlo contigo por WhatsApp.");
-    }
-  } catch (error) {
-    setDomainStatus("Ocurrió un problema de conexión. Inténtalo de nuevo.", "error");
-  } finally {
+  const finalizar = () => {
     if (domainButton) domainButton.disabled = false;
+  };
+
+  if (usarDominio) {
+    checkDomainWithPricing(name)
+      .then(({ availability }) => {
+        lastCheckedDomain = name;
+        if (availability === "free") {
+          const priceText = lastDomainPrice != null ? ` ${formatPrice(lastDomainPrice)}` : "";
+          setDomainStatus(
+            `¡Buenas noticias! ${name} parece estar disponible${priceText}.`,
+            "success"
+          );
+          if (domainUseButton) domainUseButton.hidden = false;
+        } else if (availability === "taken") {
+          setDomainStatus(`${name} ya está registrado. Prueba con otro nombre o usa una alternativa:`, "error");
+          renderSuggestions(buildSuggestions(name), (candidate) => {
+            domainInput.value = candidate;
+            runChecker();
+          });
+        } else {
+          setDomainStatus("No pudimos comprobarlo ahora mismo. Podemos confirmarlo contigo por WhatsApp.");
+        }
+      })
+      .catch(() => setDomainStatus("Ocurrió un problema de conexión. Inténtalo de nuevo.", "error"))
+      .finally(finalizar);
+    return;
   }
+
+  checkPagesDevName(name)
+    .then((availability) => {
+      lastCheckedDomain = name;
+      if (availability === "free") {
+        setDomainStatus(`¡Disponible! Tu enlace quedará así: ${name}.pages.dev`, "success");
+        if (domainUseButton) domainUseButton.hidden = false;
+      } else if (availability === "taken") {
+        setDomainStatus(`${name}.pages.dev ya está en uso. Prueba con otro nombre o usa una alternativa:`, "error");
+        renderSuggestions(buildNameSuggestions(name), (candidate) => {
+          domainInput.value = candidate;
+          runChecker();
+        });
+      } else {
+        setDomainStatus("No pudimos comprobarlo ahora mismo. Confirmaremos el nombre contigo por WhatsApp.");
+      }
+    })
+    .catch(() => setDomainStatus("Ocurrió un problema de conexión. Inténtalo de nuevo.", "error"))
+    .finally(finalizar);
 }
 
 function handleDomainAction() {
@@ -375,7 +543,27 @@ function handleDomainAction() {
     useDomain(name);
     return;
   }
-  runDomainCheck();
+  runChecker();
+}
+
+function updateLivePreview() {
+  if (!domainCheckLive) return;
+  const raw = domainInput?.value || "";
+  if (!raw.trim()) {
+    domainCheckLive.textContent = "";
+    return;
+  }
+  if (isFreeLinkMode()) {
+    const name = normalizeSiteName(raw);
+    domainCheckLive.textContent = name
+      ? `Quedará así: ${name}.pages.dev`
+      : "Quita espacios, símbolos y mayúsculas: solo minúsculas, letras y números.";
+  } else {
+    const name = normalizeDomain(raw);
+    domainCheckLive.textContent = name
+      ? `Se revisará: ${name}`
+      : "Puedes terminarlo con .mx, .com u otro. Ej. abarroteslupita.mx";
+  }
 }
 
 domainButton?.addEventListener("click", handleDomainAction);
@@ -385,9 +573,16 @@ domainInput?.addEventListener("keydown", (event) => {
     handleDomainAction();
   }
 });
+domainInput?.addEventListener("input", updateLivePreview);
 
 domainUseButton?.addEventListener("click", () => {
-  if (lastCheckedDomain) useDomain(lastCheckedDomain);
+  if (lastCheckedDomain) {
+    if (isFreeLinkMode()) {
+      useSiteName(lastCheckedDomain);
+    } else {
+      useDomain(lastCheckedDomain);
+    }
+  }
 });
 
 quoteContinue?.addEventListener("click", () => {
@@ -396,6 +591,16 @@ quoteContinue?.addEventListener("click", () => {
   const messageField = leadForm?.querySelector('[name="mensaje"]');
 
   if (!leadForm || !quoteAddress || !quoteHosting) return;
+
+  if (quoteHosting.value === "hostinger" && !selectedDomain) {
+    setDomainStatus(
+      "Para poder elegir el hosting de Hostinger necesitas un dominio propio. Escribe el nombre arriba (con .mx, .com u otro) y verifícalo.",
+      "error"
+    );
+    domainInput?.focus();
+    hostingDomainNote?.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
 
   const tipoText =
     quoteType?.value === "especial"
@@ -411,7 +616,9 @@ quoteContinue?.addEventListener("click", () => {
             ? `Dominio propio (que me lo consigan): ${selectedDomain} (disponible: ${formatPrice(selectedDomainPrice)})`
             : `Dominio propio (que me lo consigan): ${selectedDomain} (disponibilidad por confirmar)`
         : "Dominio propio, disponibilidad y precio por confirmar"
-      : "Enlace gratuito de Cloudflare Pages, $0 al año";
+      : selectedSiteName
+        ? `Enlace gratuito de Cloudflare Pages: ${selectedSiteName}.pages.dev, $0 al año`
+        : "Enlace gratuito de Cloudflare Pages, $0 al año";
 
   const hostingPrecioTexto = lastHostingPrice
     ? `desde $${(lastHostingPrice.price / 100).toFixed(2)} MXN/mes`
@@ -422,38 +629,42 @@ quoteContinue?.addEventListener("click", () => {
       ? `Hosting especializado de Hostinger: ${hostingPrecioTexto}`
       : "Cloudflare Pages incluido, $0 al año";
 
+  const periodo = Number(quotePeriod?.value || 1);
+
   montoInicial = null;
   montoRenovacion = null;
   if (quoteType?.value !== "especial") {
     const usoDominio = quoteAddress.value === "dominio";
     const precioConocido = usoDominio ? selectedDomainPrice != null : true;
     if (precioConocido) {
-      const promoDom = selectedDomainPrice?.first_period_price;
-      const anualDom = selectedDomainPrice?.price;
-      const inicial = 750 + (typeof promoDom === "number" ? promoDom / 100 : 0);
-      montoInicial = Math.round(inicial * 100) / 100;
-      montoRenovacion =
-        Math.round((typeof anualDom === "number" ? anualDom / 100 : 0) * 100) / 100;
+      const promoDom = usoDominio && typeof selectedDomainPrice?.first_period_price === "number"
+        ? selectedDomainPrice.first_period_price / 100
+        : 0;
+      const anualDom = usoDominio && typeof selectedDomainPrice?.price === "number"
+        ? selectedDomainPrice.price / 100
+        : promoDom;
+      const hostMensual = quoteHosting.value === "hostinger" && lastHostingPrice
+        ? lastHostingPrice.price / 100
+        : 0;
+      const hostAnual = hostMensual * 12;
+      montoInicial = Math.round((750 + promoDom + hostAnual) * 100) / 100;
+      montoRenovacion = Math.round((anualDom + hostAnual) * 100) / 100;
+      montoPeriodo = Math.round((montoInicial + montoRenovacion * (periodo - 1)) * 100) / 100;
     }
   }
 
-  const hostingMensual = lastHostingPrice
-    ? ` + hosting $${(lastHostingPrice.price / 100).toFixed(2)} MXN/mes`
-    : "";
-  const parteRenovacion =
-    montoRenovacion != null && montoRenovacion > 0
-      ? ` (≈ $${montoRenovacion.toFixed(2)} MXN/año${hostingMensual})`
-      : lastHostingPrice
-        ? ` (${hostingMensual.replace(" + ", "≈ ")})`
-        : "";
+  const totalAno1 = quoteYear1Total?.textContent || (montoInicial != null ? formatNum(montoInicial) : "Por confirmar");
+  const totalAno2 = quoteYear2Total?.textContent || (montoRenovacion != null ? formatNum(montoRenovacion) : "Por confirmar");
 
   const quoteDetails = [
     `Tipo de sitio: ${tipoText}.`,
     "Precio base: $750.",
     `Dirección: ${addressText}.`,
     `Alojamiento: ${hostingText}.`,
-    `Pago inicial estimado: ${quoteInitialTotal?.textContent || "$750"}.${montoInicial != null ? ` (≈ $${montoInicial.toFixed(2)} MXN)` : ""}`,
-    `Renovación estimada: ${quoteRenewalTotal?.textContent || "Sin renovaciones"}.${parteRenovacion}`
+    `Periodo de pago: ${periodo} año(s).`,
+    `Total año 1: ${totalAno1}.`,
+    `Renovación año 2: ${totalAno2}.`,
+    `Pago inicial estimado: ${quoteInitialTotal?.textContent || "$750"}.${montoInicial != null ? ` (≈ $${montoInicial.toFixed(2)} MXN)` : ""}`
   ].join("\n");
 
   if (needSelect) {
@@ -543,15 +754,17 @@ form?.addEventListener("submit", async (event) => {
     ref: quoteRef || "",
     tipo_sitio: quoteType?.value || "",
     dominio_opcion: quoteDomainOption?.value || "",
-    dominio: quoteAddress?.value === "dominio" ? selectedDomain || "" : "",
+    dominio: quoteAddress?.value === "dominio" ? selectedDomain || "" : selectedSiteName ? `${selectedSiteName}.pages.dev` : "",
     dominio_precio:
       typeof selectedDomainPrice?.price === "number"
         ? selectedDomainPrice.price / 100
         : null,
     hosting: quoteHosting?.value || "",
     hosting_precio: lastHostingPrice ? lastHostingPrice.price / 100 : null,
+    periodo: Number(quotePeriod?.value || 1),
     monto_inicial: montoInicial,
-    monto_renovacion: montoRenovacion
+    monto_renovacion: montoRenovacion,
+    monto_periodo: montoPeriodo
   };
 
   const text = [
