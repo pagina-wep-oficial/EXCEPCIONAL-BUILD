@@ -93,6 +93,17 @@
 
           <p class="form-status" id="quote-url-preview">Ejemplo: nombre-del-negocio.pages.dev</p>
 
+          <div class="domain-check">
+            <p class="domain-check-label">¿Ya sabes qué dominio quieres? Comprueba si está libre.</p>
+            <div class="domain-check-row">
+              <input id="domain-check-input" type="text" inputmode="url" autocomplete="off" placeholder="Ej. abarroteslupita" aria-label="Dominio a verificar">
+              <button class="button button-ghost" type="button" id="domain-check-button">Verificar</button>
+            </div>
+            <p class="form-status" id="domain-check-status" aria-live="polite"></p>
+            <div class="domain-suggestions" id="domain-suggestions" hidden></div>
+            <button class="button button-accent" type="button" id="domain-use-button" hidden>Usar este dominio en mi cotización</button>
+          </div>
+
           <label>
             2. Alojamiento
             <select name="tipo_alojamiento" id="quote-hosting">

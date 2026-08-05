@@ -2,6 +2,7 @@
 // Ejemplo para México: "529811234567".
 const BUSINESS_WHATSAPP = "529811332914";
 const PROSPECT_ENDPOINT = "https://scaebulgcuvqpucondws.supabase.co/functions/v1/registrar-prospecto";
+const CONSULTAR_ENDPOINT = "https://scaebulgcuvqpucondws.supabase.co/functions/v1/consultar-dominio";
 
 const menuButton = document.querySelector(".menu-button");
 const nav = document.querySelector("#site-nav");
@@ -39,6 +40,8 @@ const quoteInitialTotal = document.querySelector("#quote-initial-total");
 const quoteRenewalTotal = document.querySelector("#quote-renewal-total");
 const quoteContinue = document.querySelector("#quote-continue");
 
+let selectedDomain = "";
+
 function renderQuote() {
   if (!quoteAddress || !quoteHosting) return;
 
@@ -46,10 +49,12 @@ function renderQuote() {
   const usesHostinger = quoteHosting.value === "hostinger";
 
   if (usesCustomDomain) {
-    quoteUrlPreview.textContent =
-      "Ejemplo: tunegocio.com. Confirmaremos disponibilidad y precio antes de contratar.";
-    quoteAddressSummary.textContent =
-      "Dominio propio: precio por confirmar";
+    quoteUrlPreview.textContent = selectedDomain
+      ? `Dominio elegido: ${selectedDomain}. Confirmaremos disponibilidad y precio antes de contratar.`
+      : "Ejemplo: tunegocio.com. Confirmaremos disponibilidad y precio antes de contratar.";
+    quoteAddressSummary.textContent = selectedDomain
+      ? `Dominio propio: ${selectedDomain} (disponibilidad por confirmar)`
+      : "Dominio propio: precio por confirmar";
   } else {
     quoteUrlPreview.textContent =
       "Ejemplo: nombre-del-negocio.pages.dev";
@@ -99,6 +104,191 @@ quoteHosting?.addEventListener("change", () => {
 
 renderQuote();
 
+// Verificador de dominios en tiempo real
+const domainInput = document.querySelector("#domain-check-input");
+const domainButton = document.querySelector("#domain-check-button");
+const domainStatus = document.querySelector("#domain-check-status");
+const domainSuggestions = document.querySelector("#domain-suggestions");
+const domainUseButton = document.querySelector("#domain-use-button");
+let lastCheckedDomain = "";
+let lastDomainPrice = null;
+
+function normalizeDomain(raw) {
+  let value = String(raw || "").trim().toLowerCase();
+  value = value.replace(/^[a-z]+:\/\//, "");
+  value = value.replace(/^www\./, "");
+  value = value.split(/[/?#]/)[0];
+  value = value.replace(/^\.+/, "").replace(/\.+$/, "");
+  if (!value) return "";
+  if (!value.includes(".")) value += ".com";
+  if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(value)) return "";
+  return value;
+}
+
+function setDomainStatus(text, tone) {
+  if (!domainStatus) return;
+  domainStatus.textContent = text;
+  domainStatus.classList.remove("success", "error");
+  if (tone) domainStatus.classList.add(tone);
+}
+
+async function fetchWithTimeout(url, ms = 9000) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(url, { signal: controller.signal });
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
+async function domainStatusRDAP(name) {
+  const response = await fetchWithTimeout(`https://rdap.org/domain/${name}`);
+  if (response.ok) return "taken";
+  if (response.status === 404) return "free";
+  return "unknown";
+}
+
+async function domainStatusDNS(name) {
+  const response = await fetchWithTimeout(`https://dns.google/resolve?name=${name}&type=NS`);
+  const data = await response.json().catch(() => null);
+  if (!data) return "unknown";
+  if (data.Status === 3) return "free";
+  if (
+    data.Status === 0 &&
+    Array.isArray(data.Answer) &&
+    data.Answer.some((record) => record.type === 2)
+  ) {
+    return "taken";
+  }
+  return "unknown";
+}
+
+async function checkDomainAvailability(name) {
+  try {
+    const rdap = await domainStatusRDAP(name);
+    if (rdap !== "unknown") return rdap;
+  } catch (error) {
+    // Si RDAP falla (red o CORS), seguimos con DNS.
+  }
+  try {
+    return await domainStatusDNS(name);
+  } catch (error) {
+    return "unknown";
+  }
+}
+
+async function checkDomainViaEdge(name) {
+  const url = `${CONSULTAR_ENDPOINT}?dominio=${encodeURIComponent(name)}`;
+  const response = await fetchWithTimeout(url, 20000);
+  if (!response.ok) throw new Error("edge no disponible");
+  const data = await response.json();
+  if (!data || data.ok !== true) throw new Error("edge respuesta inválida");
+  return data;
+}
+
+function formatPrice(value) {
+  if (value == null || value === "") return "";
+  if (typeof value === "number") {
+    return `≈ US$${value.toFixed(2)}/año`;
+  }
+  return `≈ ${String(value)}`;
+}
+
+async function checkDomainWithPricing(name) {
+  try {
+    const data = await checkDomainViaEdge(name);
+    let availability = "unknown";
+    if (data.disponible === true) availability = "free";
+    else if (data.disponible === false) availability = "taken";
+    lastDomainPrice = data.precioDominio ?? null;
+    return { availability, fuente: data.fuente || "hostinger" };
+  } catch (error) {
+    // Si la Edge Function no responde (red o CORS), usamos la comprobación local RDAP/DNS.
+    const availability = await checkDomainAvailability(name);
+    return { availability, fuente: "rdap-dns" };
+  }
+}
+
+function buildSuggestions(name) {
+  const base = name.includes(".") ? name.slice(0, name.indexOf(".")) : name;
+  return [`${base}.mx`, `${base}.net`, `${base}.org`, `${base}-negocio.com`];
+}
+
+function renderSuggestions(names) {
+  if (!domainSuggestions) return;
+  domainSuggestions.hidden = false;
+  domainSuggestions.textContent = "";
+  domainSuggestions.append("Quizá te guste: ");
+  names.forEach((candidate) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "suggestion-chip";
+    chip.textContent = candidate;
+    chip.addEventListener("click", () => useDomain(candidate));
+    domainSuggestions.appendChild(chip);
+  });
+}
+
+function useDomain(name) {
+  const clean = normalizeDomain(name);
+  if (!clean || !quoteAddress) return;
+  selectedDomain = clean;
+  quoteAddress.value = "dominio";
+  if (domainInput) domainInput.value = clean;
+  if (domainSuggestions) domainSuggestions.hidden = true;
+  if (domainUseButton) domainUseButton.hidden = true;
+  setDomainStatus(`Dominio ${clean} anotado en tu cotización.`, "success");
+  renderQuote();
+}
+
+async function runDomainCheck() {
+  const name = normalizeDomain(domainInput?.value);
+  if (!name) {
+    setDomainStatus("Escribe un nombre válido, por ejemplo: tunegocio o tunegocio.com", "error");
+    return;
+  }
+
+  setDomainStatus(`Comprobando ${name}...`, "");
+  if (domainSuggestions) domainSuggestions.hidden = true;
+  if (domainUseButton) domainUseButton.hidden = true;
+  if (domainButton) domainButton.disabled = true;
+
+  try {
+    const { availability } = await checkDomainWithPricing(name);
+    lastCheckedDomain = name;
+    if (availability === "free") {
+      const priceText = lastDomainPrice != null ? ` ${formatPrice(lastDomainPrice)}` : "";
+      setDomainStatus(
+        `¡Buenas noticias! ${name} parece estar disponible${priceText}.`,
+        "success"
+      );
+      if (domainUseButton) domainUseButton.hidden = false;
+    } else if (availability === "taken") {
+      setDomainStatus(`${name} ya está registrado. Aquí tienes algunas alternativas:`, "error");
+      renderSuggestions(buildSuggestions(name));
+    } else {
+      setDomainStatus("No pudimos comprobarlo ahora mismo. Podemos confirmarlo contigo por WhatsApp.");
+    }
+  } catch (error) {
+    setDomainStatus("Ocurrió un problema de conexión. Inténtalo de nuevo.", "error");
+  } finally {
+    if (domainButton) domainButton.disabled = false;
+  }
+}
+
+domainButton?.addEventListener("click", runDomainCheck);
+domainInput?.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    runDomainCheck();
+  }
+});
+
+domainUseButton?.addEventListener("click", () => {
+  if (lastCheckedDomain) useDomain(lastCheckedDomain);
+});
+
 quoteContinue?.addEventListener("click", () => {
   const leadForm = document.querySelector("#lead-form");
   const needSelect = leadForm?.querySelector('[name="necesidad"]');
@@ -108,7 +298,11 @@ quoteContinue?.addEventListener("click", () => {
 
   const addressText =
     quoteAddress.value === "dominio"
-      ? "Dominio propio, disponibilidad y precio por confirmar"
+      ? selectedDomain
+        ? lastDomainPrice != null
+          ? `Dominio propio: ${selectedDomain} (disponible, ${formatPrice(lastDomainPrice)})`
+          : `Dominio propio: ${selectedDomain} (disponibilidad por confirmar)`
+        : "Dominio propio, disponibilidad y precio por confirmar"
       : "Enlace gratuito de Cloudflare Pages, $0 al año";
 
   const hostingText =
