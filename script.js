@@ -111,7 +111,7 @@ function renderQuote() {
 
   if (!usesCustomDomain && !usesHostinger) {
     quoteInitialTotal.textContent = "$750";
-    quoteRenewalTotal.textContent = "$0";
+    quoteRenewalTotal.textContent = "Sin renovaciones";
     return;
   }
 
@@ -425,13 +425,27 @@ quoteContinue?.addEventListener("click", () => {
   montoInicial = null;
   montoRenovacion = null;
   if (quoteType?.value !== "especial") {
-    const promoDom = selectedDomainPrice?.first_period_price;
-    const anualDom = selectedDomainPrice?.price;
-    const inicial = 750 + (typeof promoDom === "number" ? promoDom / 100 : 0);
-    montoInicial = Math.round(inicial * 100) / 100;
-    montoRenovacion =
-      Math.round((typeof anualDom === "number" ? anualDom / 100 : 0) * 100) / 100;
+    const usoDominio = quoteAddress.value === "dominio";
+    const precioConocido = usoDominio ? selectedDomainPrice != null : true;
+    if (precioConocido) {
+      const promoDom = selectedDomainPrice?.first_period_price;
+      const anualDom = selectedDomainPrice?.price;
+      const inicial = 750 + (typeof promoDom === "number" ? promoDom / 100 : 0);
+      montoInicial = Math.round(inicial * 100) / 100;
+      montoRenovacion =
+        Math.round((typeof anualDom === "number" ? anualDom / 100 : 0) * 100) / 100;
+    }
   }
+
+  const hostingMensual = lastHostingPrice
+    ? ` + hosting $${(lastHostingPrice.price / 100).toFixed(2)} MXN/mes`
+    : "";
+  const parteRenovacion =
+    montoRenovacion != null && montoRenovacion > 0
+      ? ` (≈ $${montoRenovacion.toFixed(2)} MXN/año${hostingMensual})`
+      : lastHostingPrice
+        ? ` (${hostingMensual.replace(" + ", "≈ ")})`
+        : "";
 
   const quoteDetails = [
     `Tipo de sitio: ${tipoText}.`,
@@ -439,7 +453,7 @@ quoteContinue?.addEventListener("click", () => {
     `Dirección: ${addressText}.`,
     `Alojamiento: ${hostingText}.`,
     `Pago inicial estimado: ${quoteInitialTotal?.textContent || "$750"}.${montoInicial != null ? ` (≈ $${montoInicial.toFixed(2)} MXN)` : ""}`,
-    `Renovación estimada: ${quoteRenewalTotal?.textContent || "$0"}.${montoRenovacion != null ? ` (≈ $${montoRenovacion.toFixed(2)} MXN/año${lastHostingPrice ? ` + hosting $${(lastHostingPrice.price / 100).toFixed(2)} MXN/mes` : ""})` : ""}`
+    `Renovación estimada: ${quoteRenewalTotal?.textContent || "Sin renovaciones"}.${parteRenovacion}`
   ].join("\n");
 
   if (needSelect) {
@@ -476,6 +490,45 @@ form?.addEventListener("submit", async (event) => {
   const submitButton = form.querySelector('button[type="submit"]');
   const data = new FormData(form);
   const turnstileToken = data.get("cf-turnstile-response");
+
+  const camposRequeridos = [
+    ["nombre", "Tu nombre"],
+    ["negocio", "Nombre del negocio"],
+    ["ubicacion", "Municipio o ciudad"],
+    ["telefono", "Tu WhatsApp"]
+  ];
+
+  form.querySelectorAll(".invalid").forEach((el) => el.classList.remove("invalid"));
+  const faltantes = [];
+  for (const [name, etiqueta] of camposRequeridos) {
+    const campo = form.querySelector(`[name="${name}"]`);
+    if (!campo || !String(campo.value || "").trim()) {
+      faltantes.push(etiqueta);
+      campo?.classList.add("invalid");
+    }
+  }
+  const telefono = String(data.get("telefono") || "").replace(/\D/g, "");
+  if (telefono && telefono.length !== 10) {
+    faltantes.push("Tu WhatsApp (10 dígitos)");
+    form.querySelector('[name="telefono"]')?.classList.add("invalid");
+  }
+  const consentimiento = form.querySelector('[name="consentimiento"]');
+  if (consentimiento && !consentimiento.checked) {
+    consentimiento.classList.add("invalid");
+  }
+
+  if (faltantes.length > 0) {
+    status.textContent = `Completa: ${faltantes.join(", ")}.`;
+    status.className = "form-status error";
+    form.querySelector(".invalid")?.focus();
+    return;
+  }
+
+  if (consentimiento && !consentimiento.checked) {
+    status.textContent = "Marca la casilla para autorizar que te contactemos.";
+    status.className = "form-status error";
+    return;
+  }
 
   const payload = {
     nombre: data.get("nombre"),
@@ -550,9 +603,16 @@ form?.addEventListener("submit", async (event) => {
 
     window.location.assign(whatsappUrl);
   } catch (error) {
-    status.textContent =
-      error.message || "Ocurrió un problema. Inténtalo nuevamente.";
-    status.className = "form-status error";
+    const mensaje = error.message || "Ocurrió un problema. Inténtalo nuevamente.";
+    if (/anti-spam|verificaci|turnstile/i.test(mensaje)) {
+      status.innerHTML =
+        `No pudimos completar la verificación anti-spam. Espera un momento y vuelve a intentarlo, ` +
+        `o escríbenos directo: <a href="https://wa.me/${BUSINESS_WHATSAPP}" target="_blank" rel="noopener">WhatsApp</a>.`;
+      status.className = "form-status error";
+    } else {
+      status.textContent = mensaje;
+      status.className = "form-status error";
+    }
     window.turnstile?.reset();
   } finally {
     submitButton.disabled = false;

@@ -155,7 +155,7 @@
         </div>
         <form id="lead-form" class="lead-form reveal">
           <div class="field-row"><label>Tu nombre<input name="nombre" autocomplete="name" required placeholder="¿Cómo te llamas?"></label><label>Nombre del negocio<input name="negocio" autocomplete="organization" required placeholder="Ej. Abarrotes Lupita"></label></div>
-          <div class="field-row"><label>Municipio o ciudad<input name="ubicacion" autocomplete="address-level2" required placeholder="Ej. Hopelchén, Campeche"></label><label>Tu WhatsApp<input name="telefono" type="tel" autocomplete="tel" required placeholder="10 dígitos"></label></div>
+          <div class="field-row"><label>Municipio o ciudad<input name="ubicacion" autocomplete="address-level2" required placeholder="Ej. Hopelchén, Campeche"></label><label>Tu WhatsApp<input name="telefono" type="tel" inputmode="numeric" autocomplete="tel" pattern="[0-9]{10}" maxlength="10" title="Escribe tu WhatsApp a 10 dígitos, sin espacios" required placeholder="10 dígitos"></label></div>
           <label>¿Qué necesitas?<select name="necesidad" required><option value="">Selecciona una opción</option><option>Quiero que mi negocio aparezca en internet</option><option>Necesito renovar un sitio existente</option><option>Quiero vender o recibir solicitudes</option><option>Necesito un sistema para mejorar mi trabajo</option><option>No estoy seguro, necesito orientación</option></select></label>
           <label>Resumen y detalles<textarea name="mensaje" rows="7" placeholder="Aquí aparecerá el paquete seleccionado. También puedes agregar detalles sobre tu negocio."></textarea></label>
 
