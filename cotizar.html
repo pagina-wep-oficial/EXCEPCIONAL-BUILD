@@ -36,7 +36,7 @@
       <div class="hero-copy reveal">
         <p class="eyebrow"><span></span> Cotización sin compromiso</p>
         <h1>Arma tu sitio.<br><em>Conoce cuánto invertirías.</em></h1>
-        <p class="hero-lead">Selecciona la dirección y el alojamiento que prefieres. Al final verás por separado el pago inicial estimado y las renovaciones futuras.</p>
+        <p class="hero-lead">Selecciona el tipo de sitio, la dirección y el alojamiento que prefieres. Al final verás por separado el pago inicial estimado y las renovaciones futuras.</p>
         <div class="hero-actions">
           <a class="button button-primary" href="#cotizador">Comenzar mi cotización <span>↓</span></a>
           <a class="button button-ghost" href="https://wa.me/529811332914" target="_blank" rel="noopener">Prefiero hablar primero</a>
@@ -84,10 +84,26 @@
 
         <form class="lead-form" id="quote-form">
           <label>
-            1. Dirección de tu sitio
+            1. Tipo de sitio
+            <select name="tipo_sitio" id="quote-type">
+              <option value="informativo">Sitio informativo — desde $750</option>
+              <option value="especial">Con funciones especiales — cotización personalizada</option>
+            </select>
+          </label>
+
+          <label>
+            2. Dirección de tu sitio
             <select name="tipo_direccion" id="quote-address">
               <option value="gratis">Enlace gratuito de Cloudflare Pages — $0 al año</option>
               <option value="dominio">Dominio propio — consultar disponibilidad y precio</option>
+            </select>
+          </label>
+
+          <label id="quote-domain-option-wrap" hidden>
+            ¿Cómo quieres el dominio?
+            <select name="dominio_opcion" id="quote-domain-option">
+              <option value="conseguirme">Que Excepcional Build me consiga uno</option>
+              <option value="ya_tengo">Ya tengo mi dominio</option>
             </select>
           </label>
 
@@ -105,12 +121,13 @@
           </div>
 
           <label>
-            2. Alojamiento
+            3. Alojamiento
             <select name="tipo_alojamiento" id="quote-hosting">
               <option value="cloudflare">Cloudflare Pages incluido — $0 al año</option>
-              <option value="hostinger">Hosting especializado de Hostinger — cotizar</option>
+              <option value="hostinger">Hosting especializado de Hostinger — ver precio</option>
             </select>
           </label>
+          <p class="form-status" id="hosting-price-note" hidden></p>
 
           <article class="price-card" aria-live="polite">
             <p class="plan-label">Resumen estimado</p>

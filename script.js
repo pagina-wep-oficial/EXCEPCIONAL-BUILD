@@ -33,6 +33,10 @@ document.querySelectorAll(".reveal").forEach((item) => observer.observe(item));
 
 const quoteAddress = document.querySelector("#quote-address");
 const quoteHosting = document.querySelector("#quote-hosting");
+const quoteType = document.querySelector("#quote-type");
+const quoteDomainOption = document.querySelector("#quote-domain-option");
+const quoteDomainOptionWrap = document.querySelector("#quote-domain-option-wrap");
+const hostingPriceNote = document.querySelector("#hosting-price-note");
 const quoteUrlPreview = document.querySelector("#quote-url-preview");
 const quoteAddressSummary = document.querySelector("#quote-address-summary");
 const quoteHostingSummary = document.querySelector("#quote-hosting-summary");
@@ -42,35 +46,67 @@ const quoteContinue = document.querySelector("#quote-continue");
 
 let selectedDomain = "";
 let selectedDomainPrice = null;
+let lastHostingPrice = null;
+let quoteRef = "";
+let quoteRefNegocio = "";
+let montoInicial = null;
+let montoRenovacion = null;
 
 function renderQuote() {
   if (!quoteAddress || !quoteHosting) return;
 
   const usesCustomDomain = quoteAddress.value === "dominio";
   const usesHostinger = quoteHosting.value === "hostinger";
+  const esEspecial = quoteType?.value === "especial";
+
+  if (quoteDomainOptionWrap) {
+    quoteDomainOptionWrap.hidden = !usesCustomDomain;
+  }
 
   if (usesCustomDomain) {
+    const yaTengo = quoteDomainOption?.value === "ya_tengo";
     quoteUrlPreview.textContent = selectedDomain
-      ? `Dominio elegido: ${selectedDomain}. Confirmaremos disponibilidad y precio antes de contratar.`
-      : "Ejemplo: tunegocio.com. Confirmaremos disponibilidad y precio antes de contratar.";
+      ? yaTengo
+        ? `Dominio propio (ya tengo): ${selectedDomain}.`
+        : `Dominio elegido: ${selectedDomain}. Confirmaremos disponibilidad y precio antes de contratar.`
+      : yaTengo
+        ? "Escribe abajo el dominio que ya tienes."
+        : "Ejemplo: tunegocio.com. Confirmaremos disponibilidad y precio antes de contratar.";
     quoteAddressSummary.textContent = selectedDomain
       ? selectedDomainPrice != null
         ? `Dominio propio: ${selectedDomain} — ${formatPrice(selectedDomainPrice)}`
         : `Dominio propio: ${selectedDomain} (disponibilidad por confirmar)`
       : "Dominio propio: precio por confirmar";
   } else {
-    quoteUrlPreview.textContent =
-      "Ejemplo: nombre-del-negocio.pages.dev";
+    quoteUrlPreview.textContent = quoteRefNegocio && !selectedDomain
+      ? `Cotización preparada para ${quoteRefNegocio}. Confirma o ajusta los datos y el paquete.`
+      : "Ejemplo: nombre-del-negocio.pages.dev";
     quoteAddressSummary.textContent =
       "Enlace gratuito: $0 al año";
   }
 
   if (usesHostinger) {
+    const precio = lastHostingPrice
+      ? `desde $${(lastHostingPrice.price / 100).toFixed(2)} MXN/mes (${lastHostingPrice.nombre || "VPS"})`
+      : "precio por confirmar";
     quoteHostingSummary.textContent =
-      "Hosting especializado de Hostinger: precio por confirmar";
+      `Hosting especializado de Hostinger: ${precio}`;
+    if (hostingPriceNote) {
+      hostingPriceNote.textContent = lastHostingPrice
+        ? `Precio mínimo encontrado: $${(lastHostingPrice.price / 100).toFixed(2)} MXN/mes (${lastHostingPrice.nombre || "VPS"}).`
+        : "Consultando precios reales de Hostinger...";
+      hostingPriceNote.hidden = false;
+    }
   } else {
     quoteHostingSummary.textContent =
       "Cloudflare Pages: $0 al año";
+    if (hostingPriceNote) hostingPriceNote.hidden = true;
+  }
+
+  if (esEspecial) {
+    quoteInitialTotal.textContent = "Personalizado";
+    quoteRenewalTotal.textContent = "Según proyecto";
+    return;
   }
 
   if (!usesCustomDomain && !usesHostinger) {
@@ -89,23 +125,57 @@ function renderQuote() {
   quoteRenewalTotal.textContent = "Dominio + hosting";
 }
 
-quoteAddress?.addEventListener("change", () => {
-  if (quoteAddress.value === "gratis" && quoteHosting?.value === "hostinger") {
+function precargarDesdeUrl() {
+  const params = new URLSearchParams(window.location.search);
+  quoteRef = params.get("ref") || "";
+  quoteRefNegocio = params.get("negocio") || "";
+  if (!quoteRef) return;
+  const llenar = (name, value) => {
+    const campo = document.querySelector(`[name="${name}"]`);
+    if (campo && value) campo.value = value;
+  };
+  llenar("nombre", params.get("nombre"));
+  llenar("negocio", params.get("negocio"));
+  llenar("ubicacion", params.get("ubicacion"));
+  llenar("telefono", params.get("telefono"));
+  renderQuote();
+}
+
+quoteAddress?.addEventListener("change", () => {  if (quoteAddress.value === "gratis" && quoteHosting?.value === "hostinger") {
     quoteHosting.value = "cloudflare";
   }
 
   renderQuote();
 });
 
-quoteHosting?.addEventListener("change", () => {
+quoteHosting?.addEventListener("change", async () => {
   if (quoteHosting.value === "hostinger" && quoteAddress?.value === "gratis") {
     quoteAddress.value = "dominio";
+  }
+
+  if (quoteHosting.value === "hostinger" && !lastHostingPrice) {
+    try {
+      const data = await checkDomainViaEdge("");
+      const precio = data.precios?.hosting?.[0];
+      if (precio) lastHostingPrice = precio;
+    } catch (_) {
+      // Sin conexión o catálogo no disponible: se muestra "precio por confirmar".
+    }
   }
 
   renderQuote();
 });
 
+quoteType?.addEventListener("change", renderQuote);
+
+quoteDomainOption?.addEventListener("change", () => {
+  const yaTengo = quoteDomainOption.value === "ya_tengo";
+  if (domainButton) domainButton.textContent = yaTengo ? "Usar mi dominio" : "Verificar";
+  renderQuote();
+});
+
 renderQuote();
+precargarDesdeUrl();
 
 // Verificador de dominios en tiempo real
 const domainInput = document.querySelector("#domain-check-input");
@@ -182,7 +252,9 @@ async function checkDomainAvailability(name) {
 }
 
 async function checkDomainViaEdge(name) {
-  const url = `${CONSULTAR_ENDPOINT}?dominio=${encodeURIComponent(name)}`;
+  const url = name
+    ? `${CONSULTAR_ENDPOINT}?dominio=${encodeURIComponent(name)}`
+    : `${CONSULTAR_ENDPOINT}?hosting=1`;
   const response = await fetchWithTimeout(url, 20000);
   if (!response.ok) throw new Error("edge no disponible");
   const data = await response.json();
@@ -292,11 +364,25 @@ async function runDomainCheck() {
   }
 }
 
-domainButton?.addEventListener("click", runDomainCheck);
+function handleDomainAction() {
+  if (quoteDomainOption?.value === "ya_tengo") {
+    const name = normalizeDomain(domainInput?.value);
+    if (!name) {
+      setDomainStatus("Escribe el dominio que ya tienes, por ejemplo: tunegocio.com", "error");
+      return;
+    }
+    lastCheckedDomain = name;
+    useDomain(name);
+    return;
+  }
+  runDomainCheck();
+}
+
+domainButton?.addEventListener("click", handleDomainAction);
 domainInput?.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
-    runDomainCheck();
+    handleDomainAction();
   }
 });
 
@@ -311,27 +397,49 @@ quoteContinue?.addEventListener("click", () => {
 
   if (!leadForm || !quoteAddress || !quoteHosting) return;
 
+  const tipoText =
+    quoteType?.value === "especial"
+      ? "Sitio con funciones especiales (cotización personalizada)"
+      : "Sitio informativo (desde $750)";
+
   const addressText =
     quoteAddress.value === "dominio"
       ? selectedDomain
-        ? selectedDomainPrice != null
-          ? `Dominio propio: ${selectedDomain} (disponible: ${formatPrice(selectedDomainPrice)})`
-          : `Dominio propio: ${selectedDomain} (disponibilidad por confirmar)`
+        ? quoteDomainOption?.value === "ya_tengo"
+          ? `Dominio propio (ya tengo): ${selectedDomain}${selectedDomainPrice != null ? ` (${formatPrice(selectedDomainPrice)})` : ""}`
+          : selectedDomainPrice != null
+            ? `Dominio propio (que me lo consigan): ${selectedDomain} (disponible: ${formatPrice(selectedDomainPrice)})`
+            : `Dominio propio (que me lo consigan): ${selectedDomain} (disponibilidad por confirmar)`
         : "Dominio propio, disponibilidad y precio por confirmar"
       : "Enlace gratuito de Cloudflare Pages, $0 al año";
 
+  const hostingPrecioTexto = lastHostingPrice
+    ? `desde $${(lastHostingPrice.price / 100).toFixed(2)} MXN/mes`
+    : "precio por confirmar";
+
   const hostingText =
     quoteHosting.value === "hostinger"
-      ? "Hosting especializado de Hostinger, precio por confirmar"
+      ? `Hosting especializado de Hostinger: ${hostingPrecioTexto}`
       : "Cloudflare Pages incluido, $0 al año";
 
+  montoInicial = null;
+  montoRenovacion = null;
+  if (quoteType?.value !== "especial") {
+    const promoDom = selectedDomainPrice?.first_period_price;
+    const anualDom = selectedDomainPrice?.price;
+    const inicial = 750 + (typeof promoDom === "number" ? promoDom / 100 : 0);
+    montoInicial = Math.round(inicial * 100) / 100;
+    montoRenovacion =
+      Math.round((typeof anualDom === "number" ? anualDom / 100 : 0) * 100) / 100;
+  }
+
   const quoteDetails = [
-    "Quiero cotizar el Sitio Esencial.",
+    `Tipo de sitio: ${tipoText}.`,
     "Precio base: $750.",
     `Dirección: ${addressText}.`,
     `Alojamiento: ${hostingText}.`,
-    `Pago inicial estimado: ${quoteInitialTotal?.textContent || "$750"}.`,
-    `Renovación estimada: ${quoteRenewalTotal?.textContent || "$0"}.`
+    `Pago inicial estimado: ${quoteInitialTotal?.textContent || "$750"}.${montoInicial != null ? ` (≈ $${montoInicial.toFixed(2)} MXN)` : ""}`,
+    `Renovación estimada: ${quoteRenewalTotal?.textContent || "$0"}.${montoRenovacion != null ? ` (≈ $${montoRenovacion.toFixed(2)} MXN/año${lastHostingPrice ? ` + hosting $${(lastHostingPrice.price / 100).toFixed(2)} MXN/mes` : ""})` : ""}`
   ].join("\n");
 
   if (needSelect) {
@@ -378,7 +486,19 @@ form?.addEventListener("submit", async (event) => {
     mensaje: data.get("mensaje"),
     consentimiento: data.get("consentimiento") === "on",
     website: data.get("website"),
-    turnstileToken
+    turnstileToken,
+    ref: quoteRef || "",
+    tipo_sitio: quoteType?.value || "",
+    dominio_opcion: quoteDomainOption?.value || "",
+    dominio: quoteAddress?.value === "dominio" ? selectedDomain || "" : "",
+    dominio_precio:
+      typeof selectedDomainPrice?.price === "number"
+        ? selectedDomainPrice.price / 100
+        : null,
+    hosting: quoteHosting?.value || "",
+    hosting_precio: lastHostingPrice ? lastHostingPrice.price / 100 : null,
+    monto_inicial: montoInicial,
+    monto_renovacion: montoRenovacion
   };
 
   const text = [
