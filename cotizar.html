@@ -83,27 +83,48 @@
         </div>
 
         <form class="lead-form" id="quote-form">
-          <label>
-            1. Tipo de sitio
-            <select name="tipo_sitio" id="quote-type">
-              <option value="informativo">Sitio informativo — desde $750</option>
-              <option value="especial">Con funciones especiales — cotización personalizada</option>
-            </select>
-          </label>
+          <fieldset class="select-cards">
+            <legend>1. Elige la dirección web de tu sitio</legend>
+            <label class="select-card" for="quote-address-card-gratis">
+              <input type="radio" name="tipo_direccion_card" id="quote-address-card-gratis" value="gratis" checked>
+              <span class="select-card-badge">Gratis permanentemente</span>
+              <strong>Enlace gratuito</strong>
+              <code>tunegocio.pages.dev</code>
+              <ul>
+                <li>Sin costo.</li>
+                <li>Sin pagos de renovación.</li>
+                <li>Se mantiene gratis cada año.</li>
+                <li>Ideal para comenzar y tener presencia en internet.</li>
+                <li>La dirección incluye <code>.pages.dev</code>.</li>
+                <li>Puede verse menos profesional que un dominio propio.</li>
+              </ul>
+            </label>
+            <label class="select-card" for="quote-address-card-dominio">
+              <input type="radio" name="tipo_direccion_card" id="quote-address-card-dominio" value="dominio">
+              <span class="select-card-badge">Renovación anual</span>
+              <strong>Dominio personalizado</strong>
+              <code>tunegocio.com</code>
+              <ul>
+                <li>Una dirección más profesional.</li>
+                <li>Más fácil de recordar y compartir.</li>
+                <li>Refuerza la identidad del negocio.</li>
+                <li>Está sujeto a disponibilidad.</li>
+                <li>Debe renovarse cada año.</li>
+                <li>El precio depende del nombre y la terminación elegida.</li>
+              </ul>
+            </label>
+          </fieldset>
 
-          <label>
-            2. Dirección de tu sitio
-            <select name="tipo_direccion" id="quote-address">
-              <option value="gratis">Enlace gratuito de Cloudflare Pages — $0 al año</option>
-              <option value="dominio">Dominio propio — consultar disponibilidad y precio</option>
-            </select>
-          </label>
+          <select name="tipo_direccion" id="quote-address" hidden>
+            <option value="gratis">Enlace gratuito de Cloudflare Pages — $0 al año</option>
+            <option value="dominio">Dominio propio — consultar disponibilidad y precio</option>
+          </select>
 
           <label id="quote-domain-option-wrap" hidden>
-            ¿Cómo quieres el dominio?
+            ¿Cómo quieres obtener tu dominio?
             <select name="dominio_opcion" id="quote-domain-option">
-              <option value="conseguirme">Que Excepcional Build me consiga uno</option>
-              <option value="ya_tengo">Ya tengo mi dominio</option>
+              <option value="conseguirme">Quiero que Excepcional Build me ayude a conseguirlo</option>
+              <option value="ya_tengo">Ya tengo un dominio</option>
             </select>
           </label>
 
@@ -118,17 +139,47 @@
             </div>
             <p class="form-status" id="domain-check-live" aria-live="polite"></p>
             <p class="form-status" id="domain-check-status" aria-live="polite"></p>
+            <div class="domain-price-blocks" id="domain-price-blocks" hidden>
+              <div class="domain-price-block"><span>Primer año</span><strong id="domain-price-first"></strong></div>
+              <div class="domain-price-block"><span>Renovación anual</span><strong id="domain-price-renew"></strong></div>
+            </div>
             <div class="domain-suggestions" id="domain-suggestions" hidden></div>
-            <button class="button button-accent" type="button" id="domain-use-button" hidden>Usar este nombre en mi cotización</button>
+            <button class="button button-accent" type="button" id="domain-use-button" hidden>Usar este dominio en mi cotización</button>
           </div>
 
-          <label>
-            3. Alojamiento
-            <select name="tipo_alojamiento" id="quote-hosting">
-              <option value="cloudflare">Cloudflare Pages incluido — $0 al año</option>
-              <option value="hostinger">Hosting especializado de Hostinger — ver precio</option>
-            </select>
-          </label>
+          <fieldset class="select-cards">
+            <legend>2. Elige el alojamiento de tu sitio</legend>
+            <label class="select-card" for="quote-hosting-card-cloudflare">
+              <input type="radio" name="tipo_alojamiento_card" id="quote-hosting-card-cloudflare" value="cloudflare" checked>
+              <span class="select-card-badge">$0 al año</span>
+              <strong>Alojamiento gratuito</strong>
+              <ul>
+                <li>Sin costo mensual o anual.</li>
+                <li>Sin renovación.</li>
+                <li>Incluye publicación segura con HTTPS.</li>
+                <li>Adecuado para páginas informativas, menús, catálogos sencillos y formularios.</li>
+                <li>No está pensado para sistemas que necesiten servidor, bases de datos complejas o procesos especiales.</li>
+              </ul>
+            </label>
+            <label class="select-card" for="quote-hosting-card-hostinger">
+              <input type="radio" name="tipo_alojamiento_card" id="quote-hosting-card-hostinger" value="hostinger">
+              <span class="select-card-badge">Precio según proyecto</span>
+              <strong>Alojamiento especializado</strong>
+              <ul>
+                <li>Recomendado para proyectos con funciones avanzadas.</li>
+                <li>Permite utilizar servidor, bases de datos y procesos especiales.</li>
+                <li>Tiene mayor capacidad y posibilidades de crecimiento.</li>
+                <li>Su costo depende de las necesidades del proyecto.</li>
+                <li>Requiere renovación.</li>
+                <li>Requiere dominio propio.</li>
+              </ul>
+            </label>
+          </fieldset>
+
+          <select name="tipo_alojamiento" id="quote-hosting" hidden>
+            <option value="cloudflare">Cloudflare Pages incluido — $0 al año</option>
+            <option value="hostinger">Hosting especializado de Hostinger — ver precio</option>
+          </select>
           <p class="form-status" id="hosting-price-note" hidden></p>
           <p class="form-status" id="hosting-domain-note" hidden></p>
 
@@ -149,8 +200,8 @@
               <li id="quote-address-summary">Enlace gratuito: $0 al año</li>
               <li id="quote-hosting-summary">Cloudflare Pages: $0 al año</li>
             </ul>
-            <p class="form-status">Total estimado del primer año: <strong id="quote-year1-total">$750</strong></p>
-            <p class="form-status">Renovación del segundo año: <strong id="quote-year2-total">Sin renovaciones</strong></p>
+            <p class="form-status">Pago inicial estimado: <strong id="quote-year1-total">$750</strong></p>
+            <p class="form-status">Renovación a partir del segundo año: <strong id="quote-year2-total">Sin renovaciones</strong></p>
             <p class="form-status" id="quote-years-total-wrap" hidden>Total por <span id="quote-years-label">1</span> año(s): <strong id="quote-years-total">$750</strong></p>
           </article>
 

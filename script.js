@@ -68,6 +68,7 @@ function formatNum(value) {
 
 function renderQuote() {
   if (!quoteAddress || !quoteHosting) return;
+  syncCardRadios();
 
   const usesCustomDomain = quoteAddress.value === "dominio";
   const usesHostinger = quoteHosting.value === "hostinger";
@@ -99,6 +100,13 @@ function renderQuote() {
     domainButtonText.textContent = usesCustomDomain && quoteDomainOption?.value === "ya_tengo"
       ? "Usar mi dominio"
       : "Verificar";
+  }
+
+  const domainUseButtonLabel = document.querySelector("#domain-use-button");
+  if (domainUseButtonLabel) {
+    domainUseButtonLabel.textContent = usesCustomDomain
+      ? "Usar este dominio en mi cotización"
+      : "Usar este enlace en mi cotización";
   }
 
   if (usesCustomDomain) {
@@ -133,23 +141,26 @@ function renderQuote() {
     quoteHostingSummary.textContent =
       `Hosting especializado de Hostinger: ${precio}`;
     if (hostingPriceNote) {
+      const hostAnualNota = lastHostingPrice
+        ? (lastHostingPrice.price * 12 / 100).toFixed(2)
+        : null;
       hostingPriceNote.textContent = lastHostingPrice
-        ? `Precio mínimo encontrado: $${(lastHostingPrice.price / 100).toFixed(2)} MXN/mes (${lastHostingPrice.nombre || "VPS"}).`
+        ? `Alojamiento seleccionado: Primer periodo $${hostAnualNota} MXN, Renovación $${hostAnualNota} MXN cada año.`
         : "Consultando precios reales de Hostinger...";
       hostingPriceNote.hidden = false;
     }
     if (hostingDomainNote) {
-      const aYaTengo = quoteDomainOption?.value === "ya_tengo";
-      hostingDomainNote.textContent = aYaTengo
-        ? "Para poder elegir este hosting necesitas un dominio propio. Escribe el dominio que ya tienes abajo y pulsa “Usar mi dominio”: no hace falta verificarlo."
-        : "Para poder elegir este hosting necesitas un dominio propio. Elige el nombre que quieras abajo, verifica disponibilidad y precio, y te daremos alternativas si ya está ocupado.";
-      hostingDomainNote.hidden = false;
+      if (quoteAddress.value === "gratis") {
+        showHostingDomainNotice();
+      } else {
+        hideHostingDomainNotice();
+      }
     }
   } else {
     quoteHostingSummary.textContent =
       "Cloudflare Pages: $0 al año";
     if (hostingPriceNote) hostingPriceNote.hidden = true;
-    if (hostingDomainNote) hostingDomainNote.hidden = true;
+    hideHostingDomainNotice();
   }
 
   if (quotePeriodWrap) {
@@ -230,17 +241,6 @@ quoteAddress?.addEventListener("change", () => {
 });
 
 quoteHosting?.addEventListener("change", async () => {
-  if (quoteHosting.value === "hostinger" && quoteAddress?.value === "gratis") {
-    quoteAddress.value = "dominio";
-    const aYaTengo = quoteDomainOption?.value === "ya_tengo";
-    setDomainStatus(
-      aYaTengo
-        ? "Para poder elegir este hosting necesitas un dominio propio. Escribe abajo el dominio que ya tienes y pulsa “Usar mi dominio”."
-        : "Para poder elegir este hosting necesitas un dominio propio. Escribe abajo el nombre que quieres y verifícalo.",
-      ""
-    );
-  }
-
   if (quoteHosting.value === "hostinger" && !lastHostingPrice) {
     try {
       const data = await checkDomainViaEdge("");
@@ -265,20 +265,70 @@ quotePeriod?.addEventListener("change", renderQuote);
 quoteDomainOption?.addEventListener("change", () => {
   const yaTengo = quoteDomainOption.value === "ya_tengo";
   if (domainButton) domainButton.textContent = yaTengo ? "Usar mi dominio" : "Verificar";
-  if (quoteHosting?.value === "hostinger") {
-    setDomainStatus(
-      yaTengo
-        ? "Para poder elegir este hosting necesitas un dominio propio. Escribe abajo el dominio que ya tienes y pulsa “Usar mi dominio”."
-        : "Para poder elegir este hosting necesitas un dominio propio. Escribe abajo el nombre que quieres y verifícalo.",
-      ""
-    );
-  }
   renderQuote();
   updateLivePreview();
 });
 
 renderQuote();
 precargarDesdeUrl();
+
+function syncCardRadios() {
+  document.querySelectorAll('input[name="tipo_direccion_card"]').forEach((radio) => {
+    radio.checked = radio.value === quoteAddress?.value;
+  });
+  document.querySelectorAll('input[name="tipo_alojamiento_card"]').forEach((radio) => {
+    radio.checked = radio.value === quoteHosting?.value;
+  });
+}
+
+function showHostingDomainNotice() {
+  if (!hostingDomainNote) return;
+  if (!hostingDomainNote.dataset.built) {
+    hostingDomainNote.classList.add("hosting-domain-notice");
+    hostingDomainNote.innerHTML =
+      "El alojamiento especializado requiere un dominio propio. " +
+      '<button type="button" class="button button-ghost" data-hostnotice="elegir">Elegir dominio personalizado</button>' +
+      '<button type="button" class="button button-ghost" data-hostnotice="tengo">Ya tengo un dominio</button>';
+    hostingDomainNote.dataset.built = "1";
+  }
+  hostingDomainNote.hidden = false;
+}
+
+function hideHostingDomainNotice() {
+  if (!hostingDomainNote) return;
+  hostingDomainNote.hidden = true;
+}
+
+document.querySelectorAll('input[name="tipo_direccion_card"]').forEach((radio) => {
+  radio.addEventListener("change", () => {
+    if (!radio.checked || !quoteAddress) return;
+    quoteAddress.value = radio.value;
+    quoteAddress.dispatchEvent(new Event("change"));
+  });
+});
+
+document.querySelectorAll('input[name="tipo_alojamiento_card"]').forEach((radio) => {
+  radio.addEventListener("change", () => {
+    if (!radio.checked || !quoteHosting) return;
+    quoteHosting.value = radio.value;
+    quoteHosting.dispatchEvent(new Event("change"));
+  });
+});
+
+document.addEventListener("click", (event) => {
+  const btn = event.target.closest("[data-hostnotice]");
+  if (!btn || !quoteAddress) return;
+  const option = document.querySelector("#quote-domain-option");
+  if (option) option.value = btn.dataset.hostnotice === "tengo" ? "ya_tengo" : "conseguirme";
+  const dominioCard = document.querySelector("#quote-address-card-dominio");
+  if (dominioCard) {
+    dominioCard.checked = true;
+    dominioCard.dispatchEvent(new Event("change"));
+  } else {
+    quoteAddress.value = "dominio";
+    quoteAddress.dispatchEvent(new Event("change"));
+  }
+});
 
 // Verificador de nombre / dominio en tiempo real
 const domainInput = document.querySelector("#domain-check-input");
@@ -317,7 +367,7 @@ function normalizeDomain(raw) {
 
 function setDomainStatus(text, tone) {
   if (!domainStatus) return;
-  domainStatus.textContent = text;
+  domainStatus.innerHTML = String(text).replace(/\n/g, "<br>");
   domainStatus.classList.remove("success", "error");
   if (tone) domainStatus.classList.add(tone);
 }
@@ -501,6 +551,8 @@ function runChecker() {
   }
 
   setDomainStatus(usarDominio ? `Comprobando ${name}...` : `Comprobando ${name}.pages.dev...`, "");
+  const priceBlocks = document.querySelector("#domain-price-blocks");
+  if (priceBlocks) priceBlocks.hidden = true;
   if (domainSuggestions) domainSuggestions.hidden = true;
   if (domainUseButton) domainUseButton.hidden = true;
   if (domainButton) domainButton.disabled = true;
@@ -514,11 +566,21 @@ function runChecker() {
       .then(({ availability }) => {
         lastCheckedDomain = name;
         if (availability === "free") {
-          const priceText = lastDomainPrice != null ? ` ${formatPrice(lastDomainPrice)}` : "";
-          setDomainStatus(
-            `¡Buenas noticias! ${name} parece estar disponible${priceText}.`,
-            "success"
-          );
+          const price = lastDomainPrice && typeof lastDomainPrice.price === "number" ? lastDomainPrice : null;
+          const promo = price && typeof price.first_period_price === "number" ? price.first_period_price / 100 : null;
+          const anual = price ? price.price / 100 : null;
+          const lines = [`${name} está disponible.`];
+          if (promo != null) lines.push(`El primer año cuesta aproximadamente $${promo.toFixed(2)} MXN.`);
+          if (anual != null && anual !== promo) lines.push(`A partir del segundo año, su renovación sería de aproximadamente $${anual.toFixed(2)} MXN al año.`);
+          lines.push("El precio final se confirmará antes de realizar cualquier compra.");
+          setDomainStatus(lines.join("\n"), "success");
+          if (priceBlocks) {
+            const first = document.querySelector("#domain-price-first");
+            const renew = document.querySelector("#domain-price-renew");
+            if (first) first.textContent = promo != null ? `$${promo.toFixed(2)} MXN` : `$${anual.toFixed(2)} MXN`;
+            if (renew) renew.textContent = anual != null ? `$${anual.toFixed(2)} MXN` : "—";
+            priceBlocks.hidden = false;
+          }
           if (domainUseButton) domainUseButton.hidden = false;
         } else if (availability === "taken") {
           setDomainStatus(`${name} ya está registrado. Prueba con otro nombre o usa una alternativa:`, "error");
@@ -617,7 +679,7 @@ quoteContinue?.addEventListener("click", () => {
 
   if (quoteHosting.value === "hostinger" && !selectedDomain) {
     setDomainStatus(
-      "Para poder elegir el hosting de Hostinger necesitas un dominio propio. Escribe el nombre arriba (con .mx, .com u otro) y verifícalo.",
+      "Para elegir el alojamiento especializado necesitas un dominio propio. Elige “Dominio personalizado” arriba o pulsa “Ya tengo un dominio” en el aviso del alojamiento.",
       "error"
     );
     domainInput?.focus();
