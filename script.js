@@ -41,6 +41,7 @@ const quoteRenewalTotal = document.querySelector("#quote-renewal-total");
 const quoteContinue = document.querySelector("#quote-continue");
 
 let selectedDomain = "";
+let selectedDomainPrice = null;
 
 function renderQuote() {
   if (!quoteAddress || !quoteHosting) return;
@@ -53,7 +54,9 @@ function renderQuote() {
       ? `Dominio elegido: ${selectedDomain}. Confirmaremos disponibilidad y precio antes de contratar.`
       : "Ejemplo: tunegocio.com. Confirmaremos disponibilidad y precio antes de contratar.";
     quoteAddressSummary.textContent = selectedDomain
-      ? `Dominio propio: ${selectedDomain} (disponibilidad por confirmar)`
+      ? selectedDomainPrice != null
+        ? `Dominio propio: ${selectedDomain} — ${formatPrice(selectedDomainPrice)}`
+        : `Dominio propio: ${selectedDomain} (disponibilidad por confirmar)`
       : "Dominio propio: precio por confirmar";
   } else {
     quoteUrlPreview.textContent =
@@ -192,6 +195,17 @@ function formatPrice(value) {
   if (typeof value === "number") {
     return `≈ US$${value.toFixed(2)}/año`;
   }
+  if (typeof value === "object" && typeof value.price === "number") {
+    const moneda = value.currency || "MXN";
+    const anual = (value.price / 100).toFixed(2);
+    const promo =
+      typeof value.first_period_price === "number"
+        ? (value.first_period_price / 100).toFixed(2)
+        : null;
+    return promo != null
+      ? `≈ $${promo} ${moneda} el primer año (luego $${anual}/año)`
+      : `≈ $${anual} ${moneda}/año`;
+  }
   return `≈ ${String(value)}`;
 }
 
@@ -234,6 +248,7 @@ function useDomain(name) {
   const clean = normalizeDomain(name);
   if (!clean || !quoteAddress) return;
   selectedDomain = clean;
+  selectedDomainPrice = lastDomainPrice;
   quoteAddress.value = "dominio";
   if (domainInput) domainInput.value = clean;
   if (domainSuggestions) domainSuggestions.hidden = true;
@@ -299,8 +314,8 @@ quoteContinue?.addEventListener("click", () => {
   const addressText =
     quoteAddress.value === "dominio"
       ? selectedDomain
-        ? lastDomainPrice != null
-          ? `Dominio propio: ${selectedDomain} (disponible, ${formatPrice(lastDomainPrice)})`
+        ? selectedDomainPrice != null
+          ? `Dominio propio: ${selectedDomain} (disponible: ${formatPrice(selectedDomainPrice)})`
           : `Dominio propio: ${selectedDomain} (disponibilidad por confirmar)`
         : "Dominio propio, disponibilidad y precio por confirmar"
       : "Enlace gratuito de Cloudflare Pages, $0 al año";
