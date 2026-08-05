@@ -83,13 +83,22 @@ function renderQuote() {
   if (domainCheckLabel && domainCheckHint) {
     if (usesCustomDomain) {
       domainCheckLabel.textContent = quoteDomainOption?.value === "ya_tengo"
-        ? "Escribe el dominio que ya tienes."
-        : "Elige el nombre que quieres para tu dominio y verifica que esté libre.";
-      domainCheckHint.textContent = "Solo minúsculas, sin espacios ni símbolos. Puedes terminarlo con .mx, .com u otro. Ej. abarroteslupita.mx";
+        ? "Escribe el dominio que ya tienes y úsalo directamente."
+        : "Elige el nombre que quieres para tu dominio. Verificaremos disponibilidad y precio, y te daremos alternativas.";
+      domainCheckHint.textContent = quoteDomainOption?.value === "ya_tengo"
+        ? "Esta es tu dirección actual, por ejemplo: tunegocio.com"
+        : "Solo minúsculas, sin espacios ni símbolos. Puedes terminarlo con .mx, .com u otro. Ej. abarroteslupita.mx";
     } else {
       domainCheckLabel.textContent = "Elige el nombre que quieres para tu sitio web.";
       domainCheckHint.textContent = "Solo minúsculas, sin espacios ni símbolos. Ej. abarroteslupita";
     }
+  }
+
+  const domainButtonText = document.querySelector("#domain-check-button");
+  if (domainButtonText) {
+    domainButtonText.textContent = usesCustomDomain && quoteDomainOption?.value === "ya_tengo"
+      ? "Usar mi dominio"
+      : "Verificar";
   }
 
   if (usesCustomDomain) {
@@ -130,7 +139,10 @@ function renderQuote() {
       hostingPriceNote.hidden = false;
     }
     if (hostingDomainNote) {
-      hostingDomainNote.textContent = "Para poder elegir este hosting necesitas un dominio propio. Se activó la opción de dominio: verifica abajo el nombre que quieres.";
+      const aYaTengo = quoteDomainOption?.value === "ya_tengo";
+      hostingDomainNote.textContent = aYaTengo
+        ? "Para poder elegir este hosting necesitas un dominio propio. Escribe el dominio que ya tienes abajo y pulsa “Usar mi dominio”: no hace falta verificarlo."
+        : "Para poder elegir este hosting necesitas un dominio propio. Elige el nombre que quieras abajo, verifica disponibilidad y precio, y te daremos alternativas si ya está ocupado.";
       hostingDomainNote.hidden = false;
     }
   } else {
@@ -220,8 +232,11 @@ quoteAddress?.addEventListener("change", () => {
 quoteHosting?.addEventListener("change", async () => {
   if (quoteHosting.value === "hostinger" && quoteAddress?.value === "gratis") {
     quoteAddress.value = "dominio";
+    const aYaTengo = quoteDomainOption?.value === "ya_tengo";
     setDomainStatus(
-      "Para poder elegir este hosting necesitas un dominio propio. Escribe abajo el nombre que quieres y verifícalo.",
+      aYaTengo
+        ? "Para poder elegir este hosting necesitas un dominio propio. Escribe abajo el dominio que ya tienes y pulsa “Usar mi dominio”."
+        : "Para poder elegir este hosting necesitas un dominio propio. Escribe abajo el nombre que quieres y verifícalo.",
       ""
     );
   }
@@ -250,6 +265,14 @@ quotePeriod?.addEventListener("change", renderQuote);
 quoteDomainOption?.addEventListener("change", () => {
   const yaTengo = quoteDomainOption.value === "ya_tengo";
   if (domainButton) domainButton.textContent = yaTengo ? "Usar mi dominio" : "Verificar";
+  if (quoteHosting?.value === "hostinger") {
+    setDomainStatus(
+      yaTengo
+        ? "Para poder elegir este hosting necesitas un dominio propio. Escribe abajo el dominio que ya tienes y pulsa “Usar mi dominio”."
+        : "Para poder elegir este hosting necesitas un dominio propio. Escribe abajo el nombre que quieres y verifícalo.",
+      ""
+    );
+  }
   renderQuote();
   updateLivePreview();
 });
