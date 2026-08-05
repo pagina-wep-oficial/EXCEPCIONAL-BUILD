@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /crm-local
+Disallow: /crm-local.html
+
+Sitemap: https://excepcional-build.pages.dev/sitemap.xml
