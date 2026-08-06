@@ -11,3 +11,388 @@
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.reveal{opacity:1;transform:none;transition:none}.orbit-two{animation:none}}
 .domain-check{margin-top:2px;padding:16px;border:1px dashed var(--line);border-radius:14px;background:#fbfcfa;display:grid;gap:12px}.domain-check-label{margin:0;font-size:13px;font-weight:700}.domain-check-hint{margin:0;font-size:12px;color:var(--muted);line-height:1.5}.domain-check-row{display:grid;grid-template-columns:1fr auto;gap:10px}.domain-check-row input{border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);padding:12px 14px;outline:none;min-width:0;transition:border .2s,box-shadow .2s}.domain-check-row input:focus{border-color:var(--orange);box-shadow:0 0 0 3px rgba(243,107,63,.13)}.domain-check-row .button{min-height:44px;padding:0 18px}.domain-suggestions{display:flex;flex-wrap:wrap;gap:8px;font-size:13px;color:var(--muted)}.suggestion-chip{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:99px;padding:7px 12px;font-size:13px;font-weight:600;cursor:pointer;transition:border .2s,background .2s,transform .15s}.suggestion-chip:hover{border-color:var(--orange);background:#fff7f2;transform:translateY(-1px)}@media(max-width:480px){.domain-check-row{grid-template-columns:1fr}.domain-check-row .button{width:100%}}
 .select-cards{display:grid;grid-template-columns:1fr 1fr;gap:14px}.select-cards legend{font-size:13px;font-weight:700;margin-bottom:-4px}.select-card{position:relative;display:block;padding:20px;border:1px solid var(--line);border-radius:var(--radius);background:#fff;cursor:pointer;transition:border-color .2s,box-shadow .2s;overflow:hidden}.select-card:hover{border-color:var(--orange)}.select-card:has(input:checked){border-color:var(--orange);box-shadow:0 0 0 3px rgba(243,107,63,.14)}.select-card input{position:absolute;opacity:0;pointer-events:none}.select-card-badge{position:absolute;right:14px;top:14px;padding:5px 9px;border-radius:99px;background:var(--cream);color:var(--orange-dark);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em}.select-card strong{display:block;font:800 17px "Manrope";margin-bottom:4px;padding-right:110px}.select-card code{display:inline-block;margin-bottom:10px;color:var(--muted);font-size:13px;font-weight:700}.select-card ul{margin:0;padding:0;list-style:none}.select-card li{padding:3px 0 3px 18px;font-size:13px;color:var(--muted);line-height:1.5;position:relative}.select-card li::before{content:"✓";position:absolute;left:0;color:var(--orange);font-weight:800}.domain-price-blocks{display:grid;grid-template-columns:1fr 1fr;gap:10px}.domain-price-block{padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fff}.domain-price-block span{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:2px}.domain-price-block strong{font:800 16px "Manrope";color:var(--ink)}.hosting-domain-notice{display:flex;flex-wrap:wrap;gap:10px;align-items:center}.hosting-domain-notice .button{min-height:40px;padding:0 14px;font-size:13px}@media(max-width:640px){.select-cards{grid-template-columns:1fr}.domain-price-blocks{grid-template-columns:1fr 1fr}}
+
+/* ================================================================
+   REDISEÑO EXQUISITO · COTIZADOR — MOBILE-FIRST
+   ================================================================ */
+#cotizador{scroll-margin-top:70px}
+#cotizador .section-shell{padding-block:92px 110px}
+#cotizador .section-heading{max-width:760px;margin-bottom:38px}
+#cotizador .section-heading h2{font-size:clamp(34px,5.2vw,54px)}
+
+.quote-panel{
+  margin-inline:auto;
+  max-width:1020px;
+  background:#fffdf8;
+  border:1px solid rgba(19,42,38,.09);
+  border-radius:30px;
+  box-shadow:0 34px 90px rgba(20,45,39,.15);
+  overflow:hidden
+}
+
+/* ---- Cabecera del panel ---- */
+.quote-panel-head{
+  display:grid;
+  gap:20px;
+  padding:26px 22px 24px;
+  background:linear-gradient(150deg,#0c201b 0%,#17352c 62%,#1d4236 100%);
+  color:#fff
+}
+.quote-kicker{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  color:var(--lime);
+  font:800 11px "Manrope";
+  letter-spacing:.14em;
+  text-transform:uppercase
+}
+.quote-kicker::before{content:"";width:22px;height:2px;background:var(--orange)}
+.quote-head-copy h3{margin:10px 0 8px;font:800 clamp(22px,4.6vw,30px) "Manrope";letter-spacing:-.03em;line-height:1.12}
+.quote-head-copy p{margin:0;color:#b9c8c3;font-size:14.5px;line-height:1.65}
+.quote-head-price{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:14px 16px;
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:16px;
+  background:rgba(255,255,255,.06)
+}
+.quote-head-price strong{font:800 22px "Manrope";letter-spacing:-.03em}
+.quote-head-price strong span{color:var(--lime)}
+.quote-head-price small{color:#a9bab4;font-size:11.5px;line-height:1.4;text-align:right}
+
+/* ---- Stepper ---- */
+.quote-steps{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  margin:0;
+  padding:18px 22px 0;
+  list-style:none;
+  background:#fffdf8;
+  border-bottom:1px solid rgba(19,42,38,.07)
+}
+.quote-steps li{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding-bottom:16px;
+  position:relative
+}
+.quote-steps li:not(:last-child)::after{
+  content:"";
+  position:absolute;
+  left:26px;right:calc(50% + 6px);
+  top:12px;height:2px;
+  background:rgba(19,42,38,.1);
+  border-radius:2px
+}
+.quote-steps li.is-active:not(:last-child)::after{background:linear-gradient(90deg,var(--orange),rgba(243,107,63,.25))}
+.quote-steps i{
+  position:relative;z-index:1;
+  width:26px;height:26px;
+  display:grid;place-items:center;
+  border-radius:50%;
+  background:#eef0ea;
+  color:#7d8a85;
+  font:800 12px "Manrope";
+  font-style:normal
+}
+.quote-steps li.is-active i{background:var(--orange);color:#fff;box-shadow:0 6px 16px rgba(243,107,63,.4)}
+.quote-steps span{font-size:11.5px;font-weight:700;color:#7d8a85;white-space:nowrap}
+.quote-steps li.is-active span{color:var(--ink)}
+
+/* ---- Formulario ---- */
+.quote-form{padding:26px 22px 30px;display:grid;gap:26px}
+.step-field{border:0;padding:0;margin:0;display:grid;gap:18px}
+.step-field legend{
+  display:flex;align-items:center;gap:10px;
+  padding:0;margin:0 0 4px;
+  font:800 15px "Manrope";color:var(--ink);letter-spacing:-.01em
+}
+.step-num{
+  flex:0 0 auto;
+  width:26px;height:26px;
+  display:inline-grid;place-items:center;
+  border-radius:9px;
+  background:var(--ink);color:var(--lime);
+  font:800 13px "Manrope"
+}
+
+/* ---- Tarjetas seleccionables ---- */
+.quote-form .select-cards{display:grid;grid-template-columns:1fr;gap:12px}
+.select-card{
+  display:block;
+  padding:18px 18px 16px;
+  border:1.5px solid rgba(19,42,38,.13);
+  border-radius:20px;
+  background:#fff;
+  cursor:pointer;
+  transition:border-color .22s,box-shadow .22s,transform .18s
+}
+.select-card:hover{border-color:rgba(243,107,63,.55);transform:translateY(-1px)}
+.select-card:has(input:checked){
+  border-color:var(--orange);
+  box-shadow:0 0 0 4px rgba(243,107,63,.13),0 14px 34px rgba(243,107,63,.14)
+}
+.select-card input{position:absolute;opacity:0;pointer-events:none}
+.select-card-top{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.select-icon{
+  flex:0 0 auto;
+  width:42px;height:42px;
+  display:grid;place-items:center;
+  border-radius:13px;
+  background:#f1efe6;
+  color:var(--ink);
+  transition:background .22s,color .22s
+}
+.select-icon svg{width:22px;height:22px}
+.select-card:has(input:checked) .select-icon{background:var(--orange);color:#fff}
+.select-title{font:800 16px "Manrope";color:var(--ink);letter-spacing:-.01em}
+.select-card-badge{
+  margin-left:auto;
+  padding:6px 10px;
+  border-radius:99px;
+  background:var(--cream);
+  color:var(--orange-dark);
+  font-size:10px;font-weight:800;
+  text-transform:uppercase;letter-spacing:.05em;
+  white-space:nowrap;
+  transition:background .22s,color .22s
+}
+.select-card:has(input:checked) .select-card-badge{background:#ffe3d4;color:#c83f12}
+.select-card code{
+  display:block;
+  margin:0 0 10px;
+  padding:7px 12px;
+  border-radius:10px;
+  background:#f6f4ec;
+  color:#5a6a64;
+  font-size:12.5px;font-weight:700;
+  letter-spacing:.02em
+}
+.select-card:has(input:checked) code{background:#fff3ec;color:var(--orange-dark)}
+.select-card ul{margin:0;padding:0;list-style:none;display:grid;gap:5px}
+.select-card li{
+  padding:0 0 0 20px;
+  font-size:13px;line-height:1.5;
+  color:var(--muted);
+  position:relative
+}
+.select-card li::before{
+  content:"✓";
+  position:absolute;left:0;top:0;
+  color:var(--orange);
+  font-weight:800;font-size:12px
+}
+
+/* ---- Selector de opción de dominio ---- */
+.option-row{display:grid;gap:8px}
+.option-row>span{font-size:13px;font-weight:700}
+.quote-form select{
+  width:100%;
+  border:1.5px solid rgba(19,42,38,.14);
+  border-radius:14px;
+  background:#fff;
+  color:var(--ink);
+  padding:14px 16px;
+  font-size:15px;font-weight:600;
+  outline:none;
+  appearance:none;
+  -webkit-appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2364716d' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position:right 16px center;
+  transition:border-color .2s,box-shadow .2s
+}
+.quote-form select:focus{border-color:var(--orange);box-shadow:0 0 0 4px rgba(243,107,63,.13)}
+
+/* ---- Vista previa de URL ---- */
+.quote-url-preview{
+  margin:0;
+  padding:13px 16px;
+  border-radius:14px;
+  background:var(--ink);
+  color:#dce7e2;
+  font:600 13.5px "Manrope";
+  letter-spacing:.02em
+}
+
+/* ---- Caja verificador ---- */
+.quote-form .domain-check{
+  margin:0;
+  padding:16px;
+  border:1.5px dashed rgba(19,42,38,.18);
+  border-radius:18px;
+  background:#fbfaf4;
+  display:grid;gap:12px
+}
+.domain-check-label{margin:0;font-size:13.5px;font-weight:800;color:var(--ink)}
+.domain-check-hint{margin:0;font-size:12.5px;color:var(--muted);line-height:1.5}
+.domain-check-row{display:grid;grid-template-columns:1fr;gap:10px}
+.domain-check-row input{
+  width:100%;
+  border:1.5px solid rgba(19,42,38,.15);
+  border-radius:14px;
+  background:#fff;
+  color:var(--ink);
+  padding:15px 16px;
+  font-size:16px;
+  outline:none;
+  transition:border-color .2s,box-shadow .2s
+}
+.domain-check-row input:focus{border-color:var(--orange);box-shadow:0 0 0 4px rgba(243,107,63,.13)}
+.domain-check-row .button{min-height:50px;padding:0 20px;font-size:14px;border-radius:14px}
+.domain-price-blocks{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.domain-price-block{
+  padding:12px 14px;
+  border:1px solid rgba(19,42,38,.1);
+  border-radius:14px;
+  background:#fff
+}
+.domain-price-block span{display:block;font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:800;margin-bottom:3px}
+.domain-price-block strong{font:800 17px "Manrope";color:var(--ink)}
+
+/* ---- Notas ---- */
+.note-line{margin:0;padding:12px 14px;border-radius:12px;background:#f2efe4;font-size:13px;line-height:1.5}
+.hosting-domain-notice{
+  margin:0;
+  padding:14px;
+  border:1.5px solid rgba(243,107,63,.35);
+  border-radius:14px;
+  background:#fff3ec;
+  font-size:13px;line-height:1.5;
+  display:flex;flex-wrap:wrap;gap:10px;align-items:center
+}
+.hosting-domain-notice .button{min-height:42px;padding:0 15px;font-size:13px;border-radius:12px}
+
+/* ---- Periodo ---- */
+.period-row{display:grid;gap:8px}
+.period-row>label{font-size:13px;font-weight:700}
+.period-row select{width:100%}
+
+/* ---- Resumen ---- */
+.quote-summary{
+  position:relative;
+  padding:22px 20px 20px;
+  border-radius:22px;
+  background:linear-gradient(155deg,#0c201b 0%,#1a382e 100%);
+  color:#fff;
+  overflow:hidden
+}
+.quote-summary::before{
+  content:"";
+  position:absolute;top:-70px;right:-70px;
+  width:220px;height:220px;
+  border-radius:50%;
+  background:radial-gradient(circle,rgba(216,235,130,.16),transparent 70%)
+}
+.summary-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;position:relative}
+.summary-head .step-num{background:rgba(255,255,255,.14);color:var(--lime)}
+.summary-title{font:800 13px "Manrope";letter-spacing:.12em;text-transform:uppercase;color:#a9bab4}
+.summary-total{display:grid;gap:2px;position:relative}
+.summary-total>span{font-size:12px;color:#a9bab4;font-weight:600}
+.summary-total strong{font:800 clamp(38px,9vw,52px) "Manrope";letter-spacing:-.05em;line-height:1}
+.summary-total strong{color:#fff}
+.summary-total small{font-size:11.5px;color:#8fa29b}
+.summary-list{list-style:none;margin:18px 0 0;padding:16px 0 0;border-top:1px solid rgba(255,255,255,.12);display:grid;gap:10px}
+.summary-list li{
+  display:flex;align-items:baseline;gap:8px;
+  font-size:13.5px;color:#cdd9d4;
+  line-height:1.45
+}
+.summary-list li::before{content:"✓";color:var(--lime);font-weight:800;font-size:12px}
+.summary-divider{border:0;border-top:1px solid rgba(255,255,255,.12);margin:16px 0}
+.summary-renew{
+  display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+  padding:13px 14px;
+  border-radius:14px;
+  background:rgba(255,255,255,.07);
+  border:1px solid rgba(255,255,255,.1)
+}
+.summary-renew span{font-size:12.5px;color:#b7c7c1;line-height:1.4}
+.summary-renew strong{font:800 15px "Manrope";color:var(--lime);text-align:right;line-height:1.4}
+.summary-note{margin:14px 0 0;font-size:12.5px;color:#a9bab4;line-height:1.5}
+.summary-note strong{color:#fff}
+.summary-trust{
+  display:flex;gap:9px;align-items:flex-start;
+  margin:16px 0 0;
+  font-size:12px;line-height:1.55;color:#8fa29b
+}
+.summary-trust i{
+  flex:0 0 auto;
+  width:19px;height:19px;
+  display:grid;place-items:center;
+  border-radius:50%;
+  background:var(--lime);color:#0c201b;
+  font-style:normal;font-weight:800;font-size:11px
+}
+
+/* ---- Botón CTA ---- */
+.button-cta{
+  width:100%;
+  min-height:56px;
+  padding:0 24px;
+  border-radius:16px;
+  background:linear-gradient(120deg,#f36b3f,#e2542a);
+  box-shadow:0 16px 34px rgba(243,107,63,.35);
+  font-size:15.5px;
+  justify-content:space-between;
+  transition:transform .2s,box-shadow .2s
+}
+.button-cta:hover{transform:translateY(-2px);box-shadow:0 20px 42px rgba(243,107,63,.45)}
+.cta-arrow{
+  width:32px;height:32px;
+  display:grid;place-items:center;
+  border-radius:10px;
+  background:rgba(255,255,255,.2);
+  font-size:15px
+}
+
+/* ---- Tablet: tarjetas a 2 columnas ---- */
+@media(min-width:600px){
+  .quote-form .select-cards{grid-template-columns:1fr 1fr}
+  .quote-panel-head{padding:32px 34px 28px;grid-template-columns:1fr auto;align-items:center}
+  .quote-head-price{display:grid;gap:2px;min-width:190px}
+  .quote-head-price small{text-align:left}
+  .quote-form{padding:32px 34px 36px}
+  .domain-check-row{grid-template-columns:1fr auto}
+  .quote-summary{padding:28px 30px 26px}
+}
+
+/* ---- Móvil extra: stepper en columnas ---- */
+@media(max-width:599px){
+  .quote-steps{padding:16px 14px 0;gap:6px}
+  .quote-steps li{flex-direction:column;gap:5px;padding-bottom:14px;text-align:center}
+  .quote-steps li:not(:last-child)::after{display:none}
+  .quote-steps i{width:24px;height:24px;font-size:11px}
+  .quote-steps span{font-size:10px;letter-spacing:.02em}
+}
+
+/* ---- Desktop ---- */
+@media(min-width:940px){
+  #cotizador .section-heading{margin-bottom:48px}
+  .quote-panel{max-width:1060px}
+  .quote-panel-head{grid-template-columns:1.15fr .85fr;padding:38px 44px 32px}
+  .quote-head-copy h3{font-size:30px}
+  .quote-head-copy p{font-size:15.5px}
+  .quote-steps{padding:20px 44px 0}
+  .quote-form{padding:38px 44px 42px;gap:34px}
+  .step-field{display:grid;grid-template-columns:1fr 1fr;gap:0 22px}
+  .step-field legend{grid-column:1/-1;margin-bottom:16px}
+  .select-cards{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .quote-form select[name="dominio_opcion"],.option-row{grid-column:1/-1}
+  .quote-url-preview{grid-column:1/-1}
+  .domain-check{grid-column:1/-1}
+  .note-line,.hosting-domain-notice,.period-row{grid-column:1/-1}
+  .quote-summary{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:6px 34px;padding:30px 38px 28px}
+  .summary-head{grid-column:1/-1;margin-bottom:4px}
+  .summary-total{grid-column:1;align-content:center}
+  .summary-list{grid-column:2;margin:0;padding:0;border:0;align-content:center}
+  .summary-divider{grid-column:1/-1;margin:18px 0 14px}
+  .summary-renew{grid-column:1/-1}
+  .summary-note,.summary-trust{grid-column:1/-1}
+  .button-cta{max-width:420px;justify-self:center}
+}

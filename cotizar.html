@@ -36,7 +36,7 @@
       <div class="hero-copy reveal">
         <p class="eyebrow"><span></span> Cotización sin compromiso</p>
         <h1>Arma tu sitio.<br><em>Conoce cuánto invertirías.</em></h1>
-        <p class="hero-lead">Selecciona el tipo de sitio, la dirección y el alojamiento que prefieres. Al final verás por separado el pago inicial estimado y las renovaciones futuras.</p>
+        <p class="hero-lead">Elige la dirección y el alojamiento de tu sitio. Al final verás en grande el pago inicial estimado y, por separado, las renovaciones futuras.</p>
         <div class="hero-actions">
           <a class="button button-primary" href="#cotizador">Comenzar mi cotización <span>↓</span></a>
           <a class="button button-ghost" href="https://wa.me/529811332914" target="_blank" rel="noopener">Prefiero hablar primero</a>
@@ -64,149 +64,196 @@
       </div>
     </section>
 
-    <section class="section-shell section-block" id="cotizador">
-      <div class="section-heading reveal">
-        <p class="eyebrow"><span></span> Prepara tu paquete</p>
-        <h2>Elige cómo quieres comenzar.</h2>
-        <p>Esta herramienta únicamente prepara una cotización estimada. No realiza compras ni cobros.</p>
-      </div>
-
-      <div class="contact-card">
-        <div class="contact-copy reveal">
-          <p class="eyebrow eyebrow-light"><span></span> Sitio Esencial</p>
-          <h2>Tu página comienza en $750.</h2>
-          <p>Incluye creación, configuración inicial y publicación. Puedes comenzar con una dirección gratuita o solicitar un dominio propio.</p>
-          <div class="contact-note">
-            <span>✓</span>
-            <p><strong>Sin compromiso.</strong><br>Confirmaremos contigo la disponibilidad y los precios antes de contratar cualquier servicio.</p>
-          </div>
+    <section id="cotizador">
+      <div class="section-shell section-block quote-section">
+        <div class="section-heading reveal">
+          <p class="eyebrow"><span></span> Prepara tu paquete</p>
+          <h2>Elige cómo quieres comenzar.</h2>
+          <p>Esta herramienta únicamente prepara una cotización estimada. No realiza compras ni cobros.</p>
         </div>
 
-        <form class="lead-form" id="quote-form">
-          <fieldset class="select-cards">
-            <legend>1. Elige la dirección web de tu sitio</legend>
-            <label class="select-card" for="quote-address-card-gratis">
-              <input type="radio" name="tipo_direccion_card" id="quote-address-card-gratis" value="gratis" checked>
-              <span class="select-card-badge">Gratis permanentemente</span>
-              <strong>Enlace gratuito</strong>
-              <code>tunegocio.pages.dev</code>
-              <ul>
-                <li>Sin costo.</li>
-                <li>Sin pagos de renovación.</li>
-                <li>Se mantiene gratis cada año.</li>
-                <li>Ideal para comenzar y tener presencia en internet.</li>
-                <li>La dirección incluye <code>.pages.dev</code>.</li>
-                <li>Puede verse menos profesional que un dominio propio.</li>
-              </ul>
-            </label>
-            <label class="select-card" for="quote-address-card-dominio">
-              <input type="radio" name="tipo_direccion_card" id="quote-address-card-dominio" value="dominio">
-              <span class="select-card-badge">Renovación anual</span>
-              <strong>Dominio personalizado</strong>
-              <code>tunegocio.com</code>
-              <ul>
-                <li>Una dirección más profesional.</li>
-                <li>Más fácil de recordar y compartir.</li>
-                <li>Refuerza la identidad del negocio.</li>
-                <li>Está sujeto a disponibilidad.</li>
-                <li>Debe renovarse cada año.</li>
-                <li>El precio depende del nombre y la terminación elegida.</li>
-              </ul>
-            </label>
-          </fieldset>
-
-          <select name="tipo_direccion" id="quote-address" hidden>
-            <option value="gratis">Enlace gratuito de Cloudflare Pages — $0 al año</option>
-            <option value="dominio">Dominio propio — consultar disponibilidad y precio</option>
-          </select>
-
-          <label id="quote-domain-option-wrap" hidden>
-            ¿Cómo quieres obtener tu dominio?
-            <select name="dominio_opcion" id="quote-domain-option">
-              <option value="conseguirme">Quiero que Excepcional Build me ayude a conseguirlo</option>
-              <option value="ya_tengo">Ya tengo un dominio</option>
-            </select>
-          </label>
-
-          <p class="form-status" id="quote-url-preview">Ejemplo: nombre-del-negocio.pages.dev</p>
-
-          <div class="domain-check">
-            <p class="domain-check-label" id="domain-check-label">Elige el nombre que quieres para tu sitio web.</p>
-            <p class="domain-check-hint" id="domain-check-hint">Solo minúsculas, sin espacios ni símbolos. Ej. abarroteslupita</p>
-            <div class="domain-check-row">
-              <input id="domain-check-input" type="text" inputmode="url" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Ej. abarroteslupita" aria-label="Nombre o dominio a verificar">
-              <button class="button button-ghost" type="button" id="domain-check-button">Verificar</button>
+        <div class="quote-panel reveal">
+          <header class="quote-panel-head">
+            <div class="quote-head-copy">
+              <span class="quote-kicker">Sitio Esencial · Todo incluido</span>
+              <h3>Creación, configuración y publicación</h3>
+              <p>Empieza con una dirección gratuita o elige un dominio propio. El costo final lo confirmamos contigo antes de cobrar.</p>
             </div>
-            <p class="form-status" id="domain-check-live" aria-live="polite"></p>
-            <p class="form-status" id="domain-check-status" aria-live="polite"></p>
-            <div class="domain-price-blocks" id="domain-price-blocks" hidden>
-              <div class="domain-price-block"><span>Primer año</span><strong id="domain-price-first"></strong></div>
-              <div class="domain-price-block"><span>Renovación anual</span><strong id="domain-price-renew"></strong></div>
+            <div class="quote-head-price">
+              <strong>Desde <span>$750</span></strong>
+              <small>MXN · pago único por la creación</small>
             </div>
-            <div class="domain-suggestions" id="domain-suggestions" hidden></div>
-            <button class="button button-accent" type="button" id="domain-use-button" hidden>Usar este dominio en mi cotización</button>
-          </div>
+          </header>
 
-          <fieldset class="select-cards">
-            <legend>2. Elige el alojamiento de tu sitio</legend>
-            <label class="select-card" for="quote-hosting-card-cloudflare">
-              <input type="radio" name="tipo_alojamiento_card" id="quote-hosting-card-cloudflare" value="cloudflare" checked>
-              <span class="select-card-badge">$0 al año</span>
-              <strong>Alojamiento gratuito</strong>
-              <ul>
-                <li>Sin costo mensual o anual.</li>
-                <li>Sin renovación.</li>
-                <li>Incluye publicación segura con HTTPS.</li>
-                <li>Adecuado para páginas informativas, menús, catálogos sencillos y formularios.</li>
-                <li>No está pensado para sistemas que necesiten servidor, bases de datos complejas o procesos especiales.</li>
+          <ol class="quote-steps" aria-label="Pasos de la cotización">
+            <li class="is-active"><i>1</i><span>Dirección</span></li>
+            <li><i>2</i><span>Alojamiento</span></li>
+            <li><i>3</i><span>Resumen</span></li>
+            <li><i>4</i><span>Tus datos</span></li>
+          </ol>
+
+          <form class="lead-form quote-form" id="quote-form">
+            <fieldset class="step-field">
+              <legend><span class="step-num">1</span> Dirección de tu sitio</legend>
+              <div class="select-cards">
+                <label class="select-card" for="quote-address-card-gratis">
+                  <input type="radio" name="tipo_direccion_card" id="quote-address-card-gratis" value="gratis" checked>
+                  <span class="select-card-top">
+                    <span class="select-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.7 3.8 9S14.5 18.4 12 21c-2.5-2.6-3.8-5.7-3.8-9S9.5 5.6 12 3z"/></svg>
+                    </span>
+                    <span class="select-title">Enlace gratuito</span>
+                    <span class="select-card-badge">Gratis permanentemente</span>
+                  </span>
+                  <code>tunegocio.pages.dev</code>
+                  <ul>
+                    <li>Sin costo ni renovación.</li>
+                    <li>Gratis cada año.</li>
+                    <li>Ideal para comenzar.<br>Incluye el final .pages.dev.</li>
+                    <li>Puede verse menos profesional que un dominio.</li>
+                  </ul>
+                </label>
+                <label class="select-card" for="quote-address-card-dominio">
+                  <input type="radio" name="tipo_direccion_card" id="quote-address-card-dominio" value="dominio">
+                  <span class="select-card-top">
+                    <span class="select-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 2 4.5 13.5H11L9.5 22 19 9.5h-6.5L13 2z"/></svg>
+                    </span>
+                    <span class="select-title">Dominio personalizado</span>
+                    <span class="select-card-badge">Renovación anual</span>
+                  </span>
+                  <code>tunegocio.com</code>
+                  <ul>
+                    <li>Más profesional y memorable.</li>
+                    <li>Refuerza tu identidad.</li>
+                    <li>Sujeto a disponibilidad.</li>
+                    <li>Renovación cada año.<br>Precio según el nombre elegido.</li>
+                  </ul>
+                </label>
+              </div>
+
+              <select name="tipo_direccion" id="quote-address" hidden>
+                <option value="gratis">Enlace gratuito de Cloudflare Pages — $0 al año</option>
+                <option value="dominio">Dominio propio — consultar disponibilidad y precio</option>
+              </select>
+
+              <label id="quote-domain-option-wrap" class="option-row" hidden>
+                <span>¿Cómo quieres obtener tu dominio?</span>
+                <select name="dominio_opcion" id="quote-domain-option">
+                  <option value="conseguirme">Que Excepcional Build me ayude a conseguirlo</option>
+                  <option value="ya_tengo">Ya tengo un dominio</option>
+                </select>
+              </label>
+
+              <p class="quote-url-preview" id="quote-url-preview">Ejemplo: nombre-del-negocio.pages.dev</p>
+
+              <div class="domain-check">
+                <div>
+                  <p class="domain-check-label" id="domain-check-label">Elige el nombre que quieres para tu sitio web.</p>
+                  <p class="domain-check-hint" id="domain-check-hint">Solo minúsculas, sin espacios ni símbolos. Ej. abarroteslupita</p>
+                </div>
+                <div class="domain-check-row">
+                  <input id="domain-check-input" type="text" inputmode="url" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Ej. abarroteslupita" aria-label="Nombre o dominio a verificar">
+                  <button class="button button-ghost" type="button" id="domain-check-button">Verificar</button>
+                </div>
+                <p class="form-status" id="domain-check-live" aria-live="polite"></p>
+                <p class="form-status" id="domain-check-status" aria-live="polite"></p>
+                <div class="domain-price-blocks" id="domain-price-blocks" hidden>
+                  <div class="domain-price-block"><span>Primer año</span><strong id="domain-price-first"></strong></div>
+                  <div class="domain-price-block"><span>Renovación anual</span><strong id="domain-price-renew"></strong></div>
+                </div>
+                <div class="domain-suggestions" id="domain-suggestions" hidden></div>
+                <button class="button button-accent" type="button" id="domain-use-button" hidden>Usar este dominio en mi cotización</button>
+              </div>
+            </fieldset>
+
+            <fieldset class="step-field">
+              <legend><span class="step-num">2</span> Alojamiento de tu sitio</legend>
+              <div class="select-cards">
+                <label class="select-card" for="quote-hosting-card-cloudflare">
+                  <input type="radio" name="tipo_alojamiento_card" id="quote-hosting-card-cloudflare" value="cloudflare" checked>
+                  <span class="select-card-top">
+                    <span class="select-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7.5 18.5a3.5 3.5 0 1 1 .6-6.95 5 5 0 0 1 9.6 1.5A3.2 3.2 0 0 1 17 18.5H7.5z"/></svg>
+                    </span>
+                    <span class="select-title">Alojamiento gratuito</span>
+                    <span class="select-card-badge">$0 al año</span>
+                  </span>
+                  <ul>
+                    <li>Sin costo mensual ni renovación.</li>
+                    <li>Publicación segura con HTTPS.</li>
+                    <li>Ideal para informativas, menús y catálogos.</li>
+                    <li>Sin servidor ni bases de datos complejas.</li>
+                  </ul>
+                </label>
+                <label class="select-card" for="quote-hosting-card-hostinger">
+                  <input type="radio" name="tipo_alojamiento_card" id="quote-hosting-card-hostinger" value="hostinger">
+                  <span class="select-card-top">
+                    <span class="select-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M4 9h16M9 9v11"/></svg>
+                    </span>
+                    <span class="select-title">Alojamiento especializado</span>
+                    <span class="select-card-badge">Precio según proyecto</span>
+                  </span>
+                  <ul>
+                    <li>Para proyectos con funciones avanzadas.</li>
+                    <li>Permite servidor y bases de datos.</li>
+                    <li>Mayor capacidad de crecimiento.</li>
+                    <li>Requiere renovación.<br>Requiere dominio propio.</li>
+                  </ul>
+                </label>
+              </div>
+
+              <select name="tipo_alojamiento" id="quote-hosting" hidden>
+                <option value="cloudflare">Cloudflare Pages incluido — $0 al año</option>
+                <option value="hostinger">Hosting especializado de Hostinger — ver precio</option>
+              </select>
+              <p class="form-status note-line" id="hosting-price-note" hidden></p>
+              <p class="form-status hosting-domain-notice" id="hosting-domain-note" hidden></p>
+
+              <div class="period-row" id="quote-period-wrap" hidden>
+                <label for="quote-period">Periodo de pago</label>
+                <div class="period-pills">
+                  <select name="periodo" id="quote-period">
+                    <option value="1">1 año</option>
+                    <option value="2">2 años</option>
+                    <option value="3">3 años</option>
+                  </select>
+                </div>
+              </div>
+            </fieldset>
+
+            <article class="quote-summary" aria-live="polite">
+              <div class="summary-head">
+                <span class="step-num">3</span>
+                <span class="summary-title">Resumen estimado</span>
+              </div>
+              <div class="summary-total">
+                <span>Pago inicial estimado</span>
+                <strong id="quote-initial-total">$750</strong>
+                <small>único pago al comenzar</small>
+              </div>
+              <ul class="summary-list">
+                <li>Creación y publicación del sitio: $750</li>
+                <li id="quote-address-summary">Enlace gratuito: $0 al año</li>
+                <li id="quote-hosting-summary">Cloudflare Pages: $0 al año</li>
               </ul>
-            </label>
-            <label class="select-card" for="quote-hosting-card-hostinger">
-              <input type="radio" name="tipo_alojamiento_card" id="quote-hosting-card-hostinger" value="hostinger">
-              <span class="select-card-badge">Precio según proyecto</span>
-              <strong>Alojamiento especializado</strong>
-              <ul>
-                <li>Recomendado para proyectos con funciones avanzadas.</li>
-                <li>Permite utilizar servidor, bases de datos y procesos especiales.</li>
-                <li>Tiene mayor capacidad y posibilidades de crecimiento.</li>
-                <li>Su costo depende de las necesidades del proyecto.</li>
-                <li>Requiere renovación.</li>
-                <li>Requiere dominio propio.</li>
-              </ul>
-            </label>
-          </fieldset>
+              <hr class="summary-divider">
+              <div class="summary-renew">
+                <span>Renovación a partir del segundo año</span>
+                <strong id="quote-year2-total">Sin renovaciones</strong>
+              </div>
+              <p class="summary-note" id="quote-years-total-wrap" hidden>Total por <span id="quote-years-label">1</span> año(s): <strong id="quote-years-total">$750</strong></p>
+              <p class="summary-trust"><i>✓</i> Confirmamos disponibilidad y precios antes de realizar cualquier compra.</p>
+            </article>
 
-          <select name="tipo_alojamiento" id="quote-hosting" hidden>
-            <option value="cloudflare">Cloudflare Pages incluido — $0 al año</option>
-            <option value="hostinger">Hosting especializado de Hostinger — ver precio</option>
-          </select>
-          <p class="form-status" id="hosting-price-note" hidden></p>
-          <p class="form-status" id="hosting-domain-note" hidden></p>
+            <button class="button button-accent button-cta" type="button" id="quote-continue">
+              <span>Continuar con mis datos</span><span class="cta-arrow">↓</span>
+            </button>
 
-          <label id="quote-period-wrap" hidden>
-            Periodo de pago
-            <select name="periodo" id="quote-period">
-              <option value="1">1 año</option>
-              <option value="2">2 años</option>
-              <option value="3">3 años</option>
-            </select>
-          </label>
-
-          <article class="price-card" aria-live="polite">
-            <p class="plan-label">Resumen estimado</p>
-            <p class="price"><strong id="quote-initial-total">$750</strong><span>pago inicial</span></p>
-            <ul>
-              <li>Creación y publicación del sitio: $750</li>
-              <li id="quote-address-summary">Enlace gratuito: $0 al año</li>
-              <li id="quote-hosting-summary">Cloudflare Pages: $0 al año</li>
-            </ul>
-            <p class="form-status">Pago inicial estimado: <strong id="quote-year1-total">$750</strong></p>
-            <p class="form-status">Renovación a partir del segundo año: <strong id="quote-year2-total">Sin renovaciones</strong></p>
-            <p class="form-status" id="quote-years-total-wrap" hidden>Total por <span id="quote-years-label">1</span> año(s): <strong id="quote-years-total">$750</strong></p>
-          </article>
-
-          <button class="button button-accent" type="button" id="quote-continue">Continuar con mis datos <span>↓</span></button>
-        </form>
+            <p class="summary-total" id="quote-year1-total" hidden>$750</p>
+          </form>
+        </div>
       </div>
     </section>
 
