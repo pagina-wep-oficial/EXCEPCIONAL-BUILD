@@ -903,17 +903,35 @@ form?.addEventListener("submit", async (event) => {
       );
     }
 
-    status.textContent = isQuoteRequest
-      ? "Cotización registrada. Abriendo WhatsApp..."
-      : "Solicitud registrada. Abriendo WhatsApp...";
-    status.className = "form-status success";
-
     const whatsappUrl =
       `https://wa.me/${BUSINESS_WHATSAPP}?text=${encodeURIComponent(text)}`;
 
+    if (!isQuoteRequest) {
+      status.textContent = "Solicitud registrada. Ya puedes calcular una estimación o escribirnos por WhatsApp.";
+      status.className = "form-status success";
+
+      const next = document.querySelector("#lead-next");
+      const quoteLink = document.querySelector("#lead-quote-link");
+      const whatsappLink = document.querySelector("#lead-whatsapp-link");
+      const returnedRef = result.id || result.prospecto_id || result.ref || result.data?.id || result.prospecto?.id || "";
+      const params = new URLSearchParams({
+        nombre: String(payload.nombre || ""),
+        negocio: String(payload.negocio || ""),
+        ubicacion: String(payload.ubicacion || ""),
+        telefono: String(payload.telefono || "")
+      });
+      if (returnedRef) params.set("ref", String(returnedRef));
+      if (quoteLink) quoteLink.href = `cotizar.html?${params.toString()}`;
+      if (whatsappLink) whatsappLink.href = whatsappUrl;
+      if (next) next.hidden = false;
+      window.turnstile?.reset();
+      return;
+    }
+
+    status.textContent = "Cotización registrada. Abriendo WhatsApp...";
+    status.className = "form-status success";
     form.reset();
     window.turnstile?.reset();
-
     window.location.assign(whatsappUrl);
   } catch (error) {
     const mensaje = error.message || "Ocurrió un problema. Inténtalo nuevamente.";

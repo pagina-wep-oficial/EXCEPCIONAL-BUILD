@@ -487,3 +487,6 @@
 }
 
 .quote-account-note{margin:12px 0 0;color:var(--muted);font-size:13px;line-height:1.55;text-align:right}.quote-account-note+#quote-save-status{margin-top:8px;text-align:right}@media(max-width:700px){.quote-account-note,.quote-account-note+#quote-save-status{text-align:left}}
+
+/* Flujo posterior a una solicitud pública */
+.lead-next{margin-top:8px;padding:17px;border:1px solid rgba(19,42,38,.13);border-radius:14px;background:#eef4ef}.lead-next>div:first-child{display:grid;gap:3px}.lead-next strong{font:800 14px "Manrope"}.lead-next span{color:var(--muted);font-size:12px;line-height:1.5}.lead-next-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:13px}.lead-next-actions .button{min-height:42px;font-size:12px}@media(max-width:600px){.lead-next-actions{display:grid}.lead-next-actions .button{width:100%}}
