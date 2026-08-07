@@ -1,36 +1,27 @@
-# Excepcional Build — sitio web
+# Excepcional Build — sitio y portal de clientes
 
-Sitio estático listo para GitHub Pages. No necesita instalación ni proceso de compilación.
+Sitio estático publicado con Cloudflare Pages y conectado a Supabase para autenticación y datos.
+
+## Archivos principales
+
+- `index.html`: portada pública.
+- `cotizar.html`: cotizador y entrada al portal.
+- `acceso.html`: acceso con Google y confirmación del perfil.
+- `panel.html`: proyectos del cliente.
+- `proyecto.html`: detalle, avances y solicitudes.
+- `perfil.html`: datos del cliente.
+- `portal.js` y `portal.css`: lógica y diseño del portal.
+- `supabase-client.js`: inicialización segura del cliente público.
+- `supabase-config.js`: URL y clave pública.
+- `supabase-schema.sql`: tablas y políticas RLS.
+- `GUIA-CONEXION.md`: instrucciones completas.
+- `crm-local.html`: CRM privado de Excepcional Build; permanece separado del portal de clientes.
 
 ## Antes de publicar
 
-1. Abre `script.js`.
-2. Cambia `const BUSINESS_WHATSAPP = "";` por el número de la empresa con código de país, sin `+`, espacios ni guiones.
-3. Ejemplo de México: `const BUSINESS_WHATSAPP = "529811234567";`.
-4. Abre `index.html` y prueba el formulario.
+1. Ejecuta `supabase-schema.sql` en Supabase.
+2. Configura Google Auth.
+3. Pega la clave pública en `supabase-config.js`.
+4. Sigue `GUIA-CONEXION.md`.
 
-## Publicar gratis en GitHub Pages
-
-1. Sube todos los archivos a la rama `main` de un repositorio.
-2. En GitHub abre **Settings → Pages**.
-3. En **Build and deployment**, elige **Deploy from a branch**.
-4. Selecciona `main` y `/ (root)` y guarda.
-
-## Uso de los archivos
-
-- `index.html`: portada pública de captación.
-- `planes-de-sitios-web.html`: explicación completa de planes.
-- `styles.css`: estilos de la portada.
-- `script.js`: menú, animaciones y contacto por WhatsApp.
-- `glossary.js` y `glossary.css`: ventana sencilla que explica dominio y hosting.
-- `crm-local.html`: CRM privado de costo cero; ábrelo directamente en tu navegador y no lo enlaces desde el sitio público.
-
-## Operación comercial inicial
-
-- Contactar 5 negocios por día de martes a sábado.
-- Registrar cada prospecto con fecha, negocio, municipio, contacto, estado y siguiente acción.
-- Estados recomendados: nuevo, contactado, interesado, seguimiento, cotización, ganado y descartado.
-- Cada jornada debe terminar con una siguiente acción y fecha para cada prospecto activo.
-- Medir semanalmente: contactos realizados, respuestas, diagnósticos, cotizaciones, ventas y clientes activos.
-
-El CRM guarda datos solo en el navegador donde se usa. Exporta un CSV cada semana como respaldo. Cuando la empresa tenga ingresos, conviene migrarlo a una base de datos con acceso protegido.
+Nunca publiques la clave `service_role`, el Client Secret de Google ni contraseñas de base de datos.

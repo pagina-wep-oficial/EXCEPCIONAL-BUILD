@@ -386,7 +386,7 @@
   .quote-form select[name="dominio_opcion"],.option-row{grid-column:1/-1}
   .quote-url-preview{grid-column:1/-1}
   .domain-check{grid-column:1/-1}
-  .note-line,.hosting-domain-notice,.period-row{grid-column:1/-1}
+  .note-line,.hosting-domain-notice,.period-row,.step-nav{grid-column:1/-1}
   .quote-summary{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:6px 34px;padding:30px 38px 28px}
   .summary-head{grid-column:1/-1;margin-bottom:4px}
   .summary-total{grid-column:1;align-content:center}
@@ -396,3 +396,94 @@
   .summary-note,.summary-trust{grid-column:1/-1}
   .button-cta{max-width:420px;justify-self:center}
 }
+
+/* ================================================================
+   FLUJO POR PASOS (WIZARD) + VALIDACIONES CRUZADAS
+   ================================================================ */
+.quote-step{display:block}
+.quote-step[hidden]{display:none}
+
+.step-nav{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  margin-top:26px;
+  padding-top:20px;
+  border-top:1px solid var(--line)
+}
+.step-nav .button{min-height:46px;padding:0 20px;font-size:14px}
+
+/* Aviso dentro de la tarjeta "Enlace gratuito" cuando hay hosting especializado */
+.blocked-notice{
+  margin-top:14px;
+  padding:12px 14px;
+  border:1px solid rgba(243,107,63,.35);
+  border-radius:12px;
+  background:#fff7f2
+}
+.blocked-notice p{margin:0 0 10px;font-size:13px;color:var(--orange-dark);line-height:1.5}
+.blocked-notice .button{min-height:38px;padding:0 14px;font-size:12px;width:100%}
+
+/* Tarjeta deshabilitada */
+.select-card:has(input:disabled){
+  opacity:.55;
+  cursor:not-allowed;
+  background:#f4f4f0
+}
+.select-card:has(input:disabled):hover{border-color:var(--line)}
+
+/* ---- Paso 4: navegación dentro de la tarjeta de contacto ---- */
+.contact-card .step-nav{
+  grid-column:1/-1;
+  padding:20px 24px;
+  border-top:1px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.03)
+}
+.contact-card .step-nav .button-ghost{
+  border-color:rgba(255,255,255,.25);
+  color:#fff
+}
+.contact-card .step-nav .button-ghost:hover{
+  border-color:rgba(255,255,255,.5);
+  background:rgba(255,255,255,.08)
+}
+
+/* ===== Modal de aviso ===== */
+.modal-overlay{
+  position:fixed;
+  inset:0;
+  z-index:200;
+  display:grid;
+  place-items:center;
+  padding:20px;
+  background:rgba(11,30,26,.55);
+  backdrop-filter:blur(4px)
+}
+.modal-box{
+  width:min(440px,100%);
+  padding:30px 28px;
+  border-radius:20px;
+  background:#fff;
+  box-shadow:0 30px 80px rgba(11,30,26,.35);
+  text-align:center
+}
+.modal-box h3{
+  margin:0 0 10px;
+  font:800 20px "Manrope";
+  letter-spacing:-.02em;
+  color:var(--ink)
+}
+.modal-box p{margin:0 0 22px;color:var(--muted);font-size:15px;line-height:1.6}
+.modal-actions{display:flex;justify-content:center}
+.modal-actions .button{min-width:140px}
+
+/* Indicador de pasos completados */
+.quote-steps li.is-done i{background:var(--lime);color:var(--ink)}
+.quote-steps li.is-done span{color:var(--ink)}
+
+@media(max-width:640px){
+  .step-nav{flex-direction:column-reverse}
+  .step-nav .button{width:100%}
+}
+
+.quote-account-note{margin:12px 0 0;color:var(--muted);font-size:13px;line-height:1.55;text-align:right}.quote-account-note+#quote-save-status{margin-top:8px;text-align:right}@media(max-width:700px){.quote-account-note,.quote-account-note+#quote-save-status{text-align:left}}

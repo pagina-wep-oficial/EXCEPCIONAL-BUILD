@@ -2,5 +2,10 @@ User-agent: *
 Allow: /
 Disallow: /crm-local
 Disallow: /crm-local.html
+Disallow: /panel.html
+Disallow: /proyecto.html
+Disallow: /perfil.html
+Disallow: /acceso.html
+Disallow: /auth-callback.html
 
 Sitemap: https://excepcional-build.pages.dev/sitemap.xml

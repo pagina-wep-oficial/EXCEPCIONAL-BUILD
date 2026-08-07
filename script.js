@@ -3,6 +3,7 @@
 const BUSINESS_WHATSAPP = "529811332914";
 const PROSPECT_ENDPOINT = "https://scaebulgcuvqpucondws.supabase.co/functions/v1/registrar-prospecto";
 const CONSULTAR_ENDPOINT = "https://scaebulgcuvqpucondws.supabase.co/functions/v1/consultar-dominio";
+const PENDING_QUOTE_KEY = "eb_pending_quote";
 
 const menuButton = document.querySelector(".menu-button");
 const nav = document.querySelector("#site-nav");
@@ -49,7 +50,6 @@ const quoteYearsLabel = document.querySelector("#quote-years-label");
 const quoteYearsTotal = document.querySelector("#quote-years-total");
 const quotePeriod = document.querySelector("#quote-period");
 const quotePeriodWrap = document.querySelector("#quote-period-wrap");
-const quoteContinue = document.querySelector("#quote-continue");
 
 let selectedDomain = "";
 let selectedDomainPrice = null;
@@ -135,18 +135,18 @@ function renderQuote() {
   }
 
   if (usesHostinger) {
-    const precio = lastHostingPrice
-      ? `desde $${(lastHostingPrice.price / 100).toFixed(2)} MXN/mes (${lastHostingPrice.nombre || "VPS"})`
-      : "precio por confirmar";
+    const precioAnual = lastHostingPrice
+      ? `$${(lastHostingPrice.price * 12 / 100).toFixed(2)} MXN al año (${lastHostingPrice.nombre || "VPS"})`
+      : "precio anual por confirmar";
     quoteHostingSummary.textContent =
-      `Hosting especializado de Hostinger: ${precio}`;
+      `Alojamiento especializado de Hostinger: ${precioAnual}`;
     if (hostingPriceNote) {
       const hostAnualNota = lastHostingPrice
         ? (lastHostingPrice.price * 12 / 100).toFixed(2)
         : null;
       hostingPriceNote.textContent = lastHostingPrice
-        ? `Alojamiento seleccionado: Primer periodo $${hostAnualNota} MXN, Renovación $${hostAnualNota} MXN cada año.`
-        : "Consultando precios reales de Hostinger...";
+        ? `Primer año: $${hostAnualNota} MXN. Renovación anual estimada: $${hostAnualNota} MXN.`
+        : "Consultando el costo anual del alojamiento...";
       hostingPriceNote.hidden = false;
     }
     if (hostingDomainNote) {
@@ -236,6 +236,7 @@ quoteAddress?.addEventListener("change", () => {
   if (quoteAddress.value === "gratis" && quoteHosting?.value === "hostinger") {
     quoteHosting.value = "cloudflare";
   }
+  resetDomainCheckResult(true);
   renderQuote();
   updateLivePreview();
 });
@@ -265,6 +266,7 @@ quotePeriod?.addEventListener("change", renderQuote);
 quoteDomainOption?.addEventListener("change", () => {
   const yaTengo = quoteDomainOption.value === "ya_tengo";
   if (domainButton) domainButton.textContent = yaTengo ? "Usar mi dominio" : "Verificar";
+  resetDomainCheckResult(true);
   renderQuote();
   updateLivePreview();
 });
@@ -338,6 +340,15 @@ const domainCheckLive = document.querySelector("#domain-check-live");
 const domainSuggestions = document.querySelector("#domain-suggestions");
 const domainUseButton = document.querySelector("#domain-use-button");
 let lastCheckedDomain = "";
+
+function resetDomainCheckResult(clearStatus = false) {
+  const priceBlocks = document.querySelector("#domain-price-blocks");
+  if (priceBlocks) priceBlocks.hidden = true;
+  if (domainSuggestions) domainSuggestions.hidden = true;
+  if (domainUseButton) domainUseButton.hidden = true;
+  lastCheckedDomain = "";
+  if (clearStatus) setDomainStatus("");
+}
 let lastDomainPrice = null;
 
 function normalizeSiteName(raw) {
@@ -442,8 +453,8 @@ function formatPrice(value) {
         ? (value.first_period_price / 100).toFixed(2)
         : null;
     return promo != null
-      ? `≈ $${promo} ${moneda} el primer año (luego $${anual}/año)`
-      : `≈ $${anual} ${moneda}/año`;
+      ? `$${promo} ${moneda} el primer año; renovación anual de $${anual} ${moneda}`
+      : `$${anual} ${moneda} al año`;
   }
   return `≈ ${String(value)}`;
 }
@@ -658,7 +669,15 @@ domainInput?.addEventListener("keydown", (event) => {
     handleDomainAction();
   }
 });
-domainInput?.addEventListener("input", updateLivePreview);
+domainInput?.addEventListener("input", () => {
+  const currentName = isFreeLinkMode()
+    ? normalizeSiteName(domainInput.value)
+    : normalizeDomain(domainInput.value);
+  if (lastCheckedDomain && currentName !== lastCheckedDomain) {
+    resetDomainCheckResult(true);
+  }
+  updateLivePreview();
+});
 
 domainUseButton?.addEventListener("click", () => {
   if (lastCheckedDomain) {
@@ -670,12 +689,12 @@ domainUseButton?.addEventListener("click", () => {
   }
 });
 
-quoteContinue?.addEventListener("click", () => {
+function llenarFormularioContacto() {
   const leadForm = document.querySelector("#lead-form");
   const needSelect = leadForm?.querySelector('[name="necesidad"]');
   const messageField = leadForm?.querySelector('[name="mensaje"]');
 
-  if (!leadForm || !quoteAddress || !quoteHosting) return;
+  if (!leadForm || !quoteAddress || !quoteHosting) return false;
 
   if (quoteHosting.value === "hostinger" && !selectedDomain) {
     setDomainStatus(
@@ -684,13 +703,8 @@ quoteContinue?.addEventListener("click", () => {
     );
     domainInput?.focus();
     hostingDomainNote?.scrollIntoView({ behavior: "smooth", block: "center" });
-    return;
+    return false;
   }
-
-  const tipoText =
-    quoteType?.value === "especial"
-      ? "Sitio con funciones especiales (cotización personalizada)"
-      : "Sitio informativo (desde $750)";
 
   const addressText =
     quoteAddress.value === "dominio"
@@ -706,8 +720,8 @@ quoteContinue?.addEventListener("click", () => {
         : "Enlace gratuito de Cloudflare Pages, $0 al año";
 
   const hostingPrecioTexto = lastHostingPrice
-    ? `desde $${(lastHostingPrice.price / 100).toFixed(2)} MXN/mes`
-    : "precio por confirmar";
+    ? `$${(lastHostingPrice.price * 12 / 100).toFixed(2)} MXN al año`
+    : "precio anual por confirmar";
 
   const hostingText =
     quoteHosting.value === "hostinger"
@@ -742,11 +756,10 @@ quoteContinue?.addEventListener("click", () => {
   const totalAno2 = quoteYear2Total?.textContent || (montoRenovacion != null ? formatNum(montoRenovacion) : "Por confirmar");
 
   const quoteDetails = [
-    `Tipo de sitio: ${tipoText}.`,
-    "Precio base: $750.",
+    "Precio base de creación y publicación: $750.",
     `Dirección: ${addressText}.`,
     `Alojamiento: ${hostingText}.`,
-    `Periodo de pago: ${periodo} año(s).`,
+    `Años calculados: ${periodo}.`,
     `Total año 1: ${totalAno1}.`,
     `Renovación año 2: ${totalAno2}.`,
     `Pago inicial estimado: ${quoteInitialTotal?.textContent || "$750"}.${montoInicial != null ? ` (≈ $${montoInicial.toFixed(2)} MXN)` : ""}`
@@ -765,7 +778,9 @@ quoteContinue?.addEventListener("click", () => {
   window.setTimeout(() => {
     leadForm.querySelector('[name="nombre"]')?.focus();
   }, 450);
-});
+
+  return true;
+}
 
 document.querySelectorAll("[data-plan]").forEach((button) => {
   button.addEventListener("click", () => {
@@ -918,3 +933,244 @@ form?.addEventListener("submit", async (event) => {
 });
 
 document.querySelector("#year").textContent = new Date().getFullYear();
+
+// ===== Flujo por pasos (wizard) =====
+const quoteSteps = document.querySelectorAll(".quote-step");
+const stepIndicators = document.querySelectorAll(".quote-steps li");
+const gratisCard = document.querySelector("#quote-address-card-gratis");
+const gratisBlockedNotice = document.querySelector("#gratis-blocked-notice");
+const unblockGratisBtn = document.querySelector("#unblock-gratis-btn");
+const hostingModal = document.querySelector("#hosting-modal");
+const hostingModalOk = document.querySelector("#hosting-modal-ok");
+
+let currentStep = 1;
+
+function showStep(step) {
+  currentStep = step;
+  quoteSteps.forEach((el) => {
+    el.hidden = Number(el.dataset.step) !== step;
+  });
+  stepIndicators.forEach((li, i) => {
+    li.classList.toggle("is-active", i + 1 === step);
+    li.classList.toggle("is-done", i + 1 < step);
+  });
+  // Ocultar el botón "Atrás" en el primer paso
+  document.querySelectorAll("[data-step-prev]").forEach((btn) => {
+    btn.hidden = step === 1;
+  });
+  const destino = document.querySelector("#cotizador");
+  if (destino) {
+    window.scrollTo({ top: destino.offsetTop - 70, behavior: "smooth" });
+  }
+}
+
+function updateGratisBlockedState() {
+  const hostingEspecial = quoteHosting?.value === "hostinger";
+  if (gratisCard) gratisCard.disabled = hostingEspecial;
+  if (gratisBlockedNotice) gratisBlockedNotice.hidden = !hostingEspecial;
+  if (hostingEspecial && quoteAddress?.value === "gratis") {
+    quoteAddress.value = "dominio";
+    const dominioCard = document.querySelector("#quote-address-card-dominio");
+    if (dominioCard) dominioCard.checked = true;
+    renderQuote();
+    updateLivePreview();
+  }
+}
+
+document.querySelectorAll("[data-step-next]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    if (currentStep === 1) {
+      // Validación: si tiene hosting especializado y quiere avanzar con enlace gratuito
+      if (quoteHosting?.value === "hostinger" && quoteAddress?.value === "gratis") {
+        if (hostingModal) hostingModal.hidden = false;
+        return;
+      }
+      // Validación obligatoria: debe escribir y confirmar un nombre/dominio
+      if (!selectedDomain && !selectedSiteName) {
+        setDomainStatus("Escribe y verifica el nombre de tu sitio antes de continuar.", "error");
+        return;
+      }
+    }
+    if (currentStep === 2) {
+      // Validación: si selecciona hosting especializado pero tiene enlace gratuito
+      if (quoteHosting?.value === "hostinger" && quoteAddress?.value === "gratis") {
+        if (hostingModal) hostingModal.hidden = false;
+        return;
+      }
+      // Validación obligatoria: si eligió hosting especializado, debe tener dominio propio
+      if (quoteHosting?.value === "hostinger" && !selectedDomain) {
+        if (hostingDomainNote) {
+          hostingDomainNote.hidden = false;
+          hostingDomainNote.textContent = "Para el alojamiento especializado necesitas un dominio propio. Elige “Dominio personalizado” en el paso 1 y verifica tu dominio.";
+        }
+        return;
+      }
+    }
+    if (currentStep < 3) showStep(currentStep + 1);
+  });
+});
+
+document.querySelectorAll("[data-step-prev]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    if (currentStep > 1) showStep(currentStep - 1);
+  });
+});
+
+if (hostingModalOk) {
+  hostingModalOk.addEventListener("click", () => {
+    hostingModal.hidden = true;
+    showStep(1);
+  });
+}
+
+if (hostingModal) {
+  hostingModal.addEventListener("click", (e) => {
+    if (e.target === hostingModal) {
+      hostingModal.hidden = true;
+      showStep(1);
+    }
+  });
+}
+
+if (unblockGratisBtn) {
+  unblockGratisBtn.addEventListener("click", () => {
+    if (quoteHosting) {
+      quoteHosting.value = "cloudflare";
+      const cloudflareCard = document.querySelector("#quote-hosting-card-cloudflare");
+      if (cloudflareCard) cloudflareCard.checked = true;
+      quoteHosting.dispatchEvent(new Event("change"));
+    }
+    if (quoteAddress) {
+      quoteAddress.value = "gratis";
+      if (gratisCard) gratisCard.checked = true;
+      quoteAddress.dispatchEvent(new Event("change"));
+    }
+    updateGratisBlockedState();
+    renderQuote();
+    updateLivePreview();
+  });
+}
+
+// Bloquear la tarjeta "Enlace gratuito" cuando hay hosting especializado
+quoteHosting?.addEventListener("change", () => {
+  updateGratisBlockedState();
+});
+
+// Al intentar seleccionar "Enlace gratuito" con hosting especializado, mostrar aviso
+gratisCard?.addEventListener("click", (e) => {
+  if (quoteHosting?.value === "hostinger") {
+    e.preventDefault();
+    e.stopPropagation();
+    if (hostingModal) hostingModal.hidden = false;
+  }
+});
+
+
+
+// ===== Guardar cotización para el portal del cliente =====
+function quoteMoneyFromCents(value) {
+  return typeof value === "number" ? Math.round((value / 100) * 100) / 100 : null;
+}
+
+function buildQuoteSnapshot() {
+  const usesDomain = quoteAddress?.value === "dominio";
+  const usesHosting = quoteHosting?.value === "hostinger";
+  const periodYears = Number(quotePeriod?.value || 1);
+  const domainFirstYear = usesDomain
+    ? quoteMoneyFromCents(selectedDomainPrice?.first_period_price ?? selectedDomainPrice?.price)
+    : 0;
+  const domainRenewal = usesDomain
+    ? quoteMoneyFromCents(selectedDomainPrice?.price ?? selectedDomainPrice?.first_period_price)
+    : 0;
+  const hostingAnnual = usesHosting && lastHostingPrice?.price
+    ? Math.round((lastHostingPrice.price * 12 / 100) * 100) / 100
+    : 0;
+  const pricesKnown = !usesDomain || selectedDomainPrice != null || quoteDomainOption?.value === "ya_tengo";
+  const initialTotal = pricesKnown ? Math.round((750 + (domainFirstYear || 0) + hostingAnnual) * 100) / 100 : null;
+  const annualRenewal = pricesKnown ? Math.round(((domainRenewal || 0) + hostingAnnual) * 100) / 100 : null;
+  const periodTotal = initialTotal == null
+    ? null
+    : Math.round((initialTotal + (annualRenewal || 0) * Math.max(periodYears - 1, 0)) * 100) / 100;
+  const address = usesDomain
+    ? selectedDomain
+    : selectedSiteName ? `${selectedSiteName}.pages.dev` : "";
+  const baseName = quoteRefNegocio || selectedSiteName || (selectedDomain ? selectedDomain.split(".")[0] : "Nuevo sitio web");
+  const projectName = String(baseName)
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+    .trim() || "Nuevo sitio web";
+
+  return {
+    quote_ref: `EBQ-${Date.now()}`,
+    project_name: projectName,
+    created_at: new Date().toISOString(),
+    creation_price: 750,
+    address_type: usesDomain ? "dominio" : "gratis",
+    address,
+    domain: usesDomain ? selectedDomain : "",
+    domain_option: usesDomain ? quoteDomainOption?.value || "conseguirme" : "",
+    domain_first_year: domainFirstYear,
+    domain_renewal: domainRenewal,
+    domain_price_raw: selectedDomainPrice || null,
+    hosting_type: usesHosting ? "hostinger" : "cloudflare",
+    hosting_name: lastHostingPrice?.nombre || "",
+    hosting_first_year: hostingAnnual,
+    hosting_renewal: hostingAnnual,
+    hosting_price_raw: lastHostingPrice || null,
+    period_years: periodYears,
+    initial_total: initialTotal,
+    annual_renewal: annualRenewal,
+    period_total: periodTotal,
+    source_ref: quoteRef || "",
+    source_business: quoteRefNegocio || ""
+  };
+}
+
+async function saveQuoteAndContinue() {
+  const status = document.querySelector("#quote-save-status");
+  const button = document.querySelector("#quote-save-button");
+  if (!selectedDomain && !selectedSiteName) {
+    showStep(1);
+    setDomainStatus("Escribe, verifica y usa el nombre de tu sitio antes de guardar la cotización.", "error");
+    domainInput?.focus();
+    return;
+  }
+  if (quoteHosting?.value === "hostinger" && !selectedDomain) {
+    showStep(1);
+    if (hostingModal) hostingModal.hidden = false;
+    return;
+  }
+
+  const snapshot = buildQuoteSnapshot();
+  try {
+    localStorage.setItem(PENDING_QUOTE_KEY, JSON.stringify(snapshot));
+  } catch (_) {
+    if (status) {
+      status.textContent = "Tu navegador no permitió guardar la cotización. Intenta de nuevo o usa otro navegador.";
+      status.className = "form-status error";
+    }
+    return;
+  }
+
+  if (button) button.disabled = true;
+  if (status) {
+    status.textContent = "Guardando tu cotización...";
+    status.className = "form-status";
+  }
+
+  try {
+    const session = window.ebSupabase
+      ? (await window.ebSupabase.auth.getSession()).data.session
+      : null;
+    window.location.assign(session ? "auth-callback.html?quote=1" : "acceso.html?quote=1");
+  } catch (_) {
+    window.location.assign("acceso.html?quote=1");
+  }
+}
+
+document.querySelector("#quote-save-button")?.addEventListener("click", saveQuoteAndContinue);
+
+
+// Inicializar estado de bloqueo
+updateGratisBlockedState();
+showStep(1);
