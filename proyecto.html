@@ -1,16 +1,61 @@
 <!doctype html>
-<html lang="es-MX"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#132a26"><link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="portal.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><title>Proyecto | Excepcional Build</title></head>
-<body data-portal-page="project"><header class="portal-header"><div class="portal-shell portal-nav"><a class="portal-brand" href="panel.html"><span class="portal-mark">EB</span><span>EXCEPCIONAL BUILD</span></a><a href="panel.html">Mis proyectos</a><a href="perfil.html">Mi perfil</a><a class="portal-nav-cta" href="cotizar.html">Nueva cotización</a></div></header>
-<main class="portal-main"><div class="portal-shell">
-<section class="project-heading"><div><p class="eyebrow">Detalle del proyecto</p><h1 id="project-title">Cargando proyecto…</h1><p id="project-subtitle"></p></div><div class="hero-actions" id="project-top-actions"></div></section>
-<div class="panel-grid"><aside class="sidebar"><div class="user-mini"><div class="avatar" data-avatar>EB</div><div><strong data-user-name>Cliente</strong><span data-user-email></span></div></div><nav class="side-links"><a href="panel.html" data-side="projects">▦ Mis proyectos</a><a href="perfil.html" data-side="profile">◉ Mi perfil</a><a href="cotizar.html">＋ Nueva cotización</a><button type="button" data-logout>↪ Cerrar sesión</button></nav></aside>
-<section class="dashboard"><div id="project-availability"></div><div class="project-layout"><div class="project-stack">
-<article class="content-card"><h2>Estado del proyecto</h2><div class="stage-track" id="project-stage-track"></div><div class="client-note" id="project-client-note" hidden></div></article>
-<article class="content-card"><h2>Resumen</h2><div class="details-grid" id="project-details"></div></article>
-<article class="content-card" id="payment-card" hidden><h2>Pagos del proyecto</h2><div class="payments-grid" id="project-payments"></div></article>
-<article class="content-card" id="project-brief-card"><h2>Información para construir tu página</h2><p style="margin:-8px 0 16px;color:var(--muted);font-size:12px;line-height:1.55">Puedes completar esto poco a poco. Así evitamos pedirte la misma información varias veces.</p><form class="portal-form" id="project-brief-form"><label>¿A qué se dedica tu negocio?<textarea name="business_description" rows="3" placeholder="Cuéntanos qué haces y qué te diferencia."></textarea></label><label>Productos o servicios principales<textarea name="products_services" rows="3" placeholder="Lista lo más importante que quieres mostrar."></textarea></label><div class="field-row"><label>Dirección o ubicación<input name="address_text" placeholder="Dirección, colonia, municipio..."></label><label>Horario<input name="schedule_text" placeholder="Ej. Lun-Sáb 9:00 a 18:00"></label></div><div class="field-row"><label>WhatsApp que aparecerá en la página<input name="public_phone" inputmode="tel"></label><label>Redes sociales<input name="social_links" placeholder="Facebook, Instagram, TikTok..."></label></div><label>Estilo, colores o referencias<textarea name="visual_notes" rows="2" placeholder="Opcional: colores, estilo o páginas que te gusten."></textarea></label><label>Información adicional<textarea name="extra_notes" rows="2"></textarea></label><div class="form-actions"><button class="button button-primary" type="submit">Guardar información</button><a class="button button-light" id="brief-whatsapp" href="#" target="_blank" rel="noopener">Enviar fotos por WhatsApp</a></div><p class="form-status" id="brief-status"></p></form></article>
-<article class="content-card"><h2>¿Qué necesitas?</h2><div class="actions-grid" id="project-actions"></div></article>
-<article class="content-card"><h2>Avances</h2><div class="timeline" id="project-timeline"></div></article>
-</div><aside><article class="side-card"><h2>Cotización</h2><div id="quote-summary"></div></article><article class="side-card"><h2>Solicitudes</h2><div class="request-list" id="request-list"></div></article></aside></div></section></div></div></main>
-<dialog id="request-dialog"><div class="dialog-body"><div class="dialog-head"><div><p class="eyebrow">Nueva solicitud</p><h2 id="request-title">Solicitar ayuda</h2></div><button class="dialog-close" type="button" data-dialog-close aria-label="Cerrar">×</button></div><form class="portal-form" id="request-form"><input type="hidden" name="request_type"><label>Cuéntanos qué necesitas<textarea name="message" rows="5" required placeholder="Describe el cambio, mantenimiento o servicio que necesitas."></textarea></label><div class="dialog-actions"><button class="button button-light" type="button" data-dialog-close>Cancelar</button><button class="button button-accent" type="submit">Registrar y abrir WhatsApp</button></div><p class="form-status" id="request-status" aria-live="polite"></p></form></div></dialog>
-<script src="supabase-config.js"></script><script src="supabase-client.js"></script><script src="portal.js"></script></body></html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#102a24">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="portal.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <title>Mi proyecto | Excepcional Build</title>
+</head>
+<body data-portal-page="project">
+<header class="portal-header"><div class="portal-shell portal-nav"><a class="portal-brand" href="panel.html"><span class="portal-mark">EB</span><span>EXCEPCIONAL BUILD</span></a><nav class="desktop-nav"><a class="is-active" href="panel.html">Mis proyectos</a><a href="cotizar.html">Cotizar</a><a class="account-chip" href="perfil.html"><span class="avatar avatar-small" data-avatar>EB</span><span data-user-name>Mi cuenta</span></a></nav></div></header>
+<main class="portal-main"><div class="portal-shell portal-shell-project">
+  <a class="back-link" href="panel.html">← Mis proyectos</a>
+  <section class="project-heading-simple">
+    <div><p class="eyebrow">Tu proyecto</p><h1 id="project-title">Cargando proyecto…</h1><div id="project-subtitle"></div></div>
+    <div class="hero-actions" id="project-top-actions"></div>
+  </section>
+
+  <div id="project-availability"></div>
+
+  <section class="project-main-grid">
+    <div class="project-primary">
+      <article class="content-card progress-card">
+        <div class="card-heading"><div><h2>¿En qué vamos?</h2><p>Te mostramos el avance de forma sencilla.</p></div></div>
+        <div class="stage-track" id="project-stage-track"></div>
+        <div class="client-note" id="project-client-note" hidden></div>
+      </article>
+
+      <article class="content-card" id="project-brief-card">
+        <div class="card-heading"><div><p class="eyebrow">Información del negocio</p><h2>Ayúdanos a preparar tu página</h2><p>Puedes guardar lo que tengas ahora y completar lo demás después.</p></div></div>
+        <form class="portal-form spacious-form" id="project-brief-form">
+          <label><span>¿A qué se dedica este negocio?</span><textarea name="business_description" rows="3" placeholder="Ej. Somos una tienda de abarrotes con servicio a domicilio."></textarea></label>
+          <label><span>¿Qué quieres mostrar o vender?</span><textarea name="products_services" rows="3" placeholder="Productos, servicios, menú, precios o lo más importante."></textarea></label>
+          <div class="field-row"><label><span>Dirección o ubicación</span><input name="address_text" placeholder="Ej. Centro, Hopelchén, Campeche"></label><label><span>Horario</span><input name="schedule_text" placeholder="Ej. Lun-Sáb, 9:00 a 18:00"></label></div>
+          <div class="field-row"><label><span>WhatsApp que verá la gente</span><input name="public_phone" inputmode="tel" placeholder="Ej. 981 123 4567"></label><label><span>Redes sociales</span><input name="social_links" placeholder="Facebook, Instagram, TikTok..."></label></div>
+          <label><span>Colores o estilo que te gustan</span><textarea name="visual_notes" rows="2" placeholder="Ej. azul oscuro, elegante, sencillo..."></textarea></label>
+          <label><span>Algo más que debamos saber</span><textarea name="extra_notes" rows="2" placeholder="Opcional"></textarea></label>
+          <div class="form-actions form-actions-stack-mobile"><button class="button button-primary" type="submit">Guardar información</button><a class="button button-light" id="brief-whatsapp" href="#" target="_blank" rel="noopener">Enviar fotos por WhatsApp</a></div>
+          <p class="form-status" id="brief-status"></p>
+        </form>
+      </article>
+
+      <article class="content-card" id="payment-card" hidden><div class="card-heading"><div><h2>Pagos</h2><p>Consulta lo acordado para este proyecto.</p></div></div><div class="payments-grid" id="project-payments"></div></article>
+
+      <article class="content-card"><div class="card-heading"><div><h2>¿Qué necesitas?</h2><p>Elige una opción y cuéntanos qué quieres hacer.</p></div></div><div class="actions-grid" id="project-actions"></div></article>
+
+      <article class="content-card"><div class="card-heading"><div><h2>Últimos avances</h2><p>Las actualizaciones que hemos registrado.</p></div></div><div class="timeline" id="project-timeline"></div></article>
+    </div>
+
+    <aside class="project-secondary">
+      <article class="side-card"><h2>Datos del proyecto</h2><div class="details-grid" id="project-details"></div></article>
+      <article class="side-card"><h2>Cotización guardada</h2><div id="quote-summary"></div></article>
+      <article class="side-card"><h2>Tus solicitudes</h2><div class="request-list" id="request-list"></div></article>
+    </aside>
+  </section>
+</div></main>
+
+<dialog id="request-dialog"><div class="dialog-body"><div class="dialog-head"><div><p class="eyebrow">Pedir ayuda</p><h2 id="request-title">¿Qué necesitas?</h2></div><button class="dialog-close" type="button" data-dialog-close aria-label="Cerrar">×</button></div><form class="portal-form" id="request-form"><input type="hidden" name="request_type"><label><span>Explícanos brevemente</span><textarea name="message" rows="5" required placeholder="Ej. Quiero cambiar el horario y agregar tres fotos nuevas."></textarea></label><p class="form-status" id="request-status"></p><div class="dialog-actions"><button class="button button-light" type="button" data-dialog-close>Cancelar</button><button class="button button-primary" type="submit">Enviar solicitud</button></div></form></div></dialog>
+
+<nav class="mobile-nav" aria-label="Navegación principal"><a class="active" href="panel.html"><span aria-hidden="true">⌂</span><b>Inicio</b></a><a class="mobile-nav-main" href="cotizar.html"><span aria-hidden="true">＋</span><b>Cotizar</b></a><a href="perfil.html"><span aria-hidden="true">○</span><b>Mi cuenta</b></a></nav>
+<script src="supabase-config.js"></script><script src="supabase-client.js"></script><script src="portal.js"></script>
+</body></html>

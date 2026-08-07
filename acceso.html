@@ -1,3 +1,51 @@
 <!doctype html>
-<html lang="es-MX"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#132a26"><link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="portal.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><title>Acceso de clientes | Excepcional Build</title></head>
-<body data-portal-page="access"><main class="auth-page"><section class="auth-copy"><a class="portal-brand" href="index.html"><span class="portal-mark">EB</span><span>EXCEPCIONAL BUILD</span></a><div style="margin-top:auto;margin-bottom:auto"><p class="eyebrow">Portal del cliente</p><h1>Tu proyecto sigue aquí, incluso después del primer mensaje.</h1><p>Guarda cotizaciones, revisa avances y solicita cambios desde una cuenta vinculada a tu correo de Google.</p><div class="auth-points"><div><i>✓</i><span>Todos tus proyectos en un solo lugar.</span></div><div><i>✓</i><span>Vista previa solo cuando esté lista para ti.</span></div><div><i>✓</i><span>Historial de solicitudes y actualizaciones.</span></div></div></div></section><section class="auth-side"><div class="auth-card"><div id="login-view"><p class="eyebrow">Acceso seguro</p><h2>Continúa con Google</h2><p id="access-copy">No tienes que crear otra contraseña. Google confirma tu correo y Supabase mantiene tu sesión.</p><div class="auth-context" id="access-context" hidden></div><button class="google-button" id="google-login" type="button"><span>G</span>Continuar con Google</button><div class="separator">una sola cuenta para tus proyectos</div><p class="form-status" id="auth-status" aria-live="polite"></p></div><div id="profile-view" hidden><p class="eyebrow">Último paso</p><h2>Confirma tus datos</h2><p>Necesitamos tu nombre y WhatsApp para identificar correctamente tus proyectos.</p><form class="portal-form" id="onboarding-form"><label>Nombre completo<input name="full_name" autocomplete="name" required></label><label>Correo<input name="email" type="email" readonly></label><label>WhatsApp<input name="phone" inputmode="tel" autocomplete="tel" placeholder="981 133 2914" required></label><label>Nombre del negocio <span style="font-weight:400">(opcional)</span><input name="business_name" autocomplete="organization"></label><label>Municipio o ciudad <span style="font-weight:400">(opcional)</span><input name="location" autocomplete="address-level2"></label><button class="button button-primary" type="submit">Confirmar y continuar →</button><p class="form-status" id="profile-status" aria-live="polite"></p></form></div><div class="config-warning" id="config-warning" hidden></div></div></section></main><script src="supabase-config.js"></script><script src="supabase-client.js"></script><script src="portal.js"></script></body></html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#102a24">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="portal.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <title>Entrar a mi cuenta | Excepcional Build</title>
+</head>
+<body data-portal-page="access">
+<main class="auth-page">
+  <section class="auth-brand-panel">
+    <a class="portal-brand portal-brand-light" href="index.html"><span class="portal-mark portal-mark-light">EB</span><span>EXCEPCIONAL BUILD</span></a>
+    <div class="auth-message">
+      <span class="auth-symbol" aria-hidden="true">✓</span>
+      <p class="eyebrow eyebrow-light">Tu espacio personal</p>
+      <h1>Todo sobre tus páginas, en un solo lugar.</h1>
+      <p>Revisa avances, guarda cotizaciones y pide cambios cuando lo necesites.</p>
+    </div>
+    <p class="auth-footnote">Acceso exclusivo para clientes de Excepcional Build.</p>
+  </section>
+  <section class="auth-side">
+    <div class="auth-card">
+      <div id="login-view">
+        <p class="eyebrow">Entrar a mi cuenta</p>
+        <h2>Continúa con Google</h2>
+        <p id="access-copy">Usa tu cuenta de Google para reconocerte. No necesitas crear otra contraseña.</p>
+        <div class="auth-context" id="access-context" hidden></div>
+        <button class="google-button" id="google-login" type="button"><span class="google-g">G</span><strong>Continuar con Google</strong></button>
+        <p class="privacy-note">Solo usamos tu nombre y correo para identificar tu cuenta y tus proyectos.</p>
+        <p class="form-status" id="auth-status" aria-live="polite"></p>
+      </div>
+      <div id="profile-view" hidden>
+        <div class="step-bubble">Último paso</div>
+        <p class="eyebrow">Completa tu cuenta</p>
+        <h2>¿Cómo podemos contactarte?</h2>
+        <p>Revisa tu nombre y agrega un WhatsApp. Tardarás menos de un minuto.</p>
+        <form class="portal-form spacious-form" id="onboarding-form">
+          <label><span>Nombre completo</span><input name="full_name" autocomplete="name" placeholder="Ej. Ana Pérez" required></label>
+          <label><span>WhatsApp</span><input name="phone" inputmode="tel" autocomplete="tel" placeholder="Ej. 981 123 4567" required></label>
+          <label><span>Municipio o ciudad</span><input name="location" autocomplete="address-level2" placeholder="Ej. Hopelchén"></label>
+          <label class="email-readonly"><span>Correo de Google</span><input name="email" type="email" readonly></label>
+          <button class="button button-primary button-wide" type="submit">Guardar y continuar</button>
+          <p class="form-status" id="profile-status" aria-live="polite"></p>
+        </form>
+      </div>
+      <div class="config-warning" id="config-warning" hidden></div>
+    </div>
+  </section>
+</main>
+<script src="supabase-config.js"></script><script src="supabase-client.js"></script><script src="portal.js"></script>
+</body></html>

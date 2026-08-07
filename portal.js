@@ -37,7 +37,7 @@
     const el = $("#config-warning");
     if (el) {
       el.hidden = false;
-      el.textContent = portal.configError || "Falta configurar Supabase.";
+      el.textContent = "El portal no está disponible en este momento. Intenta nuevamente más tarde.";
     }
   }
 
@@ -65,7 +65,6 @@
       full_name: meta.full_name || meta.name || "",
       email: user.email || "",
       phone: meta.phone || "",
-      business_name: "",
       location: "",
       avatar_url: meta.avatar_url || meta.picture || "",
       onboarding_completed: false
@@ -268,7 +267,6 @@
       form.full_name.value = profile.full_name || session.user.user_metadata?.full_name || session.user.user_metadata?.name || "";
       form.email.value = session.user.email || "";
       form.phone.value = profile.phone || "";
-      form.business_name.value = profile.business_name || "";
       form.location.value = profile.location || "";
 
       form.addEventListener("submit", async (event) => {
@@ -289,7 +287,6 @@
             full_name: fullName,
             email: session.user.email,
             phone,
-            business_name: String(fd.get("business_name") || "").trim(),
             location: String(fd.get("location") || "").trim(),
             avatar_url: profile.avatar_url || session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture || null,
             onboarding_completed: true,
@@ -329,7 +326,7 @@
       let session = await getSession();
       const code = getParam("code");
       if (!session && code) {
-        status.textContent = "Confirmando el acceso con Supabase…";
+        status.textContent = "Confirmando tu acceso…";
         const { error } = await db.auth.exchangeCodeForSession(code);
         if (error) throw error;
         session = await getSession();
@@ -348,20 +345,31 @@
   }
 
   function projectIsLive(project) {
-    return project.site_visibility === "public" || /publicado|mantenimiento|entregado/i.test(project.status || "");
+    return project.site_visibility === "public" && Boolean(project.site_url);
   }
 
   function projectIsActive(project) {
     return !projectIsLive(project) && !/cancelado|descartado/i.test(project.status || "");
   }
 
+  function friendlyProjectStatus(project) {
+    const raw = `${project.project_stage || ""} ${project.status || ""}`.toLowerCase();
+    if (project.site_visibility === "public" && project.site_url) return "Tu página ya está publicada y lista para compartir.";
+    if (project.site_visibility === "preview" && (project.preview_url || project.site_url)) return "Ya tienes un avance disponible para revisar.";
+    if (/cancelado|descartado/.test(raw)) return "Este proyecto no está activo en este momento.";
+    if (/esperando|contenido|información/.test(raw)) return "Necesitamos algunos datos tuyos para poder continuar.";
+    if (/desarrollo|revisión|revisar/.test(raw)) return "Estamos trabajando en tu página.";
+    if (/aprobado|aceptado|anticipo/.test(raw)) return "Tu proyecto está aprobado y listo para avanzar.";
+    return "Recibimos tu solicitud y la estamos revisando.";
+  }
+
   function siteAction(project, compact = false) {
     const cls = compact ? "button button-light button-small" : "button button-light";
     if (project.site_visibility === "public" && project.site_url) {
-      return `<a class="${cls}" href="${safe(project.site_url)}" target="_blank" rel="noopener">Ver página ↗</a>`;
+      return `<a class="${cls}" href="${safe(project.site_url)}" target="_blank" rel="noopener">Abrir mi página</a>`;
     }
     if (project.site_visibility === "preview" && (project.preview_url || project.site_url)) {
-      return `<a class="${cls}" href="${safe(project.preview_url || project.site_url)}" target="_blank" rel="noopener">Ver avance ↗</a>`;
+      return `<a class="${cls}" href="${safe(project.preview_url || project.site_url)}" target="_blank" rel="noopener">Ver avance</a>`;
     }
     return "";
   }
@@ -405,16 +413,17 @@
     const render = () => {
       const visible = projects.filter((project) => filter === "all" || (filter === "active" ? projectIsActive(project) : projectIsLive(project)));
       if (!visible.length) {
-        grid.innerHTML = `<div class="empty-card" style="grid-column:1/-1"><h3>${projects.length ? "No hay proyectos en esta categoría" : "Aún no tienes proyectos"}</h3><p>${projects.length ? "Prueba otra vista." : "Prepara una cotización o acepta una invitación para crear tu primer proyecto."}</p>${projects.length ? "" : '<a class="button button-primary" href="cotizar.html">Comenzar cotización</a>'}</div>`;
+        grid.innerHTML = `<div class="empty-card" style="grid-column:1/-1"><h3>${projects.length ? "No hay proyectos en esta categoría" : "Aún no tienes proyectos"}</h3><p>${projects.length ? "Prueba otra vista." : "Cuando guardes una cotización o recibas una invitación, aparecerá aquí."}</p>${projects.length ? "" : '<a class="button button-primary" href="cotizar.html">Cotizar mi primera página</a>'}</div>`;
         return;
       }
       grid.innerHTML = visible.map((project) => `
         <article class="project-card">
-          <div class="project-card-top"><span class="status-badge ${statusClass(project.status)}">${safe(project.status)}</span><small>${date(project.created_at)}</small></div>
+          <div class="project-card-top"><span class="status-badge ${statusClass(project.status)}">${safe(project.status || "En revisión")}</span><small>${date(project.created_at)}</small></div>
           <h3>${safe(project.name)}</h3>
-          <p>${safe(project.domain || "Dirección por definir")}</p>
-          <div class="project-meta"><div><span>Etapa</span><strong>${safe(project.project_stage || "Cotización")}</strong></div><div><span>Alojamiento</span><strong>${project.hosting_type === "hostinger" ? "Especializado" : "Gratuito"}</strong></div></div>
-          <div class="card-actions">${siteAction(project, true)}<a class="button button-primary button-small" href="proyecto.html?id=${encodeURIComponent(project.id)}">Ver proyecto</a></div>
+          <p>${safe(project.domain || "La dirección se definirá más adelante")}</p>
+          <p class="project-friendly-status">${safe(friendlyProjectStatus(project))}</p>
+          <div class="project-meta"><div><span>En qué vamos</span><strong>${safe(project.project_stage || "Cotización")}</strong></div><div><span>Publicación</span><strong>${project.site_visibility === "public" ? "Página disponible" : project.site_visibility === "preview" ? "Avance disponible" : "Todavía no disponible"}</strong></div></div>
+          <div class="card-actions"><a class="button button-primary button-small" href="proyecto.html?id=${encodeURIComponent(project.id)}">Abrir proyecto</a>${siteAction(project, true)}</div>
         </article>`).join("");
     };
 
@@ -433,7 +442,7 @@
     const { session, profile } = await loadContext();
     $('[data-side="profile"]')?.classList.add("active");
     const form = $("#profile-form");
-    ["full_name","email","phone","business_name","location"].forEach((name) => {
+    ["full_name","email","phone","location"].forEach((name) => {
       if (form[name]) form[name].value = name === "email" ? session.user.email || "" : profile[name] || "";
     });
     form.addEventListener("submit", async (event) => {
@@ -449,7 +458,6 @@
           full_name: String(fd.get("full_name") || "").trim(),
           email: session.user.email,
           phone,
-          business_name: String(fd.get("business_name") || "").trim(),
           location: String(fd.get("location") || "").trim(),
           avatar_url: profile.avatar_url,
           onboarding_completed: true,
@@ -466,12 +474,12 @@
   }
 
   const requestLabels = {
-    mantenimiento:["Solicitar mantenimiento","Revisar errores, enlaces o funcionamiento del sitio."],
-    actualizar:["Actualizar mi sitio","Cambiar textos, fotografías, horarios, precios o secciones."],
-    cambio:["Solicitar una modificación","Agregar o ajustar una función específica."],
-    mejorar:["Mejorar mi proyecto","Agregar secciones, formularios, catálogos o automatizaciones."],
-    dominio:["Quiero un dominio propio","Cambiar el enlace gratuito por una dirección profesional."],
-    hosting:["Necesito hosting y dominio","Evaluar servidor, base de datos o funciones avanzadas."]
+    mantenimiento:["Necesito mantenimiento","Revisar algo que no funciona o necesita atención."],
+    actualizar:["Quiero actualizar información","Cambiar textos, fotos, horarios, precios o datos."],
+    cambio:["Quiero hacer un cambio","Modificar una parte de mi página."],
+    mejorar:["Quiero agregar algo nuevo","Agregar una sección, función o mejora."],
+    dominio:["Quiero un dominio propio","Cambiar el enlace gratuito por una dirección como tunegocio.com."],
+    hosting:["Necesito funciones avanzadas","Revisar si mi proyecto necesita alojamiento especializado."]
   };
 
   const stageLabels = ["Cotización","Aprobación","Contenido","Desarrollo","Publicado"];
@@ -488,14 +496,14 @@
     const box = $("#project-availability");
     if (!box) return;
     if (project.site_visibility === "public" && project.site_url) {
-      box.innerHTML = `<div class="availability-box public"><div><strong>Tu página está publicada</strong><span>Ya puedes abrirla y compartirla.</span></div>${siteAction(project)}</div>`;
+      box.innerHTML = `<div class="availability-box public"><div><strong>Tu página ya está en internet</strong><span>Puedes abrirla y compartirla con tus clientes.</span></div>${siteAction(project)}</div>`;
       return;
     }
     if (project.site_visibility === "preview" && (project.preview_url || project.site_url)) {
-      box.innerHTML = `<div class="availability-box preview"><div><strong>Vista previa disponible</strong><span>Ya puedes revisar el avance. Este enlace puede cambiar antes de publicar.</span></div>${siteAction(project)}</div>`;
+      box.innerHTML = `<div class="availability-box preview"><div><strong>Ya puedes revisar un avance</strong><span>Ábrelo, revísalo con calma y dinos si quieres cambiar algo.</span></div>${siteAction(project)}</div>`;
       return;
     }
-    box.innerHTML = `<div class="availability-box hidden-site"><div><strong>La vista de la página todavía no está habilitada</strong><span>Cuando tengamos una versión lista para enseñarte aparecerá aquí el botón para verla.</span></div></div>`;
+    box.innerHTML = `<div class="availability-box hidden-site"><div><strong>Estamos preparando tu página</strong><span>Cuando tengamos algo listo para enseñarte, aquí aparecerá el botón para verlo.</span></div></div>`;
   }
 
   async function initProject() {
@@ -520,7 +528,7 @@
     document.title = `${project.name} | Excepcional Build`;
     $("#project-title").textContent = project.name;
     $("#project-subtitle").innerHTML = `<span class="status-badge ${statusClass(project.status)}">${safe(project.status)}</span>`;
-    $("#project-top-actions").innerHTML = `${siteAction(project)}<a class="button button-primary" href="cotizar.html">Cotizar otro proyecto</a>`;
+    $("#project-top-actions").innerHTML = siteAction(project);
     renderAvailability(project);
 
     const pos = stagePosition(project);
@@ -531,10 +539,10 @@
     }
 
     $("#project-details").innerHTML = [
-      ["Dirección web", project.domain || "Por definir"],
-      ["Tipo de dirección", project.address_type === "dominio" ? "Dominio personalizado" : "Enlace gratuito"],
+      ["Dirección de la página", project.domain || "Por definir"],
+      ["Tipo de dirección", project.address_type === "dominio" ? "Dominio propio" : "Enlace gratuito"],
       ["Alojamiento", project.hosting_type === "hostinger" ? "Especializado" : "Gratuito"],
-      ["Proyecto creado", date(project.created_at)]
+      ["Fecha de inicio", date(project.created_at)]
     ].map(([a,b]) => `<div class="detail"><span>${a}</span><strong>${safe(b)}</strong></div>`).join("");
 
     const briefForm = $("#project-brief-form");
@@ -558,7 +566,7 @@
         setStatus("#brief-status", briefError.message || "No pudimos guardar la información.", "error");
       } else {
         brief = savedBrief;
-        setStatus("#brief-status", "Información guardada. Puedes volver y actualizarla cuando quieras.", "success");
+        setStatus("#brief-status", "Listo. Guardamos la información.", "success");
       }
       button.disabled = false;
     });
@@ -577,7 +585,7 @@
     if (project.hosting_type === "cloudflare") types.push("hosting");
     $("#project-actions").innerHTML = types.map((type) => `<button class="action-card" type="button" data-request-type="${type}"><b>${requestLabels[type][0]}</b><span>${requestLabels[type][1]}</span></button>`).join("");
 
-    $("#quote-summary").innerHTML = quote ? `<div class="project-meta"><div><span>Pago inicial estimado</span><strong>${money(quote.initial_total)}</strong></div><div><span>Renovación anual</span><strong>${Number(quote.annual_renewal) > 0 ? money(quote.annual_renewal) : "Sin renovaciones"}</strong></div><div><span>Años calculados</span><strong>${quote.period_years || 1}</strong></div><div><span>Versión</span><strong>${quote.version}</strong></div></div><p style="margin:12px 0 0;color:var(--muted);font-size:11px;line-height:1.5">Estimación del ${date(quote.created_at)}. El precio definitivo se confirma antes de iniciar compras o trabajo adicional.</p>` : `<p style="color:var(--muted);font-size:12px">No hay una cotización guardada en este proyecto.</p>`;
+    $("#quote-summary").innerHTML = quote ? `<div class="project-meta"><div><span>Pago inicial estimado</span><strong>${money(quote.initial_total)}</strong></div><div><span>Renovación anual</span><strong>${Number(quote.annual_renewal) > 0 ? money(quote.annual_renewal) : "Sin renovación"}</strong></div></div><p style="margin:12px 0 0;color:var(--muted);font-size:11px;line-height:1.5">Cotización guardada el ${date(quote.created_at)}. Confirmaremos contigo cualquier cambio antes de cobrar.</p>` : `<p style="color:var(--muted);font-size:12px">Este proyecto todavía no tiene una cotización guardada.</p>`;
 
     $("#project-timeline").innerHTML = updates?.length
       ? updates.map((u) => `<article class="timeline-item"><h3>${safe(u.title)}</h3><p>${safe(u.description || "")}</p><time>${date(u.created_at)}</time></article>`).join("")
@@ -648,7 +656,9 @@
     } catch (error) {
       if (["AUTH_REDIRECT","PROFILE_REDIRECT"].includes(error.message)) return;
       console.error(error);
-      const message = error.message || "Ocurrió un problema al cargar el portal.";
+      const rawMessage = String(error?.message || "");
+      const technical = /supabase|postgres|postgrest|row level|jwt|relation|column|schema|fetch/i.test(rawMessage);
+      const message = technical ? "No pudimos cargar esta información. Intenta nuevamente en unos momentos." : (rawMessage || "Ocurrió un problema al cargar el portal.");
       const status = $("#auth-status") || $("#callback-status") || $("#profile-page-status") || $("#request-status");
       if (status) status.textContent = message;
       const grid = $("#projects-grid");

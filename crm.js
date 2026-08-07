@@ -123,12 +123,12 @@
 
   function renderClients(){
     const q=$("#client-search")?.value.toLowerCase().trim()||"";
-    const visible=state.clients.filter(c=>`${c.full_name} ${c.email} ${c.phone} ${c.business_name}`.toLowerCase().includes(q));
+    const visible=state.clients.filter(c=>`${c.full_name} ${c.email} ${c.phone} ${c.location}`.toLowerCase().includes(q));
     $("#clients-grid").innerHTML=visible.length?visible.map(c=>{
       const count=projectsForClient(c.id).length; const published=projectsForClient(c.id).filter(p=>p.site_visibility==="public").length;
       const avatar=c.avatar_url?`<img src="${esc(c.avatar_url)}" alt="">`:esc((c.full_name||c.email||"EB").split(/\s+/).map(x=>x[0]).join("").slice(0,2).toUpperCase());
       const wa = c.phone ? `https://wa.me/52${phoneDigits(c.phone).replace(/^52/,"")}` : "";
-      return `<article class="client-card"><div class="client-card-top"><div class="client-avatar">${avatar}</div><div><h3>${esc(c.full_name||"Cliente")}</h3><p>${esc(c.email||"")}</p></div></div><div class="client-meta"><div><span>WhatsApp</span><strong>${esc(c.phone||"—")}</strong></div><div><span>Negocio</span><strong>${esc(c.business_name||"—")}</strong></div><div><span>Proyectos</span><strong>${count}</strong></div><div><span>Publicados</span><strong>${published}</strong></div></div><div class="row-actions" style="margin-top:12px">${wa?`<a class="link-btn" href="${wa}" target="_blank" rel="noopener">WhatsApp</a>`:""}<button class="tiny-btn" data-client-projects="${c.id}">Ver proyectos</button></div></article>`;
+      return `<article class="client-card"><div class="client-card-top"><div class="client-avatar">${avatar}</div><div><h3>${esc(c.full_name||"Cliente")}</h3><p>${esc(c.email||"")}</p></div></div><div class="client-meta"><div><span>WhatsApp</span><strong>${esc(c.phone||"—")}</strong></div><div><span>Ubicación</span><strong>${esc(c.location||"—")}</strong></div><div><span>Proyectos</span><strong>${count}</strong></div><div><span>Publicados</span><strong>${published}</strong></div></div><div class="row-actions" style="margin-top:12px">${wa?`<a class="link-btn" href="${wa}" target="_blank" rel="noopener">WhatsApp</a>`:""}<button class="tiny-btn" data-client-projects="${c.id}">Ver proyectos</button></div></article>`;
     }).join(""):`<div class="empty">Todavía no hay cuentas de clientes.</div>`;
   }
 
