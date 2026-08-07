@@ -2,669 +2,418 @@
   "use strict";
 
   const page = document.body?.dataset.portalPage;
-  const portal = window.EBPortal || { configured: false, configError: "Supabase no está configurado." };
+  const portal = window.EBPortal || { configured:false, configError:"El portal no está disponible." };
   const db = portal.client;
   const WHATSAPP = "529811332914";
   const CLAIM_KEY = "eb_project_claim";
+  const CONSULTAR_ENDPOINT = "https://scaebulgcuvqpucondws.supabase.co/functions/v1/consultar-dominio";
 
-  const $ = (selector, root = document) => root.querySelector(selector);
-  const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
-  const safe = (value = "") => String(value).replace(/[&<>'"]/g, (char) => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[char]));
-  const money = (value) => value == null || value === "" || Number.isNaN(Number(value)) ? "Por confirmar" : new Intl.NumberFormat("es-MX", { style:"currency", currency:"MXN" }).format(Number(value));
-  const date = (value) => value ? new Intl.DateTimeFormat("es-MX", { day:"numeric", month:"short", year:"numeric" }).format(new Date(value)) : "—";
+  const $ = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => [...r.querySelectorAll(s)];
+  const safe = (v="") => String(v ?? "").replace(/[&<>'"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
   const getParam = (name) => new URLSearchParams(location.search).get(name);
   const currentFile = () => location.pathname.split("/").pop() || "panel.html";
+  const digits = (v) => String(v||"").replace(/\D/g, "");
+  const money = (v) => v == null || v === "" || Number.isNaN(Number(v)) ? "—" : new Intl.NumberFormat("es-MX", {style:"currency",currency:"MXN"}).format(Number(v));
+  const date = (v) => v ? new Intl.DateTimeFormat("es-MX", {day:"numeric",month:"short",year:"numeric"}).format(new Date(v)) : "—";
+  const stageKey = (p) => String(p?.project_stage || p?.status || "").toLowerCase();
 
-  const pendingQuote = () => {
-    try { return JSON.parse(localStorage.getItem(portal.pendingQuoteKey || "eb_pending_quote") || "null"); }
-    catch (_) { return null; }
-  };
-  const clearPendingQuote = () => localStorage.removeItem(portal.pendingQuoteKey || "eb_pending_quote");
-  const pendingClaim = () => {
-    try { return JSON.parse(localStorage.getItem(CLAIM_KEY) || "null"); }
-    catch (_) { return null; }
-  };
-  const clearPendingClaim = () => localStorage.removeItem(CLAIM_KEY);
-
-  function captureClaimFromUrl() {
-    const id = getParam("claim");
-    const token = getParam("token");
-    if (!id || !token) return;
-    localStorage.setItem(CLAIM_KEY, JSON.stringify({ id, token }));
+  function friendlyError(error, fallback="No pudimos completar esta acción.") {
+    const raw = String(error?.message || "");
+    if (!raw) return fallback;
+    if (/supabase|postgres|postgrest|row level|jwt|relation|column|schema|fetch|networkerror|failed to fetch/i.test(raw)) return fallback;
+    return raw;
   }
-
-  function showConfigWarning() {
-    const el = $("#config-warning");
-    if (el) {
-      el.hidden = false;
-      el.textContent = "El portal no está disponible en este momento. Intenta nuevamente más tarde.";
-    }
+  function setStatus(selector, text, tone="") {
+    const el=$(selector); if(!el) return;
+    el.textContent=text; el.className=`form-status${tone?` ${tone}`:""}`;
   }
-
-  function setStatus(selector, text, tone = "") {
-    const el = $(selector);
-    if (!el) return;
-    el.textContent = text;
-    el.className = `form-status${tone ? ` ${tone}` : ""}`;
+  function statusClass(status="") {
+    const s=String(status).toLowerCase();
+    if(/publicad|entregad|mantenimiento/.test(s)) return "status-live";
+    if(/producción|produccion|desarrollo|constru/.test(s)) return "status-progress";
+    if(/revisión|revision|revisar/.test(s)) return "status-review";
+    if(/información|informacion|contenido|esperando/.test(s)) return "status-waiting";
+    if(/cancelad|descartad/.test(s)) return "status-cancelled";
+    return "";
   }
-
-  function statusClass(status = "") {
-    const s = String(status).toLowerCase();
-    if (/publicado|mantenimiento|entregado/.test(s)) return "status-live";
-    if (/desarrollo|revisar|aprobado|contenido/.test(s)) return "status-progress";
-    if (/esperando|pendiente/.test(s)) return "status-waiting";
-    if (/cancelado|descartado/.test(s)) return "status-cancelled";
-    if (/revisión|solicitud|cotización/.test(s)) return "status-review";
+  function stageIndex(project) {
+    const s=stageKey(project);
+    if(/publicado|mantenimiento/.test(s)) return 4;
+    if(/revisión|revision/.test(s)) return 3;
+    if(/producción|produccion|desarrollo/.test(s)) return 2;
+    if(/información|informacion|contenido/.test(s)) return 1;
+    return 0;
+  }
+  function nextStepText(project) {
+    const i=stageIndex(project);
+    if(i===0) return ["Configura tu página","Elige la dirección y cómo la vamos a publicar."];
+    if(i===1) return ["Envíanos la información del negocio","Completa los datos, fotos y archivos que usaremos."];
+    if(i===2) return ["Estamos construyendo tu página","Por ahora no necesitas hacer nada."];
+    if(i===3) return ["Revisa tu página","Mira la vista previa y dinos si quieres cambiar algo."];
+    return ["Tu página está publicada","Puedes pedir cambios o mantenimiento cuando lo necesites."];
+  }
+  function projectPrimaryHref(project) {
+    if(stageIndex(project)===0) return `cotizar.html?project=${encodeURIComponent(project.id)}`;
+    return `proyecto.html?id=${encodeURIComponent(project.id)}`;
+  }
+  function projectPrimaryLabel(project) {
+    const i=stageIndex(project);
+    return ["Configurar ahora","Completar información","Ver avance","Revisar página","Abrir proyecto"][i] || "Abrir proyecto";
+  }
+  function siteAction(project, label) {
+    if(project.site_visibility === "public" && project.site_url) return `<a class="button button-primary" href="${safe(project.site_url)}" target="_blank" rel="noopener">${safe(label||"Abrir mi página")} ↗</a>`;
+    if(project.site_visibility === "preview" && (project.preview_url || project.site_url)) return `<a class="button button-primary" href="${safe(project.preview_url || project.site_url)}" target="_blank" rel="noopener">${safe(label||"Ver avance")} ↗</a>`;
     return "";
   }
 
-  function profileFromUser(user) {
-    const meta = user?.user_metadata || {};
-    return {
-      id: user.id,
-      full_name: meta.full_name || meta.name || "",
-      email: user.email || "",
-      phone: meta.phone || "",
-      location: "",
-      avatar_url: meta.avatar_url || meta.picture || "",
-      onboarding_completed: false
-    };
+  function captureClaimFromUrl() {
+    const id=getParam("claim"), token=getParam("token");
+    if(id && token) localStorage.setItem(CLAIM_KEY, JSON.stringify({id,token}));
   }
+  function pendingClaim() {
+    try { return JSON.parse(localStorage.getItem(CLAIM_KEY) || "null"); } catch { return null; }
+  }
+  function clearClaim(){ localStorage.removeItem(CLAIM_KEY); }
 
+  function profileFromUser(user) {
+    const meta=user?.user_metadata||{};
+    return {id:user.id,full_name:meta.full_name||meta.name||"",email:user.email||"",phone:meta.phone||"",location:"",avatar_url:meta.avatar_url||meta.picture||"",onboarding_completed:false};
+  }
   async function getSession() {
-    if (!portal.configured) return null;
+    if(!portal.configured) return null;
     return (await db.auth.getSession()).data.session;
   }
-
   async function requireSession() {
-    const session = await getSession();
-    if (!session) {
-      localStorage.setItem(portal.authNextKey, `${currentFile()}${location.search}`);
-      location.replace("acceso.html");
-      throw new Error("AUTH_REDIRECT");
-    }
+    const session=await getSession();
+    if(!session){ localStorage.setItem(portal.authNextKey, `${currentFile()}${location.search}`); location.replace("acceso.html"); throw new Error("AUTH_REDIRECT"); }
     return session;
   }
-
   async function getProfile(user) {
-    const { data, error } = await db.from("client_profiles").select("*").eq("id", user.id).maybeSingle();
-    if (error) throw error;
+    const {data,error}=await db.from("client_profiles").select("*").eq("id",user.id).maybeSingle();
+    if(error) throw error;
     return data || profileFromUser(user);
   }
-
   async function upsertProfile(values) {
-    const { data, error } = await db.from("client_profiles").upsert(values, { onConflict: "id" }).select().single();
-    if (error) throw error;
-    return data;
+    const {data,error}=await db.from("client_profiles").upsert(values,{onConflict:"id"}).select().single();
+    if(error) throw error; return data;
   }
-
-  function fillUserUI(profile, user) {
-    $$('[data-user-name]').forEach((el) => el.textContent = profile.full_name || "Cliente");
-    $$('[data-user-email]').forEach((el) => el.textContent = user.email || "");
-    $$('[data-avatar]').forEach((el) => {
-      const avatar = profile.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture;
-      el.innerHTML = avatar
-        ? `<img src="${safe(avatar)}" alt="">`
-        : safe((profile.full_name || user.email || "EB").split(/\s+/).map((x) => x[0]).join("").slice(0,2).toUpperCase());
+  function fillUserUI(profile,user) {
+    $$('[data-user-name]').forEach(el=>el.textContent=profile.full_name||"Cliente");
+    $$('[data-user-email]').forEach(el=>el.textContent=user.email||"");
+    $$('[data-avatar]').forEach(el=>{
+      const avatar=profile.avatar_url||user.user_metadata?.avatar_url||user.user_metadata?.picture;
+      el.innerHTML=avatar?`<img src="${safe(avatar)}" alt="">`:safe((profile.full_name||user.email||"EB").split(/\s+/).map(x=>x[0]).join("").slice(0,2).toUpperCase());
     });
   }
-
   async function loadContext() {
-    const session = await requireSession();
-    const profile = await getProfile(session.user);
-    if (!profile.onboarding_completed) {
-      localStorage.setItem(portal.authNextKey, `${currentFile()}${location.search}`);
-      location.replace("acceso.html?complete=1");
-      throw new Error("PROFILE_REDIRECT");
-    }
-    fillUserUI(profile, session.user);
-    return { session, profile };
+    const session=await requireSession();
+    const profile=await getProfile(session.user);
+    if(!profile.onboarding_completed){ localStorage.setItem(portal.authNextKey, `${currentFile()}${location.search}`); location.replace("acceso.html?complete=1"); throw new Error("PROFILE_REDIRECT"); }
+    fillUserUI(profile,session.user); return {session,profile};
   }
-
-  async function logout() {
-    await db.auth.signOut();
-    location.assign("acceso.html");
-  }
-  $$('[data-logout]').forEach((button) => button.addEventListener("click", logout));
+  async function logout(){ await db.auth.signOut(); location.assign("acceso.html"); }
+  $$('[data-logout]').forEach(btn=>btn.addEventListener("click",logout));
 
   async function claimPendingProject() {
-    const claim = pendingClaim();
-    if (!claim) return null;
-    const { data, error } = await db.rpc("claim_client_project", {
-      p_project_id: claim.id,
-      p_token: claim.token
-    });
-    if (error) throw error;
-    clearPendingClaim();
-    return data || claim.id;
+    const claim=pendingClaim(); if(!claim) return null;
+    const {data,error}=await db.rpc("claim_client_project",{p_project_id:claim.id,p_token:claim.token});
+    if(error) throw error; clearClaim(); return data||claim.id;
   }
-
-  async function createProjectFromPending(user) {
-    const quote = pendingQuote();
-    if (!quote) return null;
-
-    let project = null;
-    if (quote.quote_ref) {
-      const { data: existing, error: existingError } = await db
-        .from("client_projects")
-        .select("*")
-        .eq("quote_ref", quote.quote_ref)
-        .maybeSingle();
-      if (existingError) throw existingError;
-      project = existing;
-    }
-
-    if (!project) {
-      const { data, error } = await db.from("client_projects").insert({
-        user_id: user.id,
-        name: quote.project_name || "Nuevo sitio web",
-        status: "Solicitud en revisión",
-        project_stage: "Cotización",
-        site_visibility: "hidden",
-        site_url: null,
-        preview_url: null,
-        address_type: quote.address_type,
-        domain: quote.address || quote.domain || null,
-        hosting_type: quote.hosting_type,
-        quote_ref: quote.quote_ref,
-        source_prospect_id: quote.source_ref || null,
-        claim_token: null,
-        total_price: quote.initial_total,
-        client_note: "Recibimos tu cotización. La revisaremos antes de confirmar precio, tiempos y cualquier servicio adicional."
-      }).select().single();
-      if (error) throw error;
-      project = data;
-    }
-
-    const { data: existingQuote, error: quoteLookupError } = await db
-      .from("client_quotes")
-      .select("id")
-      .eq("project_id", project.id)
-      .limit(1)
-      .maybeSingle();
-    if (quoteLookupError) throw quoteLookupError;
-
-    if (!existingQuote) {
-      const { error: quoteError } = await db.from("client_quotes").insert({
-        project_id: project.id,
-        user_id: user.id,
-        version: 1,
-        creation_price: quote.creation_price,
-        domain_first_year: quote.domain_first_year,
-        domain_renewal: quote.domain_renewal,
-        hosting_first_year: quote.hosting_first_year,
-        hosting_renewal: quote.hosting_renewal,
-        initial_total: quote.initial_total,
-        annual_renewal: quote.annual_renewal,
-        period_total: quote.period_total,
-        period_years: quote.period_years,
-        quote_data: quote
-      });
-      if (quoteError) throw quoteError;
-    }
-
-    clearPendingQuote();
-    return project;
-  }
-
-  async function finishPendingAndRedirect(session, fallback = "panel.html") {
-    const claim = pendingClaim();
-    if (claim) {
-      const projectId = await claimPendingProject();
-      location.replace(`proyecto.html?id=${encodeURIComponent(projectId)}`);
-      return;
-    }
-
-    const quote = pendingQuote();
-    if (quote) {
-      const project = await createProjectFromPending(session.user);
-      location.replace(`proyecto.html?id=${encodeURIComponent(project.id)}`);
-      return;
-    }
-
-    const next = portal.normalizeNext(localStorage.getItem(portal.authNextKey), fallback);
-    localStorage.removeItem(portal.authNextKey);
-    location.replace(next || fallback);
-  }
-
-  function updateAccessContext() {
-    const box = $("#access-context");
-    if (!box) return;
-    const claim = pendingClaim();
-    const quote = pendingQuote();
-    if (claim) {
-      box.hidden = false;
-      box.innerHTML = "<strong>Tienes una invitación a un proyecto.</strong><br>Inicia sesión con Google y lo agregaremos automáticamente a tu cuenta.";
-    } else if (quote) {
-      box.hidden = false;
-      box.innerHTML = `<strong>Tu cotización está lista.</strong><br>Inicia sesión para guardar <b>${safe(quote.project_name || "tu proyecto")}</b> y darle seguimiento.`;
-    }
+  async function finishAccess(session) {
+    const claim=pendingClaim();
+    if(claim){ const id=await claimPendingProject(); location.replace(`proyecto.html?id=${encodeURIComponent(id)}`); return; }
+    const next=portal.normalizeNext(localStorage.getItem(portal.authNextKey),"panel.html");
+    localStorage.removeItem(portal.authNextKey); location.replace(next||"panel.html");
   }
 
   async function initAccess() {
     captureClaimFromUrl();
-    updateAccessContext();
-    if (!portal.configured) {
-      showConfigWarning();
-      if ($("#google-login")) $("#google-login").disabled = true;
-      return;
-    }
-
-    const session = await getSession();
-    const loginView = $("#login-view");
-    const profileView = $("#profile-view");
-
-    if (session) {
-      const profile = await getProfile(session.user);
-      if (profile.onboarding_completed) {
-        await finishPendingAndRedirect(session);
-        return;
-      }
-
-      loginView.hidden = true;
-      profileView.hidden = false;
-      const form = $("#onboarding-form");
-      form.full_name.value = profile.full_name || session.user.user_metadata?.full_name || session.user.user_metadata?.name || "";
-      form.email.value = session.user.email || "";
-      form.phone.value = profile.phone || "";
-      form.location.value = profile.location || "";
-
-      form.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const fd = new FormData(form);
-        const fullName = String(fd.get("full_name") || "").trim();
-        const phone = String(fd.get("phone") || "").replace(/\D/g, "");
-        if (!fullName || phone.length < 10) {
-          setStatus("#profile-status", "Escribe tu nombre completo y un WhatsApp válido.", "error");
-          return;
-        }
-        const button = form.querySelector('button[type="submit"]');
-        button.disabled = true;
-        setStatus("#profile-status", "Guardando tu perfil…");
-        try {
-          await upsertProfile({
-            id: session.user.id,
-            full_name: fullName,
-            email: session.user.email,
-            phone,
-            location: String(fd.get("location") || "").trim(),
-            avatar_url: profile.avatar_url || session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture || null,
-            onboarding_completed: true,
-            updated_at: new Date().toISOString()
-          });
-          setStatus("#profile-status", "Perfil confirmado.", "success");
-          await finishPendingAndRedirect(session);
-        } catch (error) {
-          setStatus("#profile-status", error.message || "No pudimos guardar tu perfil.", "error");
-          button.disabled = false;
-        }
+    if(!portal.configured){ $("#config-warning").hidden=false; $("#config-warning").textContent="El acceso no está disponible en este momento."; $("#google-login").disabled=true; return; }
+    const claim=pendingClaim();
+    if(claim){ const box=$("#access-context"); box.hidden=false; box.innerHTML="<strong>Tu proyecto ya está preparado.</strong><br>Entra con Google para activarlo y continuar."; }
+    const session=await getSession();
+    const login=$("#login-view"), profileView=$("#profile-view");
+    if(session){
+      const profile=await getProfile(session.user);
+      if(profile.onboarding_completed){ await finishAccess(session); return; }
+      login.hidden=true; profileView.hidden=false;
+      const form=$("#onboarding-form");
+      form.full_name.value=profile.full_name||session.user.user_metadata?.full_name||session.user.user_metadata?.name||"";
+      form.phone.value=profile.phone||""; form.location.value=profile.location||""; form.email.value=session.user.email||"";
+      form.addEventListener("submit",async e=>{
+        e.preventDefault();
+        const fd=new FormData(form), full=String(fd.get("full_name")||"").trim(), phone=digits(fd.get("phone"));
+        if(full.length<3||phone.length<10){ setStatus("#profile-status","Escribe tu nombre completo y un WhatsApp válido.","error"); return; }
+        const button=form.querySelector('button[type="submit"]'); button.disabled=true; setStatus("#profile-status","Guardando…");
+        try{
+          await upsertProfile({id:session.user.id,full_name:full,email:session.user.email||"",phone,location:String(fd.get("location")||"").trim()||null,avatar_url:profile.avatar_url||session.user.user_metadata?.avatar_url||session.user.user_metadata?.picture||null,onboarding_completed:true});
+          setStatus("#profile-status","Listo.","success"); await finishAccess(session);
+        }catch(err){ setStatus("#profile-status",friendlyError(err,"No pudimos guardar tus datos."),"error"); button.disabled=false; }
       });
       return;
     }
-
-    $("#google-login")?.addEventListener("click", async () => {
-      const button = $("#google-login");
-      button.disabled = true;
-      setStatus("#auth-status", "Abriendo Google…");
-      const next = getParam("next") || "panel.html";
-      localStorage.setItem(portal.authNextKey, next);
-      const { error } = await db.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo: portal.callbackUrl(), scopes: "openid email profile" }
-      });
-      if (error) {
-        setStatus("#auth-status", error.message, "error");
-        button.disabled = false;
-      }
+    $("#google-login").addEventListener("click",async()=>{
+      const button=$("#google-login"); button.disabled=true; setStatus("#auth-status","Abriendo Google…");
+      const {error}=await db.auth.signInWithOAuth({provider:"google",options:{redirectTo:portal.callbackUrl(),scopes:"openid email profile"}});
+      if(error){ setStatus("#auth-status","No pudimos abrir Google. Intenta nuevamente.","error"); button.disabled=false; }
     });
   }
-
   async function initCallback() {
-    if (!portal.configured) { showConfigWarning(); return; }
-    const status = $("#callback-status");
-    try {
-      let session = await getSession();
-      const code = getParam("code");
-      if (!session && code) {
-        status.textContent = "Confirmando tu acceso…";
-        const { error } = await db.auth.exchangeCodeForSession(code);
-        if (error) throw error;
-        session = await getSession();
-      }
-      if (!session) throw new Error("No se pudo crear la sesión. Vuelve a intentarlo.");
-      const profile = await getProfile(session.user);
-      if (!profile.onboarding_completed) {
-        location.replace("acceso.html?complete=1");
-        return;
-      }
-      status.textContent = "Cuenta confirmada. Preparando tus proyectos…";
-      await finishPendingAndRedirect(session);
-    } catch (error) {
-      status.textContent = error.message || "No se pudo completar el acceso.";
-    }
-  }
-
-  function projectIsLive(project) {
-    return project.site_visibility === "public" && Boolean(project.site_url);
-  }
-
-  function projectIsActive(project) {
-    return !projectIsLive(project) && !/cancelado|descartado/i.test(project.status || "");
-  }
-
-  function friendlyProjectStatus(project) {
-    const raw = `${project.project_stage || ""} ${project.status || ""}`.toLowerCase();
-    if (project.site_visibility === "public" && project.site_url) return "Tu página ya está publicada y lista para compartir.";
-    if (project.site_visibility === "preview" && (project.preview_url || project.site_url)) return "Ya tienes un avance disponible para revisar.";
-    if (/cancelado|descartado/.test(raw)) return "Este proyecto no está activo en este momento.";
-    if (/esperando|contenido|información/.test(raw)) return "Necesitamos algunos datos tuyos para poder continuar.";
-    if (/desarrollo|revisión|revisar/.test(raw)) return "Estamos trabajando en tu página.";
-    if (/aprobado|aceptado|anticipo/.test(raw)) return "Tu proyecto está aprobado y listo para avanzar.";
-    return "Recibimos tu solicitud y la estamos revisando.";
-  }
-
-  function siteAction(project, compact = false) {
-    const cls = compact ? "button button-light button-small" : "button button-light";
-    if (project.site_visibility === "public" && project.site_url) {
-      return `<a class="${cls}" href="${safe(project.site_url)}" target="_blank" rel="noopener">Abrir mi página</a>`;
-    }
-    if (project.site_visibility === "preview" && (project.preview_url || project.site_url)) {
-      return `<a class="${cls}" href="${safe(project.preview_url || project.site_url)}" target="_blank" rel="noopener">Ver avance</a>`;
-    }
-    return "";
+    if(!portal.configured) return;
+    const status=$("#callback-status");
+    try{
+      let session=await getSession(); const code=getParam("code");
+      if(!session&&code){ status.textContent="Confirmando tu acceso…"; const {error}=await db.auth.exchangeCodeForSession(code); if(error) throw error; session=await getSession(); }
+      if(!session) throw new Error("No pudimos confirmar el acceso.");
+      const profile=await getProfile(session.user);
+      if(!profile.onboarding_completed){ location.replace("acceso.html?complete=1"); return; }
+      status.textContent="Listo. Abriendo tu proyecto…"; await finishAccess(session);
+    }catch(err){ status.textContent=friendlyError(err,"No pudimos completar el acceso. Vuelve a intentarlo."); }
   }
 
   async function initPanel() {
-    if (!portal.configured) { location.replace("acceso.html"); return; }
-    const { session, profile } = await loadContext();
-    $('[data-side="projects"]')?.classList.add("active");
-    $("#panel-first-name").textContent = (profile.full_name || "cliente").split(/\s+/)[0];
-
-    const banner = $("#pending-banner");
-    if (pendingQuote()) banner.hidden = false;
-    $("#save-pending-quote")?.addEventListener("click", async () => {
-      const btn = $("#save-pending-quote");
-      btn.disabled = true;
-      btn.textContent = "Guardando…";
-      try {
-        const project = await createProjectFromPending(session.user);
-        location.assign(`proyecto.html?id=${encodeURIComponent(project.id)}`);
-      } catch (error) {
-        alert(error.message || "No se pudo guardar la cotización.");
-        btn.disabled = false;
-        btn.textContent = "Guardar cotización";
-      }
-    });
-
-    const [{ data: projects, error }, { data: requests }] = await Promise.all([
-      db.from("client_projects").select("*").order("created_at", { ascending: false }),
-      db.from("client_requests").select("id,status").neq("status", "Cerrada")
-    ]);
-    if (error) throw error;
-
-    $("#stat-projects").textContent = projects.length;
-    $("#stat-active").textContent = projects.filter(projectIsActive).length;
-    $("#stat-live").textContent = projects.filter(projectIsLive).length;
-    $("#stat-requests").textContent = requests?.filter((r) => !/cerrada|resuelta/i.test(r.status || "")).length || 0;
-
-    const grid = $("#projects-grid");
-    let filter = "all";
-
-    const render = () => {
-      const visible = projects.filter((project) => filter === "all" || (filter === "active" ? projectIsActive(project) : projectIsLive(project)));
-      if (!visible.length) {
-        grid.innerHTML = `<div class="empty-card" style="grid-column:1/-1"><h3>${projects.length ? "No hay proyectos en esta categoría" : "Aún no tienes proyectos"}</h3><p>${projects.length ? "Prueba otra vista." : "Cuando guardes una cotización o recibas una invitación, aparecerá aquí."}</p>${projects.length ? "" : '<a class="button button-primary" href="cotizar.html">Cotizar mi primera página</a>'}</div>`;
-        return;
-      }
-      grid.innerHTML = visible.map((project) => `
-        <article class="project-card">
-          <div class="project-card-top"><span class="status-badge ${statusClass(project.status)}">${safe(project.status || "En revisión")}</span><small>${date(project.created_at)}</small></div>
-          <h3>${safe(project.name)}</h3>
-          <p>${safe(project.domain || "La dirección se definirá más adelante")}</p>
-          <p class="project-friendly-status">${safe(friendlyProjectStatus(project))}</p>
-          <div class="project-meta"><div><span>En qué vamos</span><strong>${safe(project.project_stage || "Cotización")}</strong></div><div><span>Publicación</span><strong>${project.site_visibility === "public" ? "Página disponible" : project.site_visibility === "preview" ? "Avance disponible" : "Todavía no disponible"}</strong></div></div>
-          <div class="card-actions"><a class="button button-primary button-small" href="proyecto.html?id=${encodeURIComponent(project.id)}">Abrir proyecto</a>${siteAction(project, true)}</div>
-        </article>`).join("");
-    };
-
-    $$("#project-filters [data-filter]").forEach((button) => {
-      button.addEventListener("click", () => {
-        filter = button.dataset.filter;
-        $$("#project-filters [data-filter]").forEach((b) => b.classList.toggle("active", b === button));
-        render();
-      });
-    });
-    render();
+    const {profile}=await loadContext();
+    $("#panel-first-name").textContent=(profile.full_name||"cliente").split(/\s+/)[0];
+    const {data:projects,error}=await db.from("client_projects").select("*").order("created_at",{ascending:false});
+    if(error) throw error;
+    const grid=$("#projects-grid");
+    if(!projects?.length){ grid.innerHTML=`<div class="empty-card empty-card-wide"><div class="empty-icon">○</div><h3>Todavía no tienes proyectos</h3><p>Cuando aceptes una página con nosotros, aparecerá aquí.</p><a class="button button-light" href="https://wa.me/${WHATSAPP}" target="_blank" rel="noopener">Hablar por WhatsApp</a></div>`; return; }
+    const actionable=projects.find(p=>stageIndex(p)<4 && !/cancelad/i.test(stageKey(p)));
+    if(actionable){ const box=$("#panel-next-step"), [title,copy]=nextStepText(actionable); box.hidden=false; box.innerHTML=`<div class="next-step-icon">→</div><div><span>Lo siguiente</span><strong>${safe(title)}</strong><p>${safe(copy)}</p></div><a class="button button-primary" href="${projectPrimaryHref(actionable)}">Continuar</a>`; }
+    grid.innerHTML=projects.map(p=>{
+      const [title,copy]=nextStepText(p), url=projectPrimaryHref(p), action=projectPrimaryLabel(p);
+      const publicBadge=p.site_visibility==="public"?"Página publicada":p.site_visibility==="preview"?"Vista previa lista":title;
+      return `<article class="project-card-simple"><a class="project-card-main" href="${url}"><div class="project-card-icon">${stageIndex(p)===4?"✓":"EB"}</div><div class="project-card-copy"><span class="status-badge ${statusClass(p.status)}">${safe(publicBadge)}</span><h3>${safe(p.name)}</h3><p>${safe(copy)}</p><small>${safe(p.domain||"Dirección por definir")}</small></div><span class="project-chevron">›</span></a><div class="project-card-footer"><span>${date(p.created_at)}</span><a href="${url}">${safe(action)} →</a></div></article>`;
+    }).join("");
   }
 
   async function initProfile() {
-    if (!portal.configured) { location.replace("acceso.html"); return; }
-    const { session, profile } = await loadContext();
-    $('[data-side="profile"]')?.classList.add("active");
-    const form = $("#profile-form");
-    ["full_name","email","phone","location"].forEach((name) => {
-      if (form[name]) form[name].value = name === "email" ? session.user.email || "" : profile[name] || "";
-    });
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const fd = new FormData(form);
-      const button = form.querySelector('button[type="submit"]');
-      const phone = String(fd.get("phone") || "").replace(/\D/g, "");
-      if (phone.length < 10) { setStatus("#profile-page-status", "Escribe un WhatsApp válido.", "error"); return; }
-      button.disabled = true;
-      try {
-        const saved = await upsertProfile({
-          id: session.user.id,
-          full_name: String(fd.get("full_name") || "").trim(),
-          email: session.user.email,
-          phone,
-          location: String(fd.get("location") || "").trim(),
-          avatar_url: profile.avatar_url,
-          onboarding_completed: true,
-          updated_at: new Date().toISOString()
-        });
-        fillUserUI(saved, session.user);
-        setStatus("#profile-page-status", "Cambios guardados.", "success");
-      } catch (error) {
-        setStatus("#profile-page-status", error.message || "No pudimos guardar los cambios.", "error");
-      } finally {
-        button.disabled = false;
-      }
+    const {session,profile}=await loadContext(); const form=$("#profile-form");
+    ["full_name","phone","location"].forEach(n=>{ if(form[n]) form[n].value=profile[n]||""; }); form.email.value=session.user.email||"";
+    form.addEventListener("submit",async e=>{
+      e.preventDefault(); const fd=new FormData(form), full=String(fd.get("full_name")||"").trim(), phone=digits(fd.get("phone"));
+      if(full.length<3||phone.length<10){setStatus("#profile-page-status","Revisa tu nombre y WhatsApp.","error");return;}
+      const b=form.querySelector('button[type="submit"]'); b.disabled=true; setStatus("#profile-page-status","Guardando…");
+      try{await upsertProfile({id:session.user.id,full_name:full,email:session.user.email||"",phone,location:String(fd.get("location")||"").trim()||null,avatar_url:profile.avatar_url,onboarding_completed:true});setStatus("#profile-page-status","Cambios guardados.","success");}
+      catch(err){setStatus("#profile-page-status",friendlyError(err,"No pudimos guardar los cambios."),"error");} finally{b.disabled=false;}
     });
   }
 
-  const requestLabels = {
-    mantenimiento:["Necesito mantenimiento","Revisar algo que no funciona o necesita atención."],
-    actualizar:["Quiero actualizar información","Cambiar textos, fotos, horarios, precios o datos."],
-    cambio:["Quiero hacer un cambio","Modificar una parte de mi página."],
-    mejorar:["Quiero agregar algo nuevo","Agregar una sección, función o mejora."],
-    dominio:["Quiero un dominio propio","Cambiar el enlace gratuito por una dirección como tunegocio.com."],
-    hosting:["Necesito funciones avanzadas","Revisar si mi proyecto necesita alojamiento especializado."]
+  function normalizeSiteName(raw) {
+    let value=String(raw||"").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+    value=value.replace(/^[a-z]+:\/\//,"").replace(/^www\./,"").split(/[/?#]/)[0].replace(/\s+/g,"-").replace(/[^a-z0-9-]/g,"").replace(/^-+|-+$/g,"");
+    return value.slice(0,63);
+  }
+  function normalizeDomain(raw) {
+    let value=String(raw||"").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+    value=value.replace(/^[a-z]+:\/\//,"").replace(/^www\./,"").split(/[/?#]/)[0].replace(/^\.+|\.+$/g,"");
+    if(!value)return ""; if(!value.includes("."))value+=".com";
+    return /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(value)?value:"";
+  }
+  async function fetchTimeout(url,ms=20000){const c=new AbortController(),t=setTimeout(()=>c.abort(),ms);try{return await fetch(url,{signal:c.signal});}finally{clearTimeout(t);}}
+  async function checkName(value,isDomain){
+    const url=`${CONSULTAR_ENDPOINT}?dominio=${encodeURIComponent(value)}`;
+    try{const r=await fetchTimeout(url); if(!r.ok)throw new Error(); const d=await r.json(); if(d?.ok!==true)throw new Error(); return {availability:d.disponible===true?"free":d.disponible===false?"taken":"unknown",price:d.precioDominio||null};}
+    catch{
+      const target=isDomain?value:`${value}.pages.dev`;
+      try{const r=await fetchTimeout(`https://dns.google/resolve?name=${encodeURIComponent(target)}&type=NS`,9000),d=await r.json();return {availability:d?.Status===3?"free":"taken",price:null};}catch{return {availability:"unknown",price:null};}
+    }
+  }
+
+  async function initConfigure() {
+    const {session}=await loadContext(); const id=getParam("project"); if(!id){location.replace("panel.html");return;}
+    const [{data:project,error},{data:setup,error:setupErr}]=await Promise.all([db.from("client_projects").select("*").eq("id",id).single(),db.from("client_project_setup").select("*").eq("project_id",id).maybeSingle()]);
+    if(error||setupErr) throw error||setupErr;
+    if(stageIndex(project)>=2){ location.replace(`proyecto.html?id=${encodeURIComponent(id)}`); return; }
+    $("#configure-project-name").textContent=project.name; $("#configure-price").textContent=money(project.total_price); $("#configure-payment").textContent=project.payment_method||"Acordado contigo";
+    $("#configure-back").href=`proyecto.html?id=${encodeURIComponent(id)}`; $("#configure-mobile-back").href=`proyecto.html?id=${encodeURIComponent(id)}`;
+    const form=$("#setup-form"), input=$("#setup-name"), checkBtn=$("#setup-check");
+    let verifiedValue="", domainPrice=null;
+    const initialAddress=setup?.address_type||project.address_type||"gratis", initialHosting=setup?.hosting_type||project.hosting_type||"cloudflare";
+    form.querySelector(`[name="address_type"][value="${initialAddress}"]`).checked=true;
+    form.querySelector(`[name="hosting_type"][value="${initialHosting}"]`).checked=true;
+    form.elements.special_features_note.value=setup?.special_features_note||"";
+    $("#setup-domain-owned").checked=Boolean(setup?.domain_owned);
+    input.value=initialAddress==="dominio"?(setup?.domain||(/\.pages\.dev$/.test(project.domain||"")?"":project.domain||"")):(setup?.site_name||String(project.domain||"").replace(/\.pages\.dev$/,""));
+    if(input.value) verifiedValue=initialAddress==="dominio"?normalizeDomain(input.value):normalizeSiteName(input.value);
+    domainPrice=setup?.domain_first_year!=null?{first_period_price:Number(setup.domain_first_year)*100,price:Number(setup.domain_renewal||setup.domain_first_year)*100,currency:"MXN"}:null;
+
+    function addressType(){return form.querySelector('[name="address_type"]:checked')?.value||"gratis";}
+    function hostingType(){return form.querySelector('[name="hosting_type"]:checked')?.value||"cloudflare";}
+    function updateSetupUI(){
+      const domain=addressType()==="dominio";
+      $("#setup-name-label").textContent=domain?"Nombre de tu dominio":"Nombre para tu enlace";
+      input.placeholder=domain?"Ej. abarroteslupita.com":"Ej. abarroteslupita";
+      $("#setup-name-help").textContent=domain?"Puedes escribir tunegocio.com o solo tunegocio.":"Quedará como tunegocio.pages.dev";
+      $("#special-note-wrap").hidden=hostingType()!=="hostinger";
+      $("#owned-domain-wrap").hidden=!domain;
+      if(!domain) $("#setup-domain-owned").checked=false;
+      if(hostingType()==="hostinger"&&addressType()==="gratis"){
+        const d=form.querySelector('[name="address_type"][value="dominio"]');d.checked=true;verifiedValue="";domainPrice=null;input.value="";$("#setup-domain-prices").hidden=true;setStatus("#setup-domain-status","Las funciones especiales requieren un dominio propio. Elige el nombre de tu dominio.");
+      }
+      renderSetupSummary();
+    }
+    function renderSetupSummary(){
+      const domain=addressType()==="dominio", host=hostingType()==="hostinger";
+      const name=domain?(normalizeDomain(input.value)||"Dominio por elegir"):(normalizeSiteName(input.value)?`${normalizeSiteName(input.value)}.pages.dev`:"Enlace por elegir");
+      const lines=[
+        ["Creación de tu página",money(project.total_price)||"Acordado"],
+        ["Dirección",name],
+        ["Alojamiento",host?"Funciones especiales · se cotiza aparte":"Incluido · sin costo anual"]
+      ];
+      if(domain&&domainPrice){const first=(domainPrice.first_period_price??domainPrice.price)/100,renew=(domainPrice.price??domainPrice.first_period_price)/100;lines.push(["Dominio · primer año",money(first)]);lines.push(["Renovación del dominio",money(renew)]);}
+      $("#setup-summary-lines").innerHTML=lines.map(([a,b])=>`<div><span>${safe(a)}</span><strong>${safe(b)}</strong></div>`).join("");
+    }
+    $$('[name="address_type"], [name="hosting_type"]',form).forEach(el=>el.addEventListener("change",updateSetupUI));
+    input.addEventListener("input",()=>{verifiedValue="";domainPrice=null;$("#setup-domain-prices").hidden=true;setStatus("#setup-domain-status","");renderSetupSummary();});
+    $("#setup-domain-owned").addEventListener("change",()=>{verifiedValue="";domainPrice=null;$("#setup-domain-prices").hidden=true;setStatus("#setup-domain-status","");renderSetupSummary();});
+    checkBtn.addEventListener("click",async()=>{
+      const isDomain=addressType()==="dominio", value=isDomain?normalizeDomain(input.value):normalizeSiteName(input.value);
+      if(!value){setStatus("#setup-domain-status",isDomain?"Escribe un dominio válido, por ejemplo tunegocio.com.":"Escribe un nombre corto sin espacios ni símbolos.","error");return;}
+      if(isDomain && $("#setup-domain-owned").checked){verifiedValue=value;domainPrice=null;$("#setup-domain-prices").hidden=true;setStatus("#setup-domain-status",`Usaremos ${value}. Después confirmaremos contigo cómo conectarlo.`,"success");renderSetupSummary();return;}
+      checkBtn.disabled=true;setStatus("#setup-domain-status","Comprobando…");
+      const result=await checkName(value,isDomain); checkBtn.disabled=false;
+      if(result.availability==="taken"){verifiedValue="";setStatus("#setup-domain-status",`${isDomain?value:`${value}.pages.dev`} ya está en uso. Prueba otro nombre.`,"error");return;}
+      verifiedValue=value; domainPrice=isDomain?result.price:null;
+      if(isDomain&&domainPrice){const first=(domainPrice.first_period_price??domainPrice.price)/100,renew=(domainPrice.price??domainPrice.first_period_price)/100;$("#setup-domain-first").textContent=money(first);$("#setup-domain-renew").textContent=money(renew);$("#setup-domain-prices").hidden=false;}
+      const msg=result.availability==="free"?`${isDomain?value:`${value}.pages.dev`} está disponible.`:`Anotamos ${isDomain?value:`${value}.pages.dev`}. Confirmaremos la disponibilidad antes de publicar.`;
+      setStatus("#setup-domain-status",msg,"success");renderSetupSummary();
+    });
+    form.addEventListener("submit",async e=>{
+      e.preventDefault(); const isDomain=addressType()==="dominio", current=isDomain?normalizeDomain(input.value):normalizeSiteName(input.value);
+      if(!current){setStatus("#setup-status","Primero escribe el nombre de tu página.","error");return;}
+      if(!verifiedValue||verifiedValue!==current){setStatus("#setup-status","Pulsa “Verificar” para confirmar el nombre antes de continuar.","error");return;}
+      if(hostingType()==="hostinger"&&!isDomain){setStatus("#setup-status","Las funciones especiales necesitan dominio propio.","error");return;}
+      const button=form.querySelector('button[type="submit"]');button.disabled=true;setStatus("#setup-status","Guardando tu configuración…");
+      try{
+        const first=isDomain&&domainPrice?(domainPrice.first_period_price??domainPrice.price)/100:null, renew=isDomain&&domainPrice?(domainPrice.price??domainPrice.first_period_price)/100:null;
+        const payload={project_id:id,user_id:session.user.id,address_type:isDomain?"dominio":"gratis",site_name:isDomain?null:current,domain:isDomain?current:null,domain_owned:isDomain&&$("#setup-domain-owned").checked,domain_first_year:first,domain_renewal:renew,hosting_type:hostingType(),special_features_note:String(form.elements.special_features_note.value||"").trim()||null};
+        const {error:saveErr}=await db.from("client_project_setup").upsert(payload,{onConflict:"project_id"});if(saveErr)throw saveErr;
+        const {error:applyErr}=await db.rpc("client_apply_project_setup",{p_project_id:id});if(applyErr)throw applyErr;
+        setStatus("#setup-status","Listo. Ahora necesitamos la información de tu negocio.","success");location.assign(`proyecto.html?id=${encodeURIComponent(id)}#informacion`);
+      }catch(err){setStatus("#setup-status",friendlyError(err,"No pudimos guardar la configuración."),"error");button.disabled=false;}
+    });
+    updateSetupUI();
+  }
+
+  const briefFields=["business_name","business_description","products_services","address_text","schedule_text","public_phone","maps_url","facebook_url","instagram_url","tiktok_url","visual_notes","reference_links","extra_notes","social_links"];
+  function briefCompletion(form,filesCount=0){
+    const keys=["business_name","business_description","products_services","address_text","schedule_text","public_phone"];
+    let done=keys.filter(k=>String(form.elements[k]?.value||"").trim()).length;
+    if($$('input[name="content_options"]:checked',form).length) done++;
+    if(filesCount>0||String(form.elements.reference_links?.value||form.elements.social_links?.value||"").trim())done++;
+    return Math.round(done/8*100);
+  }
+  function renderFiles(files,session){
+    const box=$("#project-file-list"); if(!box)return;
+    box.innerHTML=files?.length?files.map(f=>`<article class="file-item"><span class="file-type">${f.category==="foto"?"IMG":f.category==="video"?"VID":f.category==="logo"?"LOGO":"DOC"}</span><div><strong>${safe(f.file_name)}</strong><small>${f.size_bytes?`${(Number(f.size_bytes)/1024/1024).toFixed(1)} MB`:safe(f.mime_type||"")}</small></div><button type="button" data-download-file="${f.id}" data-file-name="${safe(f.file_name)}">Descargar</button></article>`).join(""):`<div class="file-empty">Todavía no has subido archivos.</div>`;
+    $$('[data-download-file]',box).forEach(btn=>btn.addEventListener("click",async()=>{
+      btn.disabled=true; const old=btn.textContent;btn.textContent="Abriendo…";
+      try{const r=await fetch(`/api/project-file?id=${encodeURIComponent(btn.dataset.downloadFile)}`,{headers:{Authorization:`Bearer ${session.access_token}`}});if(!r.ok)throw new Error();const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=btn.dataset.fileName||"archivo";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch{alert("No pudimos abrir este archivo.");}finally{btn.disabled=false;btn.textContent=old;}
+    }));
+  }
+
+  const requestLabels={
+    cambio:["Solicitar un cambio","Dinos qué quieres corregir antes de publicar."],
+    mantenimiento:["Solicitar mantenimiento","Revisar un problema o algo que dejó de funcionar."],
+    actualizar:["Actualizar mi página","Cambiar textos, fotos, horarios, productos o precios."],
+    dominio:["Quiero un dominio propio","Cambiar el enlace gratuito por una dirección profesional."],
+    hosting:["Necesito funciones especiales","Agregar sistema, usuarios, base de datos u otras funciones."],
+    mejorar:["Mejorar mi proyecto","Agregar nuevas secciones o funciones."]
   };
 
-  const stageLabels = ["Cotización","Aprobación","Contenido","Desarrollo","Publicado"];
-  function stagePosition(project) {
-    const raw = `${project.project_stage || ""} ${project.status || ""}`.toLowerCase();
-    if (/publicado|mantenimiento|entregado/.test(raw)) return 4;
-    if (/desarrollo|revisión|revisar/.test(raw)) return 3;
-    if (/contenido|información|esperando/.test(raw)) return 2;
-    if (/aprobado|aceptado|anticipo/.test(raw)) return 1;
-    return 0;
-  }
-
-  function renderAvailability(project) {
-    const box = $("#project-availability");
-    if (!box) return;
-    if (project.site_visibility === "public" && project.site_url) {
-      box.innerHTML = `<div class="availability-box public"><div><strong>Tu página ya está en internet</strong><span>Puedes abrirla y compartirla con tus clientes.</span></div>${siteAction(project)}</div>`;
-      return;
-    }
-    if (project.site_visibility === "preview" && (project.preview_url || project.site_url)) {
-      box.innerHTML = `<div class="availability-box preview"><div><strong>Ya puedes revisar un avance</strong><span>Ábrelo, revísalo con calma y dinos si quieres cambiar algo.</span></div>${siteAction(project)}</div>`;
-      return;
-    }
-    box.innerHTML = `<div class="availability-box hidden-site"><div><strong>Estamos preparando tu página</strong><span>Cuando tengamos algo listo para enseñarte, aquí aparecerá el botón para verlo.</span></div></div>`;
-  }
-
   async function initProject() {
-    if (!portal.configured) { location.replace("acceso.html"); return; }
-    const { session, profile } = await loadContext();
-    $('[data-side="projects"]')?.classList.add("active");
-    const id = getParam("id");
-    if (!id) { location.replace("panel.html"); return; }
-
-    const { data: project, error } = await db.from("client_projects").select("*").eq("id", id).single();
-    if (error) throw error;
-    const [{ data: quotes }, { data: requests }, { data: updates }, briefResult] = await Promise.all([
-      db.from("client_quotes").select("*").eq("project_id", id).order("version", { ascending:false }).limit(1),
-      db.from("client_requests").select("*").eq("project_id", id).order("created_at", { ascending:false }),
-      db.from("client_updates").select("*").eq("project_id", id).order("created_at", { ascending:false }),
-      db.from("client_project_briefs").select("*").eq("project_id", id).maybeSingle()
+    const {session,profile}=await loadContext(); const id=getParam("id"); if(!id){location.replace("panel.html");return;}
+    let project;
+    const loadProject=async()=>{const {data,error}=await db.from("client_projects").select("*").eq("id",id).single();if(error)throw error;project=data;};
+    await loadProject();
+    const results=await Promise.all([
+      db.from("client_requests").select("*").eq("project_id",id).order("created_at",{ascending:false}),
+      db.from("client_updates").select("*").eq("project_id",id).order("created_at",{ascending:false}),
+      db.from("client_project_briefs").select("*").eq("project_id",id).maybeSingle(),
+      db.from("client_project_files").select("*").eq("project_id",id).order("created_at",{ascending:false})
     ]);
-    if (briefResult.error) throw briefResult.error;
-    let brief = briefResult.data;
+    for(const r of results) if(r.error) throw r.error;
+    let requests=results[0].data||[], updates=results[1].data||[], brief=results[2].data, files=results[3].data||[];
+    document.title=`${project.name} | Excepcional Build`; $("#project-title").textContent=project.name; $("#project-subtitle").innerHTML=`<span class="status-badge ${statusClass(project.status)}">${safe(project.status||project.project_stage)}</span>`; $("#project-top-actions").innerHTML=siteAction(project);
+    const labels=["Configurar","Enviar información","Construcción","Revisión","Publicada"], pos=stageIndex(project);
+    $("#project-stage-track").innerHTML=labels.map((label,i)=>`<div class="stage-step ${i<pos?"done":i===pos?"current":""}"><i>${i<pos?"✓":i+1}</i><span>${safe(label)}</span><small>${i===pos?"Ahora":""}</small></div>`).join("");
+    if(project.client_note){$("#project-client-note").hidden=false;$("#project-client-note").textContent=project.client_note;}
 
-    const quote = quotes?.[0];
-    document.title = `${project.name} | Excepcional Build`;
-    $("#project-title").textContent = project.name;
-    $("#project-subtitle").innerHTML = `<span class="status-badge ${statusClass(project.status)}">${safe(project.status)}</span>`;
-    $("#project-top-actions").innerHTML = siteAction(project);
-    renderAvailability(project);
+    const focus=$("#project-focus"), briefCard=$("#project-brief-card"), actionsCard=$("#project-actions-card");
+    if(pos===0){focus.innerHTML=`<div class="focus-icon">1</div><div><span>Lo que sigue</span><h2>Elige la dirección de tu página</h2><p>Decide si quieres empezar gratis o usar un dominio propio.</p></div><a class="button button-primary" href="cotizar.html?project=${encodeURIComponent(id)}">Configurar mi página →</a>`;}
+    if(pos===1){focus.innerHTML=`<div class="focus-icon">2</div><div><span>Lo que sigue</span><h2>Envíanos la información de tu negocio</h2><p>Completa lo que puedas y sube las fotos o archivos que quieras usar.</p></div><a class="button button-primary" href="#informacion">Comenzar →</a>`;briefCard.hidden=false;briefCard.id="informacion";}
+    if(pos===2){focus.innerHTML=`<div class="focus-icon done">✓</div><div><span>Información recibida</span><h2>Estamos preparando tu página</h2><p>Por ahora no necesitas hacer nada. Te avisaremos cuando tengamos una vista lista.</p></div><button class="button button-light" id="show-brief-again" type="button">Ver lo que envié</button>`;briefCard.hidden=true;setTimeout(()=>$("#show-brief-again")?.addEventListener("click",()=>{briefCard.hidden=false;briefCard.scrollIntoView({behavior:"smooth"});}),0);}
+    if(pos===3){focus.innerHTML=`<div class="focus-icon">3</div><div><span>Lista para revisar</span><h2>Mira tu página antes de publicarla</h2><p>Revísala con calma. Si quieres cambiar algo, envíanos una solicitud.</p></div>${siteAction(project,"Ver vista previa")||"<span class=\"muted-box\">La vista previa estará disponible en cuanto la activemos.</span>"}`;actionsCard.hidden=false;}
+    if(pos===4){focus.innerHTML=`<div class="focus-icon done">✓</div><div><span>Proyecto publicado</span><h2>Tu página ya está en internet</h2><p>Puedes compartirla y pedir cambios o mantenimiento cuando lo necesites.</p></div>${siteAction(project,"Abrir mi página")||""}`;actionsCard.hidden=false;}
 
-    const pos = stagePosition(project);
-    $("#project-stage-track").innerHTML = stageLabels.map((label, index) => `<div class="stage-step ${index < pos ? "done" : index === pos ? "current" : ""}"><i>${index < pos ? "✓" : index + 1}</i><span>${label}</span></div>`).join("");
-    if (project.client_note) {
-      $("#project-client-note").hidden = false;
-      $("#project-client-note").textContent = project.client_note;
+    const hasPayments=[project.total_price,project.deposit_amount,project.balance_amount].some(v=>v!=null&&v!=="");
+    if(hasPayments){$("#payment-card").hidden=false;$("#project-payments").innerHTML=`<div class="payment-box"><span>Total acordado</span><strong>${money(project.total_price)}</strong><small>${safe(project.payment_method||"")}</small></div><div class="payment-box"><span>Anticipo</span><strong>${money(project.deposit_amount)}</strong><em class="payment-state ${project.deposit_paid?"paid":""}">${project.deposit_paid?"Pagado":"Pendiente"}</em></div><div class="payment-box"><span>Saldo final</span><strong>${money(project.balance_amount)}</strong><em class="payment-state ${project.balance_paid?"paid":""}">${project.balance_paid?"Pagado":"Pendiente"}</em></div>`;}
+
+    const briefForm=$("#project-brief-form"); if(briefForm){
+      briefFields.forEach(n=>{if(briefForm.elements[n])briefForm.elements[n].value=brief?.[n]||"";});
+      let options=Array.isArray(brief?.content_options)?brief.content_options:[]; $$('input[name="content_options"]',briefForm).forEach(c=>c.checked=options.includes(c.value));
+      let briefPage=1;
+      const showBriefPage=(n)=>{briefPage=Math.max(1,Math.min(4,n));$$('[data-brief-page]',briefForm).forEach(s=>s.hidden=Number(s.dataset.briefPage)!==briefPage);$$('[data-brief-go]').forEach(b=>b.classList.toggle("active",Number(b.dataset.briefGo)===briefPage));$("#brief-prev").hidden=briefPage===1;$("#brief-next").hidden=briefPage===4;};
+      $$('[data-brief-go]').forEach(b=>b.addEventListener("click",()=>showBriefPage(Number(b.dataset.briefGo))));$("#brief-prev").addEventListener("click",()=>showBriefPage(briefPage-1));$("#brief-next").addEventListener("click",()=>showBriefPage(briefPage+1));
+      const updatePercent=()=>{$("#brief-progress-number").textContent=`${briefCompletion(briefForm,files.length)}%`;}; briefForm.addEventListener("input",updatePercent);briefForm.addEventListener("change",updatePercent);updatePercent();showBriefPage(1);
+      const saveBrief=async(submit=false)=>{
+        const payload={project_id:id,user_id:session.user.id};briefFields.forEach(n=>{if(briefForm.elements[n])payload[n]=String(briefForm.elements[n].value||"").trim()||null;});payload.content_options=$$('input[name="content_options"]:checked',briefForm).map(c=>c.value);payload.completion_percent=briefCompletion(briefForm,files.length);
+        setStatus("#brief-status",submit?"Enviando información…":"Guardando…");
+        const {data,error}=await db.from("client_project_briefs").upsert(payload,{onConflict:"project_id"}).select().single();if(error)throw error;brief=data;
+        if(submit){if(payload.completion_percent<50)throw new Error("Completa un poco más de información antes de enviarla.");const {error:rpcError}=await db.rpc("client_submit_project_brief",{p_project_id:id});if(rpcError)throw rpcError;setStatus("#brief-status","Listo. Ya recibimos tu información.","success");setTimeout(()=>location.reload(),700);}else{setStatus("#brief-status","Avance guardado.","success");}
+      };
+      $("#brief-save").addEventListener("click",async()=>{try{await saveBrief(false);}catch(err){setStatus("#brief-status",friendlyError(err,"No pudimos guardar tu avance."),"error");}});
+      $("#brief-submit").addEventListener("click",async()=>{const btn=$("#brief-submit");btn.disabled=true;try{await saveBrief(true);}catch(err){setStatus("#brief-status",friendlyError(err,"No pudimos enviar la información."),"error");btn.disabled=false;}});
+
+      renderFiles(files,session);
+      $("#upload-files").addEventListener("click",async()=>{
+        const input=$("#project-files"), selected=[...(input.files||[])]; if(!selected.length){setStatus("#upload-status","Primero selecciona uno o más archivos.","error");return;}
+        const tooBig=selected.find(f=>f.size>25*1024*1024);if(tooBig){setStatus("#upload-status",`${tooBig.name} pesa más de 25 MB. Para videos grandes pega un enlace de Drive en el campo de abajo.`,"error");return;}
+        const btn=$("#upload-files");btn.disabled=true; let ok=0;
+        for(let i=0;i<selected.length;i++){
+          const f=selected[i];setStatus("#upload-status",`Subiendo ${i+1} de ${selected.length}: ${f.name}`);
+          const fd=new FormData();fd.append("project_id",id);fd.append("category",$("#file-category").value);fd.append("file",f);
+          try{const r=await fetch("/api/upload-project-file",{method:"POST",headers:{Authorization:`Bearer ${session.access_token}`},body:fd});const data=await r.json().catch(()=>({}));if(!r.ok||!data.ok)throw new Error(data.message||"");if(data.file){files.unshift(data.file);ok++;renderFiles(files,session);}}
+          catch(err){setStatus("#upload-status",friendlyError(err,"No pudimos subir uno de los archivos. Revisa la conexión de Google Drive."),"error");btn.disabled=false;return;}
+        }
+        input.value="";btn.disabled=false;setStatus("#upload-status",`${ok} archivo${ok===1?"":"s"} subido${ok===1?"":"s"} correctamente.`,"success");updatePercent();
+      });
     }
 
-    $("#project-details").innerHTML = [
-      ["Dirección de la página", project.domain || "Por definir"],
-      ["Tipo de dirección", project.address_type === "dominio" ? "Dominio propio" : "Enlace gratuito"],
-      ["Alojamiento", project.hosting_type === "hostinger" ? "Especializado" : "Gratuito"],
-      ["Fecha de inicio", date(project.created_at)]
-    ].map(([a,b]) => `<div class="detail"><span>${a}</span><strong>${safe(b)}</strong></div>`).join("");
-
-    const briefForm = $("#project-brief-form");
-    const briefFields = ["business_description","products_services","address_text","schedule_text","public_phone","social_links","visual_notes","extra_notes"];
-    briefFields.forEach((name) => { if (briefForm?.elements[name]) briefForm.elements[name].value = brief?.[name] || ""; });
-    const briefWhatsapp = $("#brief-whatsapp");
-    if (briefWhatsapp) {
-      const briefMessage = [`Hola, soy ${profile.full_name}.`, `Quiero enviar fotografías para mi proyecto: ${project.name}.`, `Referencia: ${project.quote_ref || project.id}`].join("\n");
-      briefWhatsapp.href = `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(briefMessage)}`;
-    }
-    briefForm?.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const fd = new FormData(briefForm);
-      const button = briefForm.querySelector('button[type="submit"]');
-      button.disabled = true;
-      setStatus("#brief-status", "Guardando información…");
-      const payload = { project_id:id, user_id:session.user.id, submitted_at:new Date().toISOString() };
-      briefFields.forEach((name) => payload[name] = String(fd.get(name) || "").trim() || null);
-      const { data: savedBrief, error: briefError } = await db.from("client_project_briefs").upsert(payload, { onConflict:"project_id" }).select().single();
-      if (briefError) {
-        setStatus("#brief-status", briefError.message || "No pudimos guardar la información.", "error");
-      } else {
-        brief = savedBrief;
-        setStatus("#brief-status", "Listo. Guardamos la información.", "success");
-      }
-      button.disabled = false;
-    });
-
-    const hasPayments = [project.deposit_amount, project.balance_amount].some((v) => v != null && v !== "") || project.deposit_paid || project.balance_paid;
-    if (hasPayments) {
-      $("#payment-card").hidden = false;
-      $("#project-payments").innerHTML = `
-        <div class="payment-box"><span>Total acordado</span><strong>${money(project.total_price)}</strong></div>
-        <div class="payment-box"><span>Anticipo</span><strong>${money(project.deposit_amount)}</strong><em class="payment-state ${project.deposit_paid ? "paid" : ""}">${project.deposit_paid ? "Pagado" : "Pendiente"}</em></div>
-        <div class="payment-box"><span>Saldo final</span><strong>${money(project.balance_amount)}</strong><em class="payment-state ${project.balance_paid ? "paid" : ""}">${project.balance_paid ? "Pagado" : "Pendiente"}</em></div>`;
+    if(actionsCard&&!actionsCard.hidden){
+      const types=pos===3?["cambio"]:["actualizar","mantenimiento","mejorar"];
+      if(pos===4&&project.address_type==="gratis")types.push("dominio"); if(pos===4&&project.hosting_type==="cloudflare")types.push("hosting");
+      $("#project-actions").innerHTML=types.map(t=>`<button class="action-card" type="button" data-request-type="${t}"><b>${requestLabels[t][0]}</b><span>${requestLabels[t][1]}</span></button>`).join("");
     }
 
-    const types = ["mantenimiento","actualizar","cambio","mejorar"];
-    if (project.address_type === "gratis") types.push("dominio");
-    if (project.hosting_type === "cloudflare") types.push("hosting");
-    $("#project-actions").innerHTML = types.map((type) => `<button class="action-card" type="button" data-request-type="${type}"><b>${requestLabels[type][0]}</b><span>${requestLabels[type][1]}</span></button>`).join("");
+    $("#project-timeline").innerHTML=updates.length?updates.map(u=>`<article class="timeline-item"><h3>${safe(u.title)}</h3><p>${safe(u.description||"")}</p><time>${date(u.created_at)}</time></article>`).join(""):`<article class="timeline-item"><h3>Proyecto creado</h3><p>Aquí aparecerán los avances que registremos.</p><time>${date(project.created_at)}</time></article>`;
 
-    $("#quote-summary").innerHTML = quote ? `<div class="project-meta"><div><span>Pago inicial estimado</span><strong>${money(quote.initial_total)}</strong></div><div><span>Renovación anual</span><strong>${Number(quote.annual_renewal) > 0 ? money(quote.annual_renewal) : "Sin renovación"}</strong></div></div><p style="margin:12px 0 0;color:var(--muted);font-size:11px;line-height:1.5">Cotización guardada el ${date(quote.created_at)}. Confirmaremos contigo cualquier cambio antes de cobrar.</p>` : `<p style="color:var(--muted);font-size:12px">Este proyecto todavía no tiene una cotización guardada.</p>`;
-
-    $("#project-timeline").innerHTML = updates?.length
-      ? updates.map((u) => `<article class="timeline-item"><h3>${safe(u.title)}</h3><p>${safe(u.description || "")}</p><time>${date(u.created_at)}</time></article>`).join("")
-      : `<article class="timeline-item"><h3>Proyecto registrado</h3><p>Cuando actualicemos el avance del trabajo aparecerá aquí.</p><time>${date(project.created_at)}</time></article>`;
-
-    const renderRequests = () => {
-      $("#request-list").innerHTML = requests?.length
-        ? requests.map((r) => `<article class="request-item"><strong><span>${safe(requestLabels[r.request_type]?.[0] || r.request_type)}</span><small>${safe(r.status)}</small></strong><p>${safe(r.message)}</p><small>${date(r.created_at)}</small></article>`).join("")
-        : `<p style="color:var(--muted);font-size:12px">Todavía no has enviado solicitudes.</p>`;
-    };
-    renderRequests();
-
-    const dialog = $("#request-dialog");
-    const form = $("#request-form");
-    $$('[data-request-type]').forEach((btn) => btn.addEventListener("click", () => {
-      const type = btn.dataset.requestType;
-      form.request_type.value = type;
-      $("#request-title").textContent = requestLabels[type][0];
-      form.message.value = "";
-      setStatus("#request-status", "");
-      dialog.showModal();
-    }));
-    $$('[data-dialog-close]').forEach((btn) => btn.addEventListener("click", () => dialog.close()));
-
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const fd = new FormData(form);
-      const type = String(fd.get("request_type"));
-      const message = String(fd.get("message") || "").trim();
-      if (!message) { setStatus("#request-status", "Describe lo que necesitas.", "error"); return; }
-      const submit = form.querySelector('button[type="submit"]');
-      submit.disabled = true;
-      setStatus("#request-status", "Registrando solicitud…");
-      try {
-        const { data: req, error: reqError } = await db.from("client_requests").insert({
-          project_id: id,
-          user_id: session.user.id,
-          request_type: type,
-          message,
-          status: "Nueva"
-        }).select().single();
-        if (reqError) throw reqError;
-        requests.unshift(req);
-        renderRequests();
-        const text = [
-          `Hola, soy ${profile.full_name}.`, "",
-          `Quiero: ${requestLabels[type][0]}.`,
-          `Proyecto: ${project.name}`,
-          `Referencia: ${project.quote_ref || project.id}`,
-          project.domain ? `Sitio o dominio: ${project.domain}` : "",
-          `Detalles: ${message}`
-        ].filter(Boolean).join("\n");
-        location.assign(`https://wa.me/${WHATSAPP}?text=${encodeURIComponent(text)}`);
-      } catch (err) {
-        setStatus("#request-status", err.message || "No pudimos registrar la solicitud.", "error");
-        submit.disabled = false;
-      }
+    const dialog=$("#request-dialog"), reqForm=$("#request-form");
+    $$('[data-request-type]').forEach(btn=>btn.addEventListener("click",()=>{const type=btn.dataset.requestType;reqForm.request_type.value=type;$("#request-title").textContent=requestLabels[type][0];reqForm.message.value="";setStatus("#request-status","");dialog.showModal();}));
+    $$('[data-dialog-close]').forEach(btn=>btn.addEventListener("click",()=>dialog.close()));
+    reqForm.addEventListener("submit",async e=>{
+      e.preventDefault();const fd=new FormData(reqForm),type=String(fd.get("request_type")),message=String(fd.get("message")||"").trim();if(!message){setStatus("#request-status","Cuéntanos qué quieres cambiar.","error");return;}
+      const b=reqForm.querySelector('button[type="submit"]');b.disabled=true;setStatus("#request-status","Enviando…");
+      try{const {error}=await db.from("client_requests").insert({project_id:id,user_id:session.user.id,request_type:type,message,status:"Nueva"});if(error)throw error;const text=[`Hola, soy ${profile.full_name}.`,`Proyecto: ${project.name}`,`Quiero: ${requestLabels[type][0]}`,`Detalles: ${message}`].join("\n");location.assign(`https://wa.me/${WHATSAPP}?text=${encodeURIComponent(text)}`);}catch(err){setStatus("#request-status",friendlyError(err,"No pudimos enviar la solicitud."),"error");b.disabled=false;}
     });
   }
 
-  async function start() {
-    try {
-      if (page === "access") await initAccess();
-      else if (page === "callback") await initCallback();
-      else if (page === "panel") await initPanel();
-      else if (page === "profile") await initProfile();
-      else if (page === "project") await initProject();
-    } catch (error) {
-      if (["AUTH_REDIRECT","PROFILE_REDIRECT"].includes(error.message)) return;
-      console.error(error);
-      const rawMessage = String(error?.message || "");
-      const technical = /supabase|postgres|postgrest|row level|jwt|relation|column|schema|fetch/i.test(rawMessage);
-      const message = technical ? "No pudimos cargar esta información. Intenta nuevamente en unos momentos." : (rawMessage || "Ocurrió un problema al cargar el portal.");
-      const status = $("#auth-status") || $("#callback-status") || $("#profile-page-status") || $("#request-status");
-      if (status) status.textContent = message;
-      const grid = $("#projects-grid");
-      if (grid) grid.innerHTML = `<div class="empty-card" style="grid-column:1/-1"><h3>No pudimos cargar tus proyectos</h3><p>${safe(message)}</p></div>`;
+  async function start(){
+    try{
+      if(page==="access")await initAccess();
+      else if(page==="callback")await initCallback();
+      else if(page==="panel")await initPanel();
+      else if(page==="profile")await initProfile();
+      else if(page==="configure")await initConfigure();
+      else if(page==="project")await initProject();
+    }catch(error){
+      if(["AUTH_REDIRECT","PROFILE_REDIRECT"].includes(error.message))return;
+      console.error(error);const msg=friendlyError(error,"No pudimos cargar esta información. Intenta nuevamente.");
+      const status=$("#auth-status")||$("#callback-status")||$("#profile-page-status")||$("#setup-status")||$("#brief-status")||$("#request-status");if(status)status.textContent=msg;
+      const grid=$("#projects-grid");if(grid)grid.innerHTML=`<div class="empty-card empty-card-wide"><h3>No pudimos cargar tus proyectos</h3><p>${safe(msg)}</p></div>`;
     }
   }
-
   start();
 })();

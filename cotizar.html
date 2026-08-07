@@ -1,362 +1,42 @@
 <!doctype html>
 <html lang="es-MX">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Prepara una cotización estimada para el sitio web de tu negocio con Excepcional Build.">
-  <title>Cotiza tu sitio web | Excepcional Build</title>
-  <meta name="theme-color" content="#132a26">
-  <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="glossary.css">
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#102a24">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="portal.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <title>Configura tu página | Excepcional Build</title>
 </head>
-<body>
-  <a class="skip-link" href="#contenido">Saltar al contenido</a>
-  <header class="site-header" id="inicio">
-    <div class="nav-wrap">
-      <a class="brand" href="index.html" aria-label="Volver al inicio de Excepcional Build">
-        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
-        <span>EXCEPCIONAL BUILD</span>
-      </a>
-      <button class="menu-button" type="button" aria-expanded="false" aria-controls="site-nav">Menú</button>
-      <nav id="site-nav" aria-label="Navegación del cotizador">
-        <a href="#contenido">Inicio</a>
-        <a href="#planes">Planes</a>
-        <a href="panel.html">Mis proyectos</a>
-        <a class="nav-cta" href="https://wa.me/529811332914" target="_blank" rel="noopener">WhatsApp</a>
-      </nav>
-    </div>
-  </header>
+<body data-portal-page="configure">
+<header class="portal-header"><div class="portal-shell portal-nav"><a class="portal-brand" href="panel.html"><span class="portal-mark">EB</span><span>EXCEPCIONAL BUILD</span></a><nav class="desktop-nav"><a href="panel.html">Mis páginas</a><a href="perfil.html">Mi cuenta</a></nav></div></header>
+<main class="portal-main"><div class="portal-shell portal-shell-form configure-shell">
+  <a class="back-link" id="configure-back" href="panel.html">← Volver al proyecto</a>
+  <section class="configure-hero"><p class="eyebrow">Paso 1 de tu proyecto</p><h1>Configura cómo quieres publicar tu página.</h1><p>La creación de tu página ya fue acordada. Aquí solo eliges la dirección y si necesitas funciones especiales.</p></section>
 
-  <main id="contenido">
-    <section class="hero section-shell">
-      <div class="hero-copy reveal">
-        <p class="eyebrow"><span></span> Cotización sin compromiso</p>
-        <h1>Arma tu sitio.<br><em>Conoce cuánto invertirías.</em></h1>
-        <p class="hero-lead">Elige la dirección y el alojamiento de tu sitio. Al final verás en grande el pago inicial estimado y, por separado, las renovaciones futuras.</p>
-        <div class="hero-actions">
-          <a class="button button-primary" href="#cotizador">Continuar con mi cotización <span>↓</span></a>
-          <a class="button button-ghost" href="panel.html">Ver mis proyectos</a>
-        </div>
-        <div class="hero-facts" aria-label="Información principal de la cotización">
-          <div><strong>Desde $750</strong><span>Creación y publicación</span></div>
-          <div><strong>$0 al año</strong><span>Opción gratuita disponible</span></div>
-          <div><strong>Sin cobros</strong><span>Solo prepara tu solicitud</span></div>
-        </div>
-      </div>
+  <article class="agreement-card"><div><span>Proyecto</span><strong id="configure-project-name">Cargando…</strong></div><div><span>Precio acordado</span><strong id="configure-price">—</strong></div><div><span>Pago</span><strong id="configure-payment">—</strong></div></article>
 
-      <div class="hero-visual reveal" aria-label="Ejemplo de presencia digital para un negocio local">
-        <div class="visual-orbit orbit-one"></div>
-        <div class="visual-orbit orbit-two"></div>
-        <div class="browser-card">
-          <div class="browser-top"><span></span><span></span><span></span><small>tunegocio.mx</small></div>
-          <div class="browser-content">
-            <div class="mock-nav"><b>Tu Negocio</b><i></i><i></i><i></i></div>
-            <div class="mock-hero"><span>ABIERTO HOY</span><strong>Lo que haces,<br>bien presentado.</strong><button>Contactar</button></div>
-            <div class="mock-cards"><i></i><i></i><i></i></div>
-          </div>
-        </div>
-        <div class="floating-card floating-one"><span class="status-dot"></span><div><b>Nuevo contacto</b><small>Desde tu página web</small></div></div>
-        <div class="floating-card floating-two"><b>24/7</b><span>Tu negocio visible</span></div>
+  <form id="setup-form" class="setup-form">
+    <section class="setup-section"><div class="setup-heading"><span class="setup-number">1</span><div><h2>Elige la dirección de tu página</h2><p>Si no quieres pagar renovación, empieza gratis. Puedes pedir un dominio después.</p></div></div>
+      <div class="choice-cards-mobile">
+        <label class="choice-card-mobile"><input type="radio" name="address_type" value="gratis" checked><span class="choice-check">✓</span><strong>Enlace gratuito</strong><code>tunegocio.pages.dev</code><small>Sin costo y sin renovación.</small></label>
+        <label class="choice-card-mobile"><input type="radio" name="address_type" value="dominio"><span class="choice-check">✓</span><strong>Dominio propio</strong><code>tunegocio.com</code><small>Más profesional. Se renueva cada año.</small></label>
       </div>
+      <div class="name-check-card"><label><span id="setup-name-label">Nombre para tu enlace</span><div class="inline-field"><input id="setup-name" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Ej. abarroteslupita"><button class="button button-light" id="setup-check" type="button">Verificar</button></div></label><p class="field-help" id="setup-name-help">Quedará como abarroteslupita.pages.dev</p><label class="owned-domain-check" id="owned-domain-wrap" hidden><input id="setup-domain-owned" type="checkbox"> <span>Ya tengo este dominio y quiero usarlo</span></label><div id="setup-domain-prices" class="mini-price-grid" hidden><div><span>Primer año</span><strong id="setup-domain-first">—</strong></div><div><span>Renovación</span><strong id="setup-domain-renew">—</strong></div></div><p class="form-status" id="setup-domain-status"></p></div>
     </section>
 
-     <section class="section-shell section-block" id="planes">
-      <div class="section-heading split-heading reveal">
-        <div>
-          <p class="eyebrow"><span></span> Una base, varias opciones</p>
-          <h2>Comienza con tu sitio y elige cómo publicarlo.</h2>
-        </div>
-        <p>El dominio es opcional para sitios sencillos. El alojamiento especializado será necesario cuando el proyecto requiera servidor, bases de datos u otras funciones avanzadas.</p>
+    <section class="setup-section"><div class="setup-heading"><span class="setup-number">2</span><div><h2>¿Tu página necesita funciones especiales?</h2><p>La mayoría de negocios no necesita pagar alojamiento adicional.</p></div></div>
+      <div class="choice-cards-mobile">
+        <label class="choice-card-mobile"><input type="radio" name="hosting_type" value="cloudflare" checked><span class="choice-check">✓</span><strong>Página normal</strong><small>Alojamiento incluido. Ideal para información, menú, catálogo, ubicación y WhatsApp.</small></label>
+        <label class="choice-card-mobile"><input type="radio" name="hosting_type" value="hostinger"><span class="choice-check">✓</span><strong>Funciones especiales</strong><small>Para sistemas, usuarios, bases de datos u otras funciones avanzadas. Requiere dominio propio y se cotiza aparte.</small></label>
       </div>
-
-      <div class="pricing-grid">
-        <article class="price-card reveal">
-          <p class="plan-label">Para comenzar</p>
-          <h3>Sitio Esencial</h3>
-          <p class="price"><strong>$750</strong><span>pago único</span></p>
-          <p>Una presencia clara, funcional y económica para tu negocio.</p>
-          <ul>
-            <li>Creación y configuración inicial</li>
-            <li>Diseño adaptable a celulares</li>
-            <li>Información, ubicación y WhatsApp</li>
-            <li>Enlace gratuito disponible</li>
-            <li>Cloudflare Pages incluido</li>
-          </ul>
-          <a class="button button-outline" href="cotizar.html">Cotizar mi sitio</a>
-        </article>
-
-        <article class="price-card recommended reveal">
-          <p class="recommend-badge">Mejor imagen</p>
-          <p class="plan-label">Opción recomendada</p>
-          <h3>Dominio propio</h3>
-          <p class="price"><strong>Consultar</strong><span>precio y renovación anual</span></p>
-          <p>Utiliza una dirección profesional como tunegocio.com sin contratar hosting innecesario.</p>
-          <ul>
-            <li>Dominio registrado a tu nombre</li>
-            <li>Precio según disponibilidad</li>
-            <li>Cloudflare Pages puede seguir incluido</li>
-            <li>Confirmación antes de cualquier compra</li>
-            <li>Renovación pagada por el cliente</li>
-          </ul>
-          <a class="button button-light" href="cotizar.html">Consultar dominio</a>
-        </article>
-
-        <article class="price-card reveal">
-          <p class="plan-label">Solo cuando sea necesario</p>
-          <h3>Hosting especializado</h3>
-          <p class="price"><strong>Cotizar</strong><span>según el proyecto</span></p>
-          <p>Para sitios que necesiten servidor, tecnología específica o una infraestructura mayor.</p>
-          <ul>
-            <li>Proveedor recomendado: Hostinger</li>
-            <li>Dominio propio requerido</li>
-            <li>Servicios a nombre del cliente</li>
-            <li>Configuración y publicación</li>
-            <li>Renovación claramente indicada</li>
-          </ul>
-          <a class="button button-outline" href="cotizar.html">Evaluar mi proyecto</a>
-        </article>
-      </div>
-
-      <p class="plans-detail">¿Todavía no sabes qué opción elegir? <a href="https://wa.me/529811332914" target="_blank" rel="noopener">Conversemos por WhatsApp →</a></p>
+      <label id="special-note-wrap" hidden><span>¿Qué función especial necesitas?</span><textarea name="special_features_note" rows="3" placeholder="Ej. quiero que mis clientes creen una cuenta y hagan pedidos."></textarea></label>
     </section>
 
-    <section id="cotizador">
-      <div class="section-shell section-block quote-section">
-        <div class="section-heading reveal">
-          <p class="eyebrow"><span></span> Prepara tu paquete</p>
-          <h2>Elige cómo quieres comenzar.</h2>
-        </div>
+    <section class="setup-summary"><p class="eyebrow">Resumen</p><h2>Así comenzará tu proyecto</h2><div id="setup-summary-lines"></div><p class="setup-note">Los servicios externos, como dominio o alojamiento especializado, se confirman contigo antes de cualquier compra.</p></section>
 
-        <div class="quote-panel reveal">
-          <header class="quote-panel-head">
-            <div class="quote-head-copy">
-              <span class="quote-kicker">Sitio Esencial · Todo incluido</span>
-              <h3>Creación, configuración y publicación</h3>
-              <p>Empieza con una dirección gratuita o elige un dominio propio. El costo final lo confirmamos contigo antes de cobrar.</p>
-            </div>
-            <div class="quote-head-price">
-              <strong>Desde <span>$750</span></strong>
-              <small>MXN · pago único por la creación y configuración</small>
-            </div>
-          </header>
-
-          <ol class="quote-steps" aria-label="Pasos de la cotización">
-            <li class="is-active"><i>1</i><span>Dirección</span></li>
-            <li><i>2</i><span>Alojamiento</span></li>
-            <li><i>3</i><span>Resumen</span></li>
-            
-          </ol>
-
-          <form class="lead-form quote-form" id="quote-form">
-            <div class="quote-step" data-step="1">
-            <fieldset class="step-field">
-              <legend><span class="step-num">1</span> Dirección de tu sitio</legend>
-              <div class="select-cards">
-                <label class="select-card" for="quote-address-card-gratis">
-                  <input type="radio" name="tipo_direccion_card" id="quote-address-card-gratis" value="gratis" checked>
-                  <span class="select-card-top">
-                    <span class="select-icon" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.7 3.8 9S14.5 18.4 12 21c-2.5-2.6-3.8-5.7-3.8-9S9.5 5.6 12 3z"/></svg>
-                    </span>
-                    <span class="select-title">Enlace gratuito</span>
-                    <span class="select-card-badge">Gratis permanentemente</span>
-                  </span>
-                  <code>tunegocio.pages.dev</code>
-                  <ul>
-                    <li>Sin costo y sin pagos de renovación.</li>
-                    <li>Incluye una dirección terminada en .pages.dev.</li>
-                    <li>Ideal para comenzar y publicar un sitio sencillo.</li>
-                    <li>Puede verse menos profesional que un dominio.</li>
-                  </ul>
-                  <div class="blocked-notice" id="gratis-blocked-notice" hidden>
-                    <p>Tienes seleccionado <strong>alojamiento personalizado</strong>.</p>
-                    <button type="button" class="button button-ghost" id="unblock-gratis-btn">Desmarcar y marcar alojamiento gratuito</button>
-                  </div>
-                </label>
-                <label class="select-card" for="quote-address-card-dominio">
-                  <input type="radio" name="tipo_direccion_card" id="quote-address-card-dominio" value="dominio">
-                  <span class="select-card-top">
-                    <span class="select-icon" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 2 4.5 13.5H11L9.5 22 19 9.5h-6.5L13 2z"/></svg>
-                    </span>
-                    <span class="select-title">Dominio personalizado</span>
-                    <span class="select-card-badge">Renovación anual</span>
-                  </span>
-                  <code>tunegocio.com</code>
-                  <ul>
-                    <li>Más profesional y memorable.</li>
-                    <li>Refuerza tu identidad.</li>
-                    <li>Sujeto a disponibilidad.</li>
-                    <li>Renovación cada año.<br>Precio según el nombre elegido.</li>
-                  </ul>
-                </label>
-              </div>
-
-              <select name="tipo_direccion" id="quote-address" hidden>
-                <option value="gratis">Enlace gratuito de Cloudflare Pages — $0 al año</option>
-                <option value="dominio">Dominio propio — consultar disponibilidad y precio</option>
-              </select>
-
-              <label id="quote-domain-option-wrap" class="option-row" hidden>
-                <span>¿Cómo quieres obtener tu dominio?</span>
-                <select name="dominio_opcion" id="quote-domain-option">
-                  <option value="conseguirme">Que Excepcional Build me ayude a conseguirlo</option>
-                  <option value="ya_tengo">Ya tengo un dominio</option>
-                </select>
-              </label>
-
-              <p class="quote-url-preview" id="quote-url-preview">Ejemplo: nombre-del-negocio.pages.dev</p>
-
-              <div class="domain-check">
-                <div>
-                  <p class="domain-check-label" id="domain-check-label">Elige el nombre que quieres para tu sitio web.</p>
-                  <p class="domain-check-hint" id="domain-check-hint">Solo minúsculas, sin espacios ni símbolos. Ej. abarroteslupita</p>
-                </div>
-                <div class="domain-check-row">
-                  <input id="domain-check-input" type="text" inputmode="url" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Ej. abarroteslupita" aria-label="Nombre o dominio a verificar">
-                  <button class="button button-ghost" type="button" id="domain-check-button">Verificar</button>
-                </div>
-                <p class="form-status" id="domain-check-live" aria-live="polite"></p>
-                <p class="form-status" id="domain-check-status" aria-live="polite"></p>
-                <div class="domain-price-blocks" id="domain-price-blocks" hidden>
-                  <div class="domain-price-block"><span>Primer año</span><strong id="domain-price-first"></strong></div>
-                  <div class="domain-price-block"><span>Renovación anual</span><strong id="domain-price-renew"></strong></div>
-                </div>
-                <div class="domain-suggestions" id="domain-suggestions" hidden></div>
-                <button class="button button-accent" type="button" id="domain-use-button" hidden>Usar este dominio en mi cotización</button>
-              </div>
-            </fieldset>
-            <div class="step-nav">
-              <button type="button" class="button button-ghost" data-step-prev>← Atrás</button>
-              <button type="button" class="button button-accent" data-step-next>Siguiente →</button>
-            </div>
-            </div>
-
-            <div class="quote-step" data-step="2">
-            <fieldset class="step-field">
-              <legend><span class="step-num">2</span> Alojamiento de tu sitio</legend>
-              <div class="select-cards">
-                <label class="select-card" for="quote-hosting-card-cloudflare">
-                  <input type="radio" name="tipo_alojamiento_card" id="quote-hosting-card-cloudflare" value="cloudflare" checked>
-                  <span class="select-card-top">
-                    <span class="select-icon" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7.5 18.5a3.5 3.5 0 1 1 .6-6.95 5 5 0 0 1 9.6 1.5A3.2 3.2 0 0 1 17 18.5H7.5z"/></svg>
-                    </span>
-                    <span class="select-title">Alojamiento gratuito</span>
-                    <span class="select-card-badge">$0 al año</span>
-                  </span>
-                  <ul>
-                    <li>Sin costo mensual ni renovación.</li>
-                    <li>Publicación segura con HTTPS.</li>
-                    <li>Ideal para sitios informativos, menús y catálogos.</li>
-                    <li>Sin servidor ni bases de datos complejas.</li>
-                  </ul>
-                </label>
-                <label class="select-card" for="quote-hosting-card-hostinger">
-                  <input type="radio" name="tipo_alojamiento_card" id="quote-hosting-card-hostinger" value="hostinger">
-                  <span class="select-card-top">
-                    <span class="select-icon" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M4 9h16M9 9v11"/></svg>
-                    </span>
-                    <span class="select-title">Alojamiento especializado</span>
-                    <span class="select-card-badge">Precio según proyecto</span>
-                  </span>
-                  <ul>
-                    <li>Puede ser necesario para proyectos con funciones avanzadas.</li>
-                    <li>Permite servidor y bases de datos.</li>
-                    <li>Mayor capacidad de crecimiento.</li>
-                    <li>Requiere renovación.<br>Requiere dominio propio.</li>
-                  </ul>
-                </label>
-              </div>
-
-              <select name="tipo_alojamiento" id="quote-hosting" hidden>
-                <option value="cloudflare">Cloudflare Pages incluido — $0 al año</option>
-                <option value="hostinger">Hosting especializado de Hostinger — ver precio</option>
-              </select>
-              <p class="form-status note-line" id="hosting-price-note" hidden></p>
-              <p class="form-status hosting-domain-notice" id="hosting-domain-note" hidden></p>
-
-              <div class="period-row" id="quote-period-wrap" hidden>
-                <label for="quote-period">Años que quieres calcular</label>
-                <div class="period-pills">
-                  <select name="periodo" id="quote-period">
-                    <option value="1">1 año</option>
-                    <option value="2">2 años</option>
-                    <option value="3">3 años</option>
-                  </select>
-                </div>
-              </div>
-            </fieldset>
-            <div class="step-nav">
-              <button type="button" class="button button-ghost" data-step-prev>← Atrás</button>
-              <button type="button" class="button button-accent" data-step-next>Siguiente →</button>
-            </div>
-            </div>
-
-            <div class="quote-step" data-step="3">
-            <article class="quote-summary" aria-live="polite">
-              <div class="summary-head">
-                <span class="step-num">3</span>
-                <span class="summary-title">Resumen estimado</span>
-              </div>
-              <div class="summary-total">
-                <span>Pago inicial estimado</span>
-                <strong id="quote-initial-total">$750</strong>
-                <small>único pago al comenzar</small>
-              </div>
-              <ul class="summary-list">
-                <li>Creación y publicación del sitio: $750</li>
-                <li id="quote-address-summary">Enlace gratuito: $0 al año</li>
-                <li id="quote-hosting-summary">Cloudflare Pages: $0 al año</li>
-              </ul>
-              <hr class="summary-divider">
-              <div class="summary-renew">
-                <span>Renovación a partir del segundo año</span>
-                <strong id="quote-year2-total">Sin renovaciones</strong>
-              </div>
-              <p class="summary-note" id="quote-years-total-wrap" hidden>Total por <span id="quote-years-label">1</span> año(s): <strong id="quote-years-total">$750</strong></p>
-              <p class="summary-trust"><i>✓</i> Confirmamos disponibilidad y precios antes de realizar cualquier compra.</p>
-            </article>
-            <div class="step-nav">
-              <button type="button" class="button button-ghost" data-step-prev>← Atrás</button>
-              <button type="button" class="button button-accent" id="quote-save-button">Guardar mi cotización y continuar →</button>
-            </div>
-            <p class="quote-account-note">Inicia sesión con Google para guardar esta cotización, verla en tus proyectos y darle seguimiento.</p>
-            <p class="form-status" id="quote-save-status" aria-live="polite"></p>
-            </div>
-
-            <p class="summary-total" id="quote-year1-total" hidden>$750</p>
-          </form>
-        </div>
-      </div>
-    </section>
-
-    
-  </main>
-
-  <footer>
-    <div class="section-shell footer-grid"><div><a class="brand brand-light" href="index.html"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>EXCEPCIONAL BUILD</span></a><p>Sitios web y soluciones digitales para negocios locales de México.</p></div><div><strong>Explora</strong><a href="index.html#servicios">Servicios</a><a href="index.html#proceso">Proceso</a><a href="index.html#planes">Planes</a></div><div><strong>Hablemos</strong><a href="index.html#contacto">Hablar sobre mi proyecto</a><a href="#cotizador">Preparar cotización</a></div></div>
-    <div class="section-shell footer-bottom"><span>© <span id="year"></span> Excepcional Build.</span><span>Hecho para impulsar negocios locales.</span></div>
-  </footer>
-  <div class="modal-overlay" id="hosting-modal" hidden>
-    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="hosting-modal-title">
-      <h3 id="hosting-modal-title">No es posible usar dominio gratis y tener hosting personalizado</h3>
-      <p>Tendrás que conseguir un dominio o usar un dominio que tengas.</p>
-      <div class="modal-actions">
-        <button type="button" class="button button-accent" id="hosting-modal-ok">Entendido</button>
-      </div>
-    </div>
-  </div>
-  <script src="supabase-config.js"></script>
-  <script src="supabase-client.js"></script>
-  <script src="script.js"></script>
-  <script src="glossary.js"></script>
-</body>
-</html>
+    <button class="button button-primary button-wide button-large" type="submit">Guardar y continuar con la información de mi negocio →</button>
+    <p class="form-status" id="setup-status" aria-live="polite"></p>
+  </form>
+</div></main>
+<nav class="mobile-nav" aria-label="Navegación principal"><a href="panel.html"><span aria-hidden="true">⌂</span><b>Inicio</b></a><a class="active mobile-nav-main" id="configure-mobile-back" href="panel.html"><span aria-hidden="true">←</span><b>Proyecto</b></a><a href="perfil.html"><span aria-hidden="true">○</span><b>Mi cuenta</b></a></nav>
+<script src="supabase-config.js"></script><script src="supabase-client.js"></script><script src="portal.js"></script>
+</body></html>

@@ -1,11 +1,17 @@
-# Configuración de Excepcional Build
+# Conexiones de Excepcional Build
 
-La conexión principal ya está pensada para funcionar con:
+La arquitectura final es:
 
-- GitHub como historial del código.
-- Cloudflare Pages como publicación del sitio.
-- Supabase como autenticación y base de datos.
+- **GitHub**: historial del código.
+- **Cloudflare Pages**: publica el sitio y ejecuta las funciones `/api/*`.
+- **Supabase**: autenticación y base de datos.
+- **Google Drive**: fotografías, videos, logos y documentos de clientes.
 
-Para la actualización actual lee primero **`GUIA-VERSION-FINAL.md`**.
+Si Supabase y Google Login ya están funcionando, no vuelvas a crearlos.
 
-Si Google OAuth y el portal ya funcionan en producción, no vuelvas a crear esas credenciales. Solo ejecuta la migración SQL, autoriza tu cuenta administrativa y publica los archivos nuevos.
+Para actualizar esta versión:
+
+1. ejecuta `supabase-workflow-migration.sql`;
+2. sube los archivos a GitHub;
+3. configura Google Drive siguiendo `CONFIGURAR-GOOGLE-DRIVE.md`;
+4. deja que Cloudflare Pages vuelva a desplegar el proyecto.

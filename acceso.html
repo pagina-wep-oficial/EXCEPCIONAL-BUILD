@@ -4,48 +4,16 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#102a24">
   <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="portal.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <title>Entrar a mi cuenta | Excepcional Build</title>
+  <title>Entrar | Excepcional Build</title>
 </head>
 <body data-portal-page="access">
-<main class="auth-page">
-  <section class="auth-brand-panel">
-    <a class="portal-brand portal-brand-light" href="index.html"><span class="portal-mark portal-mark-light">EB</span><span>EXCEPCIONAL BUILD</span></a>
-    <div class="auth-message">
-      <span class="auth-symbol" aria-hidden="true">✓</span>
-      <p class="eyebrow eyebrow-light">Tu espacio personal</p>
-      <h1>Todo sobre tus páginas, en un solo lugar.</h1>
-      <p>Revisa avances, guarda cotizaciones y pide cambios cuando lo necesites.</p>
-    </div>
-    <p class="auth-footnote">Acceso exclusivo para clientes de Excepcional Build.</p>
-  </section>
-  <section class="auth-side">
-    <div class="auth-card">
-      <div id="login-view">
-        <p class="eyebrow">Entrar a mi cuenta</p>
-        <h2>Continúa con Google</h2>
-        <p id="access-copy">Usa tu cuenta de Google para reconocerte. No necesitas crear otra contraseña.</p>
-        <div class="auth-context" id="access-context" hidden></div>
-        <button class="google-button" id="google-login" type="button"><span class="google-g">G</span><strong>Continuar con Google</strong></button>
-        <p class="privacy-note">Solo usamos tu nombre y correo para identificar tu cuenta y tus proyectos.</p>
-        <p class="form-status" id="auth-status" aria-live="polite"></p>
-      </div>
-      <div id="profile-view" hidden>
-        <div class="step-bubble">Último paso</div>
-        <p class="eyebrow">Completa tu cuenta</p>
-        <h2>¿Cómo podemos contactarte?</h2>
-        <p>Revisa tu nombre y agrega un WhatsApp. Tardarás menos de un minuto.</p>
-        <form class="portal-form spacious-form" id="onboarding-form">
-          <label><span>Nombre completo</span><input name="full_name" autocomplete="name" placeholder="Ej. Ana Pérez" required></label>
-          <label><span>WhatsApp</span><input name="phone" inputmode="tel" autocomplete="tel" placeholder="Ej. 981 123 4567" required></label>
-          <label><span>Municipio o ciudad</span><input name="location" autocomplete="address-level2" placeholder="Ej. Hopelchén"></label>
-          <label class="email-readonly"><span>Correo de Google</span><input name="email" type="email" readonly></label>
-          <button class="button button-primary button-wide" type="submit">Guardar y continuar</button>
-          <p class="form-status" id="profile-status" aria-live="polite"></p>
-        </form>
-      </div>
-      <div class="config-warning" id="config-warning" hidden></div>
-    </div>
-  </section>
+<main class="auth-page auth-page-simple">
+  <section class="auth-brand-panel"><a class="portal-brand portal-brand-light" href="index.html"><span class="portal-mark portal-mark-light">EB</span><span>EXCEPCIONAL BUILD</span></a><div class="auth-message"><span class="auth-symbol" aria-hidden="true">✓</span><p class="eyebrow eyebrow-light">Tu proyecto, más fácil</p><h1>Entra para continuar con tu página.</h1><p>Aquí podrás enviarnos información, revisar avances y pedir cambios.</p></div><p class="auth-footnote">Si recibiste una invitación por WhatsApp, usa la misma cuenta de Google con la que quieres entrar en el futuro.</p></section>
+  <section class="auth-side"><div class="auth-card">
+    <div id="login-view"><p class="eyebrow">Acceso de clientes</p><h2>Continúa con Google</h2><p id="access-copy">No necesitas crear una contraseña nueva.</p><div class="auth-context" id="access-context" hidden></div><button class="google-button" id="google-login" type="button"><span class="google-g">G</span><strong>Continuar con Google</strong></button><p class="privacy-note">Usaremos tu nombre y correo para reconocerte cuando regreses.</p><p class="form-status" id="auth-status" aria-live="polite"></p></div>
+    <div id="profile-view" hidden><div class="step-bubble">Último paso</div><p class="eyebrow">Confirma tus datos</p><h2>¿Cómo podemos contactarte?</h2><p>Estos datos son tuyos como persona. Cada negocio tendrá su propia información dentro de su proyecto.</p><form class="portal-form spacious-form" id="onboarding-form"><label><span>Nombre completo</span><input name="full_name" autocomplete="name" placeholder="Ej. Ana Pérez" required></label><label><span>WhatsApp</span><input name="phone" inputmode="tel" autocomplete="tel" placeholder="Ej. 981 123 4567" required></label><label><span>Municipio o ciudad</span><input name="location" autocomplete="address-level2" placeholder="Ej. Hopelchén"></label><label class="email-readonly"><span>Correo de Google</span><input name="email" type="email" readonly></label><button class="button button-primary button-wide" type="submit">Guardar y continuar</button><p class="form-status" id="profile-status" aria-live="polite"></p></form></div>
+    <div class="config-warning" id="config-warning" hidden></div>
+  </div></section>
 </main>
 <script src="supabase-config.js"></script><script src="supabase-client.js"></script><script src="portal.js"></script>
 </body></html>

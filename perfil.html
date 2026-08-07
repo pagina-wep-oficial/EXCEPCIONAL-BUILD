@@ -3,33 +3,26 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#102a24">
   <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="portal.css">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><title>Mi cuenta | Excepcional Build</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="portal.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <title>Mi cuenta | Excepcional Build</title>
 </head>
 <body data-portal-page="profile">
-<header class="portal-header"><div class="portal-shell portal-nav"><a class="portal-brand" href="panel.html"><span class="portal-mark">EB</span><span>EXCEPCIONAL BUILD</span></a><nav class="desktop-nav"><a href="panel.html">Mis proyectos</a><a href="cotizar.html">Cotizar</a><a class="account-chip is-active" href="perfil.html"><span class="avatar avatar-small" data-avatar>EB</span><span data-user-name>Mi cuenta</span></a></nav></div></header>
+<header class="portal-header"><div class="portal-shell portal-nav"><a class="portal-brand" href="panel.html"><span class="portal-mark">EB</span><span>EXCEPCIONAL BUILD</span></a><nav class="desktop-nav"><a href="panel.html">Mis páginas</a><a class="is-active" href="perfil.html">Mi cuenta</a></nav></div></header>
 <main class="portal-main"><div class="portal-shell portal-shell-form">
-  <a class="back-link" href="panel.html">← Volver a mis proyectos</a>
-  <section class="profile-intro">
-    <div class="profile-avatar avatar" data-avatar>EB</div>
-    <div><p class="eyebrow">Mi cuenta</p><h1>Tus datos</h1><p>Estos datos son tuyos. Los datos de cada negocio se guardan dentro de su proyecto.</p></div>
-  </section>
-
-  <article class="content-card profile-card">
-    <div class="card-heading"><div><h2>Información personal</h2><p>Así podemos identificarte y comunicarnos contigo.</p></div></div>
+  <a class="back-link" href="panel.html">← Volver a mis páginas</a>
+  <section class="profile-intro"><div class="avatar avatar-large" data-avatar>EB</div><div><p class="eyebrow">Mi cuenta</p><h1 data-user-name>Cliente</h1><p>Estos son tus datos personales. Los datos de cada negocio se guardan dentro de su proyecto.</p></div></section>
+  <article class="content-card profile-card-simple">
     <form class="portal-form spacious-form" id="profile-form">
       <label><span>Nombre completo</span><input name="full_name" autocomplete="name" placeholder="Ej. Ana Pérez" required></label>
-      <label><span>WhatsApp</span><input name="phone" inputmode="tel" autocomplete="tel" placeholder="Ej. 981 123 4567" required><small>Usaremos este número para hablar contigo sobre tus proyectos.</small></label>
-      <label><span>Municipio o ciudad</span><input name="location" autocomplete="address-level2" placeholder="Ej. Hopelchén"><small>Solo necesitamos una ubicación general.</small></label>
-      <label><span>Correo de tu cuenta</span><input name="email" type="email" readonly><small>Este correo viene de tu cuenta de Google.</small></label>
-      <div class="form-actions sticky-form-action"><button class="button button-primary button-wide" type="submit">Guardar mis datos</button></div>
+      <label><span>WhatsApp</span><input name="phone" inputmode="tel" autocomplete="tel" placeholder="Ej. 981 123 4567" required></label>
+      <label><span>Municipio o ciudad</span><input name="location" autocomplete="address-level2" placeholder="Ej. Hopelchén"></label>
+      <label class="email-readonly"><span>Correo de tu cuenta</span><input name="email" type="email" readonly></label>
+      <button class="button button-primary button-wide" type="submit">Guardar mis datos</button>
       <p class="form-status" id="profile-page-status" aria-live="polite"></p>
     </form>
   </article>
-
-  <article class="account-help-card"><div><strong>¿Tienes varios negocios?</strong><span>No hay problema. Cada negocio puede tener su propio proyecto y su propia información.</span></div></article>
-  <button class="logout-link" type="button" data-logout>Cerrar sesión</button>
+  <button class="button button-danger-link" type="button" data-logout>Cerrar sesión</button>
 </div></main>
-<nav class="mobile-nav" aria-label="Navegación principal"><a href="panel.html"><span aria-hidden="true">⌂</span><b>Inicio</b></a><a class="mobile-nav-main" href="cotizar.html"><span aria-hidden="true">＋</span><b>Cotizar</b></a><a class="active" href="perfil.html"><span aria-hidden="true">○</span><b>Mi cuenta</b></a></nav>
+<nav class="mobile-nav" aria-label="Navegación principal"><a href="panel.html"><span aria-hidden="true">⌂</span><b>Inicio</b></a><a class="mobile-nav-main" href="https://wa.me/529811332914?text=Hola%2C%20quiero%20una%20p%C3%A1gina%20para%20otro%20negocio." target="_blank" rel="noopener"><span aria-hidden="true">＋</span><b>Nueva página</b></a><a class="active" href="perfil.html"><span aria-hidden="true">○</span><b>Mi cuenta</b></a></nav>
 <script src="supabase-config.js"></script><script src="supabase-client.js"></script><script src="portal.js"></script>
 </body></html>

@@ -6,8 +6,7 @@
   <meta name="robots" content="noindex,nofollow">
   <meta name="theme-color" content="#102a24">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="portal.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -16,69 +15,34 @@
 <body data-portal-page="panel">
 <header class="portal-header">
   <div class="portal-shell portal-nav">
-    <a class="portal-brand" href="panel.html" aria-label="Excepcional Build, inicio">
-      <span class="portal-mark">EB</span><span>EXCEPCIONAL BUILD</span>
-    </a>
-    <nav class="desktop-nav" aria-label="Navegación del portal">
-      <a class="is-active" href="panel.html">Mis proyectos</a>
-      <a href="cotizar.html">Cotizar</a>
-      <a class="account-chip" href="perfil.html"><span class="avatar avatar-small" data-avatar>EB</span><span data-user-name>Mi cuenta</span></a>
-    </nav>
+    <a class="portal-brand" href="panel.html" aria-label="Excepcional Build, inicio"><span class="portal-mark">EB</span><span>EXCEPCIONAL BUILD</span></a>
+    <nav class="desktop-nav" aria-label="Navegación"><a class="is-active" href="panel.html">Mis páginas</a><a href="perfil.html">Mi cuenta</a></nav>
   </div>
 </header>
-
 <main class="portal-main">
   <div class="portal-shell portal-shell-narrow">
-    <section class="welcome-card">
-      <div>
-        <p class="eyebrow">Tu cuenta</p>
-        <h1>Hola, <span id="panel-first-name">cliente</span>.</h1>
-        <p>Aquí puedes ver tus páginas, saber en qué vamos y pedir ayuda.</p>
-      </div>
-      <a class="button button-primary welcome-action" href="cotizar.html">
-        <span class="button-icon" aria-hidden="true">＋</span>
-        Cotizar una nueva página
-      </a>
+    <section class="welcome-card welcome-card-simple">
+      <div><p class="eyebrow">Tu espacio</p><h1>Hola, <span id="panel-first-name">cliente</span>.</h1><p>Aquí verás tus páginas y lo que necesitamos de ti en cada momento.</p></div>
     </section>
 
-    <div class="pending-banner" id="pending-banner" hidden>
-      <div class="notice-icon" aria-hidden="true">✓</div>
-      <div class="pending-copy"><strong>Tu cotización está lista</strong><span>Guárdala para que aparezca en tus proyectos.</span></div>
-      <button class="button button-accent button-small" id="save-pending-quote">Guardar ahora</button>
-    </div>
-
-    <section class="simple-overview" aria-label="Resumen de la cuenta">
-      <div><strong id="stat-projects">0</strong><span>Proyectos</span></div>
-      <div><strong id="stat-active">0</strong><span>En proceso</span></div>
-      <div><strong id="stat-live">0</strong><span>Publicados</span></div>
-      <div class="overview-secondary"><strong id="stat-requests">0</strong><span>Solicitudes abiertas</span></div>
-    </section>
+    <section class="next-step-card" id="panel-next-step" hidden></section>
 
     <section class="projects-section">
-      <div class="section-head simple-section-head">
-        <div><p class="eyebrow">Tus páginas</p><h2>Mis proyectos</h2><p>Toca un proyecto para ver su avance.</p></div>
-        <div class="project-filters" id="project-filters" aria-label="Filtrar proyectos">
-          <button class="filter-pill active" data-filter="all">Todos</button>
-          <button class="filter-pill" data-filter="active">En proceso</button>
-          <button class="filter-pill" data-filter="live">Listos</button>
-        </div>
-      </div>
-      <div class="projects-grid" id="projects-grid"><div class="empty-card"><div class="empty-icon">…</div><h3>Cargando tus proyectos</h3></div></div>
+      <div class="section-head simple-section-head"><div><p class="eyebrow">Tus proyectos</p><h2>Mis páginas</h2><p>Toca una tarjeta para continuar.</p></div></div>
+      <div class="projects-grid projects-grid-simple" id="projects-grid"><div class="empty-card"><div class="empty-icon">…</div><h3>Cargando tus proyectos</h3></div></div>
     </section>
 
     <section class="help-strip">
-      <div><strong>¿Necesitas ayuda?</strong><span>Escríbenos y dinos qué necesitas.</span></div>
-      <a class="button button-light" href="https://wa.me/529811332914" target="_blank" rel="noopener">Abrir WhatsApp</a>
+      <div><strong>¿Quieres una página para otro negocio?</strong><span>Escríbenos y abrimos un nuevo proyecto contigo.</span></div>
+      <a class="button button-light" href="https://wa.me/529811332914?text=Hola%2C%20quiero%20una%20p%C3%A1gina%20para%20otro%20negocio." target="_blank" rel="noopener">Escribir por WhatsApp</a>
     </section>
   </div>
 </main>
-
 <nav class="mobile-nav" aria-label="Navegación principal">
   <a class="active" href="panel.html"><span aria-hidden="true">⌂</span><b>Inicio</b></a>
-  <a class="mobile-nav-main" href="cotizar.html"><span aria-hidden="true">＋</span><b>Cotizar</b></a>
+  <a class="mobile-nav-main" href="https://wa.me/529811332914?text=Hola%2C%20quiero%20una%20p%C3%A1gina%20para%20otro%20negocio." target="_blank" rel="noopener"><span aria-hidden="true">＋</span><b>Nueva página</b></a>
   <a href="perfil.html"><span aria-hidden="true">○</span><b>Mi cuenta</b></a>
 </nav>
-
 <script src="supabase-config.js"></script><script src="supabase-client.js"></script><script src="portal.js"></script>
 </body>
 </html>

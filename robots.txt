@@ -7,5 +7,6 @@ Disallow: /proyecto.html
 Disallow: /perfil.html
 Disallow: /acceso.html
 Disallow: /auth-callback.html
+Disallow: /cotizar.html
 
 Sitemap: https://excepcional-build.pages.dev/sitemap.xml

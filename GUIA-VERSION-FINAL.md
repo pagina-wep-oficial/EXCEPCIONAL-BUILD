@@ -1,163 +1,77 @@
-# Excepcional Build · versión final del portal y CRM
+# Actualización: flujo Prospecto → Invitado → Cliente
 
-Esta versión usa el mismo modelo técnico que ya tienes:
+Esta actualización cambia el flujo comercial y agrega carga privada de archivos a Google Drive.
 
-- **GitHub** guarda el código y el historial.
-- **Cloudflare Pages** publica el sitio estático.
-- **Supabase** maneja autenticación, prospectos, clientes, proyectos, cotizaciones, avances y solicitudes.
-- No se necesita hosting tradicional para este portal.
+## 1. Respaldo
 
-## Flujo comercial definitivo
+Antes de reemplazar archivos crea un commit o una rama de respaldo en GitHub.
 
-### Cliente que llega por la página
+## 2. Supabase
 
-1. Entra al sitio público.
-2. Puede mandar una solicitud breve sin crear cuenta.
-3. La solicitud llega a `prospectos` y aparece en el CRM.
-4. Después puede abrir el cotizador y preparar una estimación.
-5. La cuenta de Google solo se pide cuando desea **guardar la cotización y darle seguimiento**.
-6. Al guardar se crea un proyecto en estado `Solicitud en revisión`.
-7. El proyecto aparece en el CRM y en el portal del cliente.
+Si tu portal anterior ya funciona, ejecuta solamente:
 
-### Cliente que tú encuentras directamente
+`supabase-workflow-migration.sql`
 
-1. Lo registras en **Prospectos** dentro del CRM.
-2. Si pregunta precio, puedes pulsar **Cotizador** y mandarle ese enlace por WhatsApp.
-3. Si ya aceptó sin usar el cotizador, pulsa **Crear proyecto** directamente en el CRM.
-4. El proyecto puede existir aunque el cliente todavía no tenga cuenta.
-5. Desde el proyecto copias la **Invitación al portal** y se la mandas por WhatsApp.
-6. El cliente entra con Google y el proyecto queda vinculado automáticamente a su cuenta.
+Si instalas desde cero usa:
 
-No es obligatorio que un cliente que tú cierres por WhatsApp pase primero por la página pública.
+`supabase-schema.sql`
 
-## Control de la página que ve el cliente
+La migración no elimina proyectos existentes.
 
-Cada proyecto tiene tres estados de visibilidad:
+## 3. Publica el código
 
-- `hidden`: el cliente no ve ningún botón para abrir la página.
-- `preview`: aparece **Ver avance** usando la URL de vista previa.
-- `public`: aparece **Ver página** usando la URL pública.
+Reemplaza los archivos en el repositorio y haz push a la rama que utiliza Cloudflare Pages.
 
-Esto se cambia exclusivamente desde el CRM.
+El sitio sigue siendo HTML/CSS/JavaScript estático. Las únicas funciones de servidor nuevas son las Pages Functions dentro de `functions/` para mover archivos hacia Google Drive.
 
-## Información que el cliente entrega
+## 4. Google Drive
 
-Dentro de cada proyecto el cliente tiene un apartado **Información para construir tu página** donde puede guardar descripción del negocio, servicios, dirección, horarios, WhatsApp público, redes, referencias visuales y notas.
+Para activar la subida de fotos, videos y documentos sigue:
 
-Las fotografías se siguen enviando por WhatsApp en esta versión para no obligarte a configurar Supabase Storage todavía. El CRM muestra la información estructurada dentro del proyecto.
+`CONFIGURAR-GOOGLE-DRIVE.md`
 
-## Pagos
+El resto del portal puede funcionar aunque todavía no conectes Drive; únicamente la subida de archivos mostrará un error hasta que agregues los secretos.
 
-El CRM permite guardar:
+## 5. Prueba completa
 
-- precio total acordado;
-- anticipo;
-- saldo final;
-- anticipo pagado / pendiente;
-- saldo pagado / pendiente.
+### Cliente que llega por la web
 
-Al crear un proyecto manualmente el panel propone una división 50/50. Puedes cambiarla antes de guardar.
+1. Llena el formulario de `index.html`.
+2. Revisa que aparezca en CRM > Prospectos.
+3. Habla con él.
+4. Pulsa **✓ Aceptó**.
+5. Define precio, anticipo, saldo y método de pago.
+6. Comprueba que aparece en CRM > Invitados.
+7. Envía el acceso por WhatsApp.
+8. Inicia sesión como ese cliente.
+9. Comprueba que desaparece de Invitados y aparece en Clientes.
+10. Configura dirección y funciones.
+11. Completa información y sube un archivo.
+12. Comprueba desde el CRM que ves información y archivo.
 
-## PASOS PARA ACTUALIZAR TU INSTALACIÓN
+### Revisión
 
-### 1. Haz respaldo en GitHub
+1. En CRM > Proyectos abre el proyecto.
+2. Etapa = `Revisión`.
+3. Agrega URL de vista previa.
+4. Visibilidad = `Vista previa`.
+5. Guarda.
+6. El cliente debe ver **Ver vista previa**.
 
-Antes de reemplazar archivos, crea un commit o una rama de respaldo.
+### Publicado
 
-### 2. Ejecuta la migración de Supabase
+1. Etapa = `Publicado`.
+2. URL publicada = sitio final.
+3. Visibilidad = `Publicada`.
+4. Guarda.
+5. El cliente debe ver **Abrir mi página** y ya no debe tener el cuestionario como tarea principal.
 
-En Supabase abre **SQL Editor**, copia todo el archivo:
+## Flujo final del CRM
 
-`supabase-final-migration.sql`
+- Prospectos: todavía no aceptan.
+- Invitados: aceptaron pero aún no activan cuenta.
+- Clientes: ya iniciaron sesión.
+- Proyectos: trabajo de cada negocio.
+- Solicitudes: cambios y mantenimiento.
 
-y ejecútalo.
-
-La migración no borra tus proyectos ni tus tablas `client_*` existentes.
-
-### 3. Autoriza tu cuenta como administrador
-
-En Supabase > SQL Editor ejecuta:
-
-```sql
-select id, email from auth.users order by created_at;
-```
-
-Busca la cuenta con la que entras al CRM y copia su UUID.
-
-Después ejecuta:
-
-```sql
-insert into public.app_admins(user_id)
-values ('PEGA_AQUI_TU_UUID')
-on conflict do nothing;
-```
-
-Sin este paso el nuevo CRM no permitirá administrar datos de clientes.
-
-### 4. Sube los archivos a GitHub
-
-Reemplaza los archivos del proyecto con los de esta carpeta y haz push a la rama que usa Cloudflare Pages.
-
-Si tu Google OAuth y tu `supabase-config.js` ya funcionaban, **no necesitas volver a configurar Google**.
-
-### 5. Cloudflare Pages
-
-Si Cloudflare Pages ya está conectado a GitHub, el push debe lanzar el despliegue automáticamente.
-
-No hay build especial: sigue siendo HTML, CSS y JavaScript estático.
-
-## Pruebas recomendadas
-
-### Prueba A · cliente desde la web
-
-1. Llena el formulario público.
-2. Comprueba que aparece en el CRM > Prospectos.
-3. Pulsa `Ver mi cotización estimada`.
-4. Completa el cotizador.
-5. Guarda la cotización e inicia sesión con Google.
-6. Comprueba que aparece el proyecto en CRM > Proyectos y en el panel del cliente.
-
-### Prueba B · cliente encontrado por ti
-
-1. Crea un prospecto manual en el CRM.
-2. Pulsa `Crear proyecto`.
-3. Abre `Administrar`.
-4. Copia la invitación al portal.
-5. Ábrela en una cuenta de Google de prueba.
-6. Confirma que ese proyecto aparece en la cuenta.
-
-### Prueba C · control de la página
-
-1. En CRM > Proyectos abre un proyecto.
-2. Deja `Visibilidad del sitio = Oculto` y guarda.
-3. Comprueba que el cliente **no** tiene botón de página.
-4. Cambia a `Mostrar vista previa`, agrega una URL y guarda.
-5. Comprueba que aparece `Ver avance`.
-6. Cambia a `Página publicada`, agrega URL pública y guarda.
-7. Comprueba que aparece `Ver página`.
-
-### Prueba D · solicitud del cliente
-
-1. Desde el proyecto del cliente pulsa mantenimiento o actualización.
-2. Registra la solicitud.
-3. Comprueba que aparece en CRM > Solicitudes.
-4. Cambia su estado desde el CRM.
-
-## Archivos principales nuevos o actualizados
-
-- `panel.html` · panel del cliente.
-- `proyecto.html` · detalle de proyecto.
-- `perfil.html` · perfil del cliente.
-- `acceso.html` · Google OAuth / alta de cuenta.
-- `portal.css` · diseño del portal.
-- `portal.js` · funcionamiento del portal.
-- `crm-local.html` · CRM administrativo completo.
-- `crm.css` · diseño del CRM.
-- `crm.js` · lógica del CRM.
-- `client_project_briefs` · tabla de información que entrega el cliente para construir su página.
-- `supabase-final-migration.sql` · migración para tu proyecto actual.
-
-## Seguridad
-
-No pongas `service_role`, secretos de Google, contraseña de base de datos ni JWT secret en estos archivos públicos.
-El navegador solo debe usar la clave pública publishable/anon y Supabase RLS controla los permisos.
+Una persona puede tener varios proyectos/negocios.

@@ -7,55 +7,62 @@
   <title>Mi proyecto | Excepcional Build</title>
 </head>
 <body data-portal-page="project">
-<header class="portal-header"><div class="portal-shell portal-nav"><a class="portal-brand" href="panel.html"><span class="portal-mark">EB</span><span>EXCEPCIONAL BUILD</span></a><nav class="desktop-nav"><a class="is-active" href="panel.html">Mis proyectos</a><a href="cotizar.html">Cotizar</a><a class="account-chip" href="perfil.html"><span class="avatar avatar-small" data-avatar>EB</span><span data-user-name>Mi cuenta</span></a></nav></div></header>
+<header class="portal-header"><div class="portal-shell portal-nav"><a class="portal-brand" href="panel.html"><span class="portal-mark">EB</span><span>EXCEPCIONAL BUILD</span></a><nav class="desktop-nav"><a class="is-active" href="panel.html">Mis páginas</a><a href="perfil.html">Mi cuenta</a></nav></div></header>
 <main class="portal-main"><div class="portal-shell portal-shell-project">
-  <a class="back-link" href="panel.html">← Mis proyectos</a>
-  <section class="project-heading-simple">
-    <div><p class="eyebrow">Tu proyecto</p><h1 id="project-title">Cargando proyecto…</h1><div id="project-subtitle"></div></div>
-    <div class="hero-actions" id="project-top-actions"></div>
-  </section>
+  <a class="back-link" href="panel.html">← Mis páginas</a>
+  <section class="project-heading-simple"><div><p class="eyebrow">Tu proyecto</p><h1 id="project-title">Cargando proyecto…</h1><div id="project-subtitle"></div></div><div class="hero-actions" id="project-top-actions"></div></section>
 
-  <div id="project-availability"></div>
+  <article class="content-card progress-card"><div class="card-heading"><div><h2>¿En qué vamos?</h2><p>Solo tienes que hacer lo que aparezca marcado como “Ahora”.</p></div></div><div class="stage-track stage-track-client" id="project-stage-track"></div><div class="client-note" id="project-client-note" hidden></div></article>
 
-  <section class="project-main-grid">
-    <div class="project-primary">
-      <article class="content-card progress-card">
-        <div class="card-heading"><div><h2>¿En qué vamos?</h2><p>Te mostramos el avance de forma sencilla.</p></div></div>
-        <div class="stage-track" id="project-stage-track"></div>
-        <div class="client-note" id="project-client-note" hidden></div>
-      </article>
+  <section class="project-focus-card" id="project-focus"></section>
 
-      <article class="content-card" id="project-brief-card">
-        <div class="card-heading"><div><p class="eyebrow">Información del negocio</p><h2>Ayúdanos a preparar tu página</h2><p>Puedes guardar lo que tengas ahora y completar lo demás después.</p></div></div>
-        <form class="portal-form spacious-form" id="project-brief-form">
-          <label><span>¿A qué se dedica este negocio?</span><textarea name="business_description" rows="3" placeholder="Ej. Somos una tienda de abarrotes con servicio a domicilio."></textarea></label>
-          <label><span>¿Qué quieres mostrar o vender?</span><textarea name="products_services" rows="3" placeholder="Productos, servicios, menú, precios o lo más importante."></textarea></label>
-          <div class="field-row"><label><span>Dirección o ubicación</span><input name="address_text" placeholder="Ej. Centro, Hopelchén, Campeche"></label><label><span>Horario</span><input name="schedule_text" placeholder="Ej. Lun-Sáb, 9:00 a 18:00"></label></div>
-          <div class="field-row"><label><span>WhatsApp que verá la gente</span><input name="public_phone" inputmode="tel" placeholder="Ej. 981 123 4567"></label><label><span>Redes sociales</span><input name="social_links" placeholder="Facebook, Instagram, TikTok..."></label></div>
-          <label><span>Colores o estilo que te gustan</span><textarea name="visual_notes" rows="2" placeholder="Ej. azul oscuro, elegante, sencillo..."></textarea></label>
-          <label><span>Algo más que debamos saber</span><textarea name="extra_notes" rows="2" placeholder="Opcional"></textarea></label>
-          <div class="form-actions form-actions-stack-mobile"><button class="button button-primary" type="submit">Guardar información</button><a class="button button-light" id="brief-whatsapp" href="#" target="_blank" rel="noopener">Enviar fotos por WhatsApp</a></div>
-          <p class="form-status" id="brief-status"></p>
-        </form>
-      </article>
+  <article class="content-card" id="project-brief-card" hidden>
+    <div class="card-heading"><div><p class="eyebrow">Información para tu página</p><h2>Cuéntanos sobre este negocio</h2><p>Avanza poco a poco. Puedes guardar y continuar otro día.</p></div><div class="completion-ring"><strong id="brief-progress-number">0%</strong><span>completo</span></div></div>
+    <div class="brief-stepper" id="brief-stepper"><button class="active" type="button" data-brief-go="1"><i>1</i><span>Negocio</span></button><button type="button" data-brief-go="2"><i>2</i><span>Contacto</span></button><button type="button" data-brief-go="3"><i>3</i><span>Contenido</span></button><button type="button" data-brief-go="4"><i>4</i><span>Archivos</span></button></div>
+    <form class="portal-form spacious-form" id="project-brief-form">
+      <section class="brief-page" data-brief-page="1">
+        <label><span>Nombre del negocio</span><input name="business_name" placeholder="Ej. Abarrotes Lupita"></label>
+        <label><span>¿A qué se dedica?</span><textarea name="business_description" rows="4" placeholder="Cuéntanos con tus palabras qué hace este negocio."></textarea></label>
+        <label><span>Productos o servicios principales</span><textarea name="products_services" rows="4" placeholder="Ej. abarrotes, bebidas, recargas y servicio a domicilio."></textarea></label>
+      </section>
+      <section class="brief-page" data-brief-page="2" hidden>
+        <label><span>Dirección o ubicación</span><input name="address_text" placeholder="Ej. Calle 20, Centro, Hopelchén"></label>
+        <label><span>Horario</span><input name="schedule_text" placeholder="Ej. Lunes a sábado de 8:00 a 20:00"></label>
+        <label><span>WhatsApp que verá la gente</span><input name="public_phone" inputmode="tel" placeholder="Ej. 981 123 4567"></label>
+        <label><span>Enlace de Google Maps</span><input name="maps_url" type="url" placeholder="https://maps.google.com/..."></label>
+        <div class="field-row"><label><span>Facebook</span><input name="facebook_url" placeholder="Enlace o nombre de la página"></label><label><span>Instagram</span><input name="instagram_url" placeholder="Enlace o usuario"></label></div>
+        <label><span>TikTok u otra red</span><input name="tiktok_url" placeholder="Opcional"></label>
+      </section>
+      <section class="brief-page" data-brief-page="3" hidden>
+        <fieldset class="content-picker"><legend>¿Qué quieres mostrar en tu página?</legend><label><input type="checkbox" name="content_options" value="Productos"> Productos</label><label><input type="checkbox" name="content_options" value="Servicios"> Servicios</label><label><input type="checkbox" name="content_options" value="Menú"> Menú</label><label><input type="checkbox" name="content_options" value="Galería"> Galería de fotos</label><label><input type="checkbox" name="content_options" value="Ubicación"> Ubicación</label><label><input type="checkbox" name="content_options" value="WhatsApp"> Botón de WhatsApp</label><label><input type="checkbox" name="content_options" value="Precios"> Precios</label><label><input type="checkbox" name="content_options" value="Otro"> Otra cosa</label></fieldset>
+        <label><span>Colores o estilo que te gustan</span><textarea name="visual_notes" rows="3" placeholder="Ej. azul oscuro, elegante, sencillo. Si no sabes, déjalo en blanco."></textarea></label>
+        <label><span>Enlaces de referencia</span><textarea name="reference_links" rows="3" placeholder="Puedes pegar enlaces de páginas o estilos que te gusten."></textarea></label>
+        <label><span>Algo más que debamos saber</span><textarea name="extra_notes" rows="3" placeholder="Opcional"></textarea></label>
+      </section>
+      <section class="brief-page" data-brief-page="4" hidden>
+        <div class="upload-intro"><div class="upload-icon">↑</div><div><h3>Fotos, videos, logo y documentos</h3><p>Elige los archivos desde tu celular. Se guardarán directamente en la carpeta privada de tu proyecto.</p></div></div>
+        <label><span>Tipo de archivo</span><select id="file-category"><option value="foto">Fotos</option><option value="logo">Logotipo</option><option value="video">Videos</option><option value="documento">Documentos</option><option value="otro">Otro</option></select></label>
+        <label class="file-drop" for="project-files"><strong>Seleccionar archivos</strong><span>Fotos, videos o documentos · máximo 25 MB por archivo</span><input id="project-files" type="file" multiple accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"></label>
+        <button class="button button-light button-wide" type="button" id="upload-files">Subir archivos seleccionados</button>
+        <p class="form-status" id="upload-status"></p>
+        <div class="file-list" id="project-file-list"></div>
+        <label><span>¿Tienes archivos en otro lugar?</span><textarea name="social_links" rows="2" placeholder="Pega aquí un enlace de Drive, Facebook, catálogo u otro sitio."></textarea></label>
+      </section>
+      <div class="brief-nav"><button class="button button-light" type="button" id="brief-prev">← Atrás</button><button class="button button-primary" type="button" id="brief-next">Siguiente →</button></div>
+      <button class="button button-accent button-wide" type="button" id="brief-save">Guardar mi avance</button>
+      <button class="button button-primary button-wide button-large" type="button" id="brief-submit">Ya terminé · enviar información para comenzar</button>
+      <p class="form-status" id="brief-status"></p>
+    </form>
+  </article>
 
-      <article class="content-card" id="payment-card" hidden><div class="card-heading"><div><h2>Pagos</h2><p>Consulta lo acordado para este proyecto.</p></div></div><div class="payments-grid" id="project-payments"></div></article>
+  <article class="content-card" id="payment-card" hidden><div class="card-heading"><div><h2>Pagos acordados</h2><p>Solo mostramos lo que ya acordaste con nosotros.</p></div></div><div class="payments-grid" id="project-payments"></div></article>
 
-      <article class="content-card"><div class="card-heading"><div><h2>¿Qué necesitas?</h2><p>Elige una opción y cuéntanos qué quieres hacer.</p></div></div><div class="actions-grid" id="project-actions"></div></article>
-
-      <article class="content-card"><div class="card-heading"><div><h2>Últimos avances</h2><p>Las actualizaciones que hemos registrado.</p></div></div><div class="timeline" id="project-timeline"></div></article>
-    </div>
-
-    <aside class="project-secondary">
-      <article class="side-card"><h2>Datos del proyecto</h2><div class="details-grid" id="project-details"></div></article>
-      <article class="side-card"><h2>Cotización guardada</h2><div id="quote-summary"></div></article>
-      <article class="side-card"><h2>Tus solicitudes</h2><div class="request-list" id="request-list"></div></article>
-    </aside>
-  </section>
+  <article class="content-card" id="project-actions-card" hidden><div class="card-heading"><div><h2>¿Qué necesitas ahora?</h2><p>Estas opciones aparecen cuando tu página ya está publicada o en revisión.</p></div></div><div class="actions-grid" id="project-actions"></div></article>
+  <article class="content-card"><div class="card-heading"><div><h2>Avances</h2><p>Lo que hemos registrado sobre tu proyecto.</p></div></div><div class="timeline" id="project-timeline"></div></article>
 </div></main>
 
-<dialog id="request-dialog"><div class="dialog-body"><div class="dialog-head"><div><p class="eyebrow">Pedir ayuda</p><h2 id="request-title">¿Qué necesitas?</h2></div><button class="dialog-close" type="button" data-dialog-close aria-label="Cerrar">×</button></div><form class="portal-form" id="request-form"><input type="hidden" name="request_type"><label><span>Explícanos brevemente</span><textarea name="message" rows="5" required placeholder="Ej. Quiero cambiar el horario y agregar tres fotos nuevas."></textarea></label><p class="form-status" id="request-status"></p><div class="dialog-actions"><button class="button button-light" type="button" data-dialog-close>Cancelar</button><button class="button button-primary" type="submit">Enviar solicitud</button></div></form></div></dialog>
+<dialog id="request-dialog"><div class="dialog-body"><div class="dialog-head"><div><p class="eyebrow">Pedir un cambio</p><h2 id="request-title">¿Qué necesitas?</h2></div><button class="dialog-close" type="button" data-dialog-close aria-label="Cerrar">×</button></div><form class="portal-form" id="request-form"><input type="hidden" name="request_type"><label><span>Explícanos brevemente</span><textarea name="message" rows="5" required placeholder="Ej. Quiero cambiar el horario y agregar tres fotos nuevas."></textarea></label><p class="form-status" id="request-status"></p><div class="dialog-actions"><button class="button button-light" type="button" data-dialog-close>Cancelar</button><button class="button button-primary" type="submit">Enviar solicitud</button></div></form></div></dialog>
 
-<nav class="mobile-nav" aria-label="Navegación principal"><a class="active" href="panel.html"><span aria-hidden="true">⌂</span><b>Inicio</b></a><a class="mobile-nav-main" href="cotizar.html"><span aria-hidden="true">＋</span><b>Cotizar</b></a><a href="perfil.html"><span aria-hidden="true">○</span><b>Mi cuenta</b></a></nav>
+<nav class="mobile-nav" aria-label="Navegación principal"><a class="active" href="panel.html"><span aria-hidden="true">⌂</span><b>Inicio</b></a><a class="mobile-nav-main" href="https://wa.me/529811332914" target="_blank" rel="noopener"><span aria-hidden="true">✦</span><b>Ayuda</b></a><a href="perfil.html"><span aria-hidden="true">○</span><b>Mi cuenta</b></a></nav>
 <script src="supabase-config.js"></script><script src="supabase-client.js"></script><script src="portal.js"></script>
 </body></html>

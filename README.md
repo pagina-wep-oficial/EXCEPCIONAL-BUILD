@@ -1,24 +1,39 @@
-# Excepcional Build · sitio + cotizador + portal + CRM
+# Excepcional Build
 
-Proyecto estático publicado con Cloudflare Pages y respaldado en GitHub. Supabase se usa para autenticación y datos.
+Sitio público + portal de clientes + CRM administrativo.
 
-## Páginas públicas
-- `index.html`
-- `cotizar.html`
+## Infraestructura
 
-## Portal del cliente
+- GitHub: código e historial.
+- Cloudflare Pages: publicación del sitio y Pages Functions.
+- Supabase: autenticación, prospectos, clientes, proyectos y metadatos.
+- Google Drive: archivos reales de los proyectos.
+
+## Flujo
+
+`Prospecto → Invitado → Cliente → Configuración → Información → Producción → Revisión → Publicado`
+
+Lee en este orden:
+
+1. `GUIA-VERSION-FINAL.md`
+2. `FLUJO-COMERCIAL.md`
+3. `CONFIGURAR-GOOGLE-DRIVE.md`
+
+## Archivos privados del cliente
+
 - `acceso.html`
-- `auth-callback.html`
 - `panel.html`
-- `proyecto.html`
 - `perfil.html`
+- `proyecto.html`
+- `cotizar.html` (configuración de un proyecto aceptado)
 
 ## Administración
+
 - `crm-local.html`
 
-## Configuración
-- `supabase-config.js` contiene únicamente la URL y clave pública del navegador.
-- `supabase-final-migration.sql` actualiza una instalación existente.
-- `supabase-schema.sql` sirve como esquema completo para una instalación nueva.
+## Base de datos
 
-Lee `GUIA-VERSION-FINAL.md` antes de publicar esta actualización.
+- `supabase-workflow-migration.sql`: actualización desde la versión anterior.
+- `supabase-schema.sql`: instalación completa.
+
+Nunca publiques secretos de Google, `service_role`, contraseña de base de datos ni JWT secret.
