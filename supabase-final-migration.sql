@@ -515,8 +515,22 @@ begin
   join public.client_projects p on p.id = s.project_id
   where s.project_id = p_project_id
     and s.user_id = v_user
-    and p.user_id = v_user
+    and (p.user_id = v_user or p.user_id is null)
     and coalesce(p.project_stage, 'Invitación') in ('Invitación','Configuración','Cotización','Aprobación','Información');
+
+  if not found then
+    select s.* into v_setup
+    from public.client_project_setup s
+    join public.client_projects p on p.id = s.project_id
+    where s.project_id = p_project_id
+      and s.user_id is null
+      and (p.user_id = v_user or p.user_id is null)
+      and coalesce(p.project_stage, 'Invitación') in ('Invitación','Configuración','Cotización','Aprobación','Información');
+
+    update public.client_project_setup
+    set user_id = v_user, updated_at = now()
+    where project_id = p_project_id and user_id is null;
+  end if;
 
   if not found then raise exception 'No se encontró la configuración de este proyecto.'; end if;
 
@@ -529,7 +543,8 @@ begin
   where project_id = p_project_id;
 
   update public.client_projects
-  set address_type = v_setup.address_type,
+  set user_id = coalesce(user_id, v_user),
+      address_type = v_setup.address_type,
       domain = case
         when v_setup.address_type = 'gratis' then nullif(trim(v_setup.site_name), '') || '.pages.dev'
         else nullif(trim(v_setup.domain), '')
@@ -539,7 +554,7 @@ begin
       project_stage = case when project_stage in ('Invitación','Configuración','Cotización','Aprobación') then 'Información' else project_stage end,
       status = case when project_stage in ('Invitación','Configuración','Cotización','Aprobación') then 'Configuración lista · completa la información de tu negocio' else status end,
       updated_at = now()
-  where id = p_project_id and user_id = v_user;
+  where id = p_project_id and (user_id = v_user or user_id is null);
 
   return p_project_id;
 end;
