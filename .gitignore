@@ -13,3 +13,4 @@ portal-check.js
 site-check.html
 tabs.json
 supabase.png
+.secrets-drive.txt
