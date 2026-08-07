@@ -4,3 +4,12 @@
 .env.*
 !/.env.example
 supabase-config.local.js
+node_modules/
+cdp-control.js
+cdp-supabase-info.js
+check-chrome.ps1
+restart-chrome-mcp.ps1
+portal-check.js
+site-check.html
+tabs.json
+supabase.png
