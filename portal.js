@@ -210,8 +210,9 @@
       return `<article class="project-card-simple"><a class="project-card-main" href="${url}"><div class="project-card-icon">${stageIndex(p)===4?"✓":"EB"}</div><div class="project-card-copy"><span class="status-badge ${statusClass(p.status)}">${safe(publicBadge)}</span><h3>${safe(p.name)}</h3><p>${safe(copy)}</p><small>${safe(p.domain||"Dirección por definir")}</small></div><span class="project-chevron">›</span></a><div class="project-card-footer">${ownerTag}<span>${date(p.created_at)}</span><a href="${url}">${safe(action)} →</a></div></article>`;
     }
     const render=()=>{
-      const q=(search?.value||"").toLowerCase().trim();
-      const match=p=>!q||`${p.name} ${p.domain||""} ${ownerById.get(p.user_id)||""}`.toLowerCase().includes(q);
+      const norm=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+      const q=norm(search?.value);
+      const match=p=>!q||norm(`${p.name} ${p.domain||""} ${ownerById.get(p.user_id)||""}`).includes(q);
       const own=mine.filter(match), other=others.filter(match);
       const actionable=mine.find(p=>stageIndex(p)<4&&!/cancelad/i.test(stageKey(p)));
       if(actionable){ const box=$("#panel-next-step"), [title,copy]=nextStepText(actionable); box.hidden=false; box.innerHTML=`<div class="next-step-icon">→</div><div><span>Lo siguiente</span><strong>${safe(title)}</strong><p>${safe(copy)}</p></div><a class="button button-primary" href="${projectPrimaryHref(actionable)}">Continuar</a>`; }
