@@ -305,12 +305,24 @@
     if(filesCount>0||String(form.elements.reference_links?.value||form.elements.social_links?.value||"").trim())done++;
     return Math.round(done/8*100);
   }
+  const FILE_RULES={foto:/^image\//,logo:/^image\//,video:/^video\//,documento:/^(application\/pdf|text\/plain|application\/msword|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document|application\/vnd\.ms-excel|application\/vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet|application\/vnd\.ms-powerpoint|application\/vnd\.openxmlformats-officedocument\.presentationml\.presentation)/,otro:/.*/};
+  const FILE_HINTS={foto:"Solo imágenes · máximo 25 MB por archivo",logo:"Solo imágenes (PNG, JPG o SVG) · máximo 25 MB",video:"Solo videos · máximo 25 MB por archivo",documento:"Solo documentos · máximo 25 MB por archivo",otro:"Cualquier archivo · máximo 25 MB por archivo"};
+  function categoryMatches(category,file){
+    const rule=FILE_RULES[category]||FILE_RULES.otro;
+    return rule.test(String(file.type||"").split(";")[0].trim().toLowerCase())||(file.type===""&&category==="otro");
+  }
   function renderFiles(files,session){
     const box=$("#project-file-list"); if(!box)return;
-    box.innerHTML=files?.length?files.map(f=>`<article class="file-item"><span class="file-type">${f.category==="foto"?"IMG":f.category==="video"?"VID":f.category==="logo"?"LOGO":"DOC"}</span><div><strong>${safe(f.file_name)}</strong><small>${f.size_bytes?`${(Number(f.size_bytes)/1024/1024).toFixed(1)} MB`:safe(f.mime_type||"")}</small></div><button type="button" data-download-file="${f.id}" data-file-name="${safe(f.file_name)}">Descargar</button></article>`).join(""):`<div class="file-empty">Todavía no has subido archivos.</div>`;
-    $$('[data-download-file]',box).forEach(btn=>btn.addEventListener("click",async()=>{
+    box.innerHTML=files?.length?files.map(f=>`<article class="file-item"><span class="file-type">${f.category==="foto"?"IMG":f.category==="video"?"VID":f.category==="logo"?"LOGO":"DOC"}</span><div><strong>${safe(f.file_name)}</strong><small>${f.size_bytes?`${(Number(f.size_bytes)/1024/1024).toFixed(1)} MB`:safe(f.mime_type||"")}</small></div><div class="file-actions"><button type="button" class="file-prev" data-preview-file="${f.id}" data-file-name="${safe(f.file_name)}">Ver</button><button type="button" class="file-remove" data-remove-file="${f.id}" data-file-name="${safe(f.file_name)}" aria-label="Quitar ${safe(f.file_name)}">×</button></div></article>`).join(""):`<div class="file-empty">Todavía no has subido archivos.</div>`;
+    $$('[data-preview-file]',box).forEach(btn=>btn.addEventListener("click",async()=>{
       btn.disabled=true; const old=btn.textContent;btn.textContent="Abriendo…";
-      try{const r=await fetch(`/api/project-file?id=${encodeURIComponent(btn.dataset.downloadFile)}`,{headers:{Authorization:`Bearer ${session.access_token}`}});if(!r.ok)throw new Error();const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=btn.dataset.fileName||"archivo";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch{alert("No pudimos abrir este archivo.");}finally{btn.disabled=false;btn.textContent=old;}
+      try{const r=await fetch(`/api/project-file?id=${encodeURIComponent(btn.dataset.previewFile)}`,{headers:{Authorization:`Bearer ${session.access_token}`}});if(!r.ok)throw new Error();const blob=await r.blob();const url=URL.createObjectURL(blob);const full=document.createElement("div");full.className="lightbox";const img=document.createElement("img");img.src=url;full.appendChild(img);full.addEventListener("click",()=>{full.remove();URL.revokeObjectURL(url);});document.body.appendChild(full);}catch{alert("No pudimos abrir este archivo.");}finally{btn.disabled=false;btn.textContent=old;}
+    }));
+    $$('[data-remove-file]',box).forEach(btn=>btn.addEventListener("click",async()=>{
+      if(!confirm(`¿Quitar "${btn.dataset.fileName||"este archivo"}"?`))return;
+      btn.disabled=true;
+      try{const r=await fetch(`/api/delete-project-file?id=${encodeURIComponent(btn.dataset.removeFile)}`,{method:"DELETE",headers:{Authorization:`Bearer ${session.access_token}`}});const data=await r.json().catch(()=>({}));if(!r.ok||!data.ok)throw new Error(data.message||"No se pudo eliminar.");files=files.filter(f=>f.id!==btn.dataset.removeFile);renderFiles(files,session);setStatus("#upload-status","Archivo eliminado.","success");}
+      catch(err){setStatus("#upload-status",friendlyError(err,"No pudimos eliminar el archivo."),"error");}finally{btn.disabled=false;}
     }));
   }
 
@@ -368,20 +380,30 @@
       $("#brief-submit").addEventListener("click",async()=>{const btn=$("#brief-submit");btn.disabled=true;try{await saveBrief(true);}catch(err){setStatus("#brief-status",friendlyError(err,"No pudimos enviar la información."),"error");btn.disabled=false;}});
 
       renderFiles(files,session);
-      $("#upload-files").addEventListener("click",async()=>{
-        const input=$("#project-files"), selected=[...(input.files||[])]; if(!selected.length){setStatus("#upload-status","Primero selecciona uno o más archivos.","error");return;}
+      const catSelect=$("#file-category"), fileInput=$("#project-files"), acceptHint=$("#file-accept-hint");
+      const syncCategory=()=>{const cat=catSelect.value;acceptHint.textContent=FILE_HINTS[cat]||FILE_HINTS.otro;fileInput.accept={foto:"image/*",logo:"image/*",video:"video/*",documento:".pdf,.txt,.doc,.docx,.xls,.xlsx,.ppt,.pptx",otro:"*/*"}[cat]||"*/*";fileInput.classList.toggle("take-photo",cat==="foto"||cat==="logo");fileInput.value="";$("#upload-status").textContent="";};
+      catSelect.addEventListener("change",syncCategory);syncCategory();
+      let uploading=false;
+      fileInput.addEventListener("change",async()=>{
+        if(uploading)return;
+        const cat=catSelect.value, selected=[...(fileInput.files||[])];
+        fileInput.value="";
+        if(!selected.length)return;
+        const invalid=selected.filter(f=>!categoryMatches(cat,f));
+        if(invalid.length){setStatus("#upload-status",cat==="foto"||cat==="logo"?`${invalid[0].name} no es una imagen. Elige ${cat==="foto"?"fotos":"imágenes"} o cambia el tipo de archivo.`:`${invalid[0].name} no es un archivo ${cat}. Revisa el tipo de archivo elegido.`,"error");return;}
         const tooBig=selected.find(f=>f.size>25*1024*1024);if(tooBig){setStatus("#upload-status",`${tooBig.name} pesa más de 25 MB. Para videos grandes pega un enlace de Drive en el campo de abajo.`,"error");return;}
-        const btn=$("#upload-files");btn.disabled=true; let ok=0;
-        for(let i=0;i<selected.length;i++){
-          const f=selected[i];setStatus("#upload-status",`Subiendo ${i+1} de ${selected.length}: ${f.name}`);
-          const fd=new FormData();fd.append("project_id",id);fd.append("category",$("#file-category").value);fd.append("file",f);
-          try{const r=await fetch("/api/upload-project-file",{method:"POST",headers:{Authorization:`Bearer ${session.access_token}`},body:fd});const data=await r.json().catch(()=>({}));if(!r.ok||!data.ok)throw new Error(data.message||"");if(data.file){files.unshift(data.file);ok++;renderFiles(files,session);}}
-          catch(err){setStatus("#upload-status",friendlyError(err,"No pudimos subir uno de los archivos. Revisa la conexión de Google Drive."),"error");btn.disabled=false;return;}
-        }
-        input.value="";btn.disabled=false;setStatus("#upload-status",`${ok} archivo${ok===1?"":"s"} subido${ok===1?"":"s"} correctamente.`,"success");updatePercent();
+        uploading=true;let ok=0;
+        try{
+          for(let i=0;i<selected.length;i++){
+            const f=selected[i];setStatus("#upload-status",`Subiendo ${i+1} de ${selected.length}: ${f.name}`);
+            const fd=new FormData();fd.append("project_id",id);fd.append("category",cat);fd.append("file",f);
+            try{const r=await fetch("/api/upload-project-file",{method:"POST",headers:{Authorization:`Bearer ${session.access_token}`},body:fd});const data=await r.json().catch(()=>({}));if(!r.ok||!data.ok)throw new Error(data.message||"");if(data.file){files.unshift(data.file);ok++;renderFiles(files,session);}}
+            catch(err){setStatus("#upload-status",friendlyError(err,"No pudimos subir uno de los archivos. Revisa la conexión de Google Drive."),"error");break;}
+          }
+          if(ok>0){setStatus("#upload-status",`${ok} archivo${ok===1?"":"s"} subido${ok===1?"":"s"} correctamente.`,"success");updatePercent();}
+        }finally{uploading=false;}
       });
     }
-
     if(actionsCard&&!actionsCard.hidden){
       const types=pos===3?["cambio"]:["actualizar","mantenimiento","mejorar"];
       if(pos===4&&project.address_type==="gratis")types.push("dominio"); if(pos===4&&project.hosting_type==="cloudflare")types.push("hosting");

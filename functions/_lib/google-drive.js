@@ -82,3 +82,10 @@ export async function downloadFromDrive(env, driveFileId) {
   if (!response.ok) throw new Error("No se pudo descargar el archivo desde Google Drive.");
   return response;
 }
+
+export async function deleteFromDrive(env, driveFileId) {
+  const token = await driveAccessToken(env);
+  const response = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(driveFileId)}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+  if (!response.ok) throw new Error(`No se pudo eliminar el archivo de Google Drive (${response.status}).`);
+  return true;
+}

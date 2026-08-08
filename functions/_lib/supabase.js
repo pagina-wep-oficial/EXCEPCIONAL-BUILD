@@ -62,3 +62,24 @@ export async function getVisibleFileMetadata(request, env, fileId) {
   const rows = await response.json();
   return rows?.[0] || null;
 }
+
+export async function getOwnedProjectFile(request, env, fileId) {
+  const user = await getUser(request, env);
+  if (!user) return null;
+  const { url, key } = supabaseConfig(env);
+  const endpoint = `${url}/rest/v1/client_project_files?id=eq.${encodeURIComponent(fileId)}&user_id=eq.${encodeURIComponent(user.id)}&select=id,project_id,user_id,drive_file_id,file_name`;
+  const response = await fetch(endpoint, { headers: { apikey: key, Authorization: bearer(request) } });
+  if (!response.ok) return null;
+  const rows = await response.json();
+  return rows?.[0] ? { user, file: rows[0] } : null;
+}
+
+export async function deleteFileMetadata(request, env, fileId) {
+  const { url, key } = supabaseConfig(env);
+  const response = await fetch(`${url}/rest/v1/client_project_files?id=eq.${encodeURIComponent(fileId)}`, {
+    method: "DELETE",
+    headers: { apikey: key, Authorization: bearer(request), Prefer: "return=minimal" }
+  });
+  if (!response.ok) throw new Error("No se pudo quitar el archivo del proyecto.");
+  return true;
+}

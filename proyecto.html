@@ -42,8 +42,7 @@
       <section class="brief-page" data-brief-page="4" hidden>
         <div class="upload-intro"><div class="upload-icon">↑</div><div><h3>Fotos, videos, logo y documentos</h3><p>Elige los archivos desde tu celular. Se guardarán directamente en la carpeta privada de tu proyecto.</p></div></div>
         <label><span>Tipo de archivo</span><select id="file-category"><option value="foto">Fotos</option><option value="logo">Logotipo</option><option value="video">Videos</option><option value="documento">Documentos</option><option value="otro">Otro</option></select></label>
-        <label class="file-drop" for="project-files"><strong>Seleccionar archivos</strong><span>Fotos, videos o documentos · máximo 25 MB por archivo</span><input id="project-files" type="file" multiple accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"></label>
-        <button class="button button-light button-wide" type="button" id="upload-files">Subir archivos seleccionados</button>
+        <label class="file-drop" for="project-files"><strong>Elegir archivos</strong><span id="file-accept-hint">Solo imágenes · máximo 25 MB por archivo</span><input id="project-files" type="file" multiple accept="image/*" class="take-photo"></label>
         <p class="form-status" id="upload-status"></p>
         <div class="file-list" id="project-file-list"></div>
         <label><span>¿Tienes archivos en otro lugar?</span><textarea name="social_links" rows="2" placeholder="Pega aquí un enlace de Drive, Facebook, catálogo u otro sitio."></textarea></label>
