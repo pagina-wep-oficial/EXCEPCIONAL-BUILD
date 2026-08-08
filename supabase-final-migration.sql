@@ -682,10 +682,8 @@ begin
     raise exception 'Proyecto no encontrado o ya reclamado.';
   end if;
 
-  v_code := lower(regexp_replace(
-    translate(v_name, 'áéíóúüñ', 'aeiouun'),
-    '[^a-z0-9]+', '-', 'g'
-  ));
+  v_code := lower(translate(v_name, 'áéíóúüñ', 'aeiouun'));
+  v_code := regexp_replace(v_code, '[^a-z0-9]+', '-', 'g');
   v_code := trim(both '-' from v_code);
   if length(v_code) > 30 then
     v_code := left(v_code, 30);
