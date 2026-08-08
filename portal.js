@@ -67,9 +67,15 @@
     return "";
   }
 
-  function captureClaimFromUrl() {
-    const id=getParam("claim"), token=getParam("token");
+  async function captureClaimFromUrl() {
+    const id=getParam("claim"), token=getParam("token"), code=getParam("invite");
     if(id && token) localStorage.setItem(CLAIM_KEY, JSON.stringify({id,token}));
+    else if(code && token){
+      try{
+        const {data,error}=await db.rpc("get_invite_by_code",{p_code:code});
+        if(!error && data && data[0]) localStorage.setItem(CLAIM_KEY, JSON.stringify({id:data[0].project_id,token,name:data[0].project_name}));
+      }catch(_){/* si falla, se ignora: el usuario puede reclamar desde su propio panel */}
+    }
   }
   function pendingClaim() {
     try { return JSON.parse(localStorage.getItem(CLAIM_KEY) || "null"); } catch { return null; }
@@ -128,10 +134,10 @@
   }
 
   async function initAccess() {
-    captureClaimFromUrl();
+    await captureClaimFromUrl();
     if(!portal.configured){ $("#config-warning").hidden=false; $("#config-warning").textContent="El acceso no está disponible en este momento."; $("#google-login").disabled=true; return; }
     const claim=pendingClaim();
-    if(claim){ const box=$("#access-context"); box.hidden=false; box.innerHTML="<strong>Tu proyecto ya está preparado.</strong><br>Entra con Google para activarlo y continuar."; }
+    if(claim){ const box=$("#access-context"); box.hidden=false; box.innerHTML=`<strong>Tu proyecto${claim.name?` ${safe(claim.name)}`:""} ya está preparado.</strong><br>Entra con Google para activarlo y continuar.`; }
     const session=await getSession();
     const login=$("#login-view"), profileView=$("#profile-view");
     if(session){

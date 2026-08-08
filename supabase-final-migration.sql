@@ -264,7 +264,8 @@ create policy "client_projects_insert_own" on public.client_projects
 -- Los cambios de estado, URLs, visibilidad y pagos se hacen en el CRM.
 
 -- 8) Vista útil opcional para el panel administrativo.
-create or replace view public.crm_project_overview
+drop view if exists public.crm_project_overview;
+create view public.crm_project_overview
 with (security_invoker = true)
 as
 select
@@ -272,7 +273,7 @@ select
   pr.full_name as client_name,
   pr.email as client_email,
   pr.phone as client_phone,
-  pr.business_name as client_business
+  pr.location as client_location
 from public.client_projects p
 left join public.client_profiles pr on pr.id = p.user_id;
 
@@ -621,3 +622,99 @@ from public.client_projects p
 left join public.client_profiles pr on pr.id = p.user_id;
 
 grant select on public.crm_project_overview to authenticated;
+
+-- ==========================================================
+-- 12) INVITACIONES CON CÓDIGO CORTO (Plan A+B)
+-- Links identificables (?invite=lisandrouc-k3m2p9&token=...) y
+-- consistencia de duplicados en el CRM.
+-- ==========================================================
+
+alter table public.client_projects add column if not exists invite_code text;
+create unique index if not exists client_projects_invite_code_key
+  on public.client_projects (invite_code)
+  where invite_code is not null;
+
+-- Devuelve el proyecto de una invitación por su código corto,
+-- SOLO si aún está sin dueño (pendiente de reclamar).
+create or replace function public.get_invite_by_code(p_code text)
+returns table (project_id uuid, project_name text, claim_token uuid)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select p.id, p.name, p.claim_token
+  from public.client_projects p
+  where p.invite_code = lower(p_code)
+    and p.user_id is null
+  limit 1;
+$$;
+
+revoke all on function public.get_invite_by_code(text) from public;
+grant execute on function public.get_invite_by_code(text) to anon, authenticated;
+
+-- Genera un código corto único para una invitación sin código.
+create or replace function public.ensure_project_invite_code(p_project_id uuid)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_code text;
+  v_name text;
+  v_suffix text;
+  v_taken boolean;
+begin
+  select p.invite_code into v_code
+  from public.client_projects p
+  where p.id = p_project_id and p.user_id is null;
+
+  if v_code is not null then
+    return v_code;
+  end if;
+
+  select p.name into v_name
+  from public.client_projects p
+  where p.id = p_project_id and p.user_id is null;
+
+  if v_name is null then
+    raise exception 'Proyecto no encontrado o ya reclamado.';
+  end if;
+
+  v_code := lower(regexp_replace(
+    translate(v_name, 'áéíóúüñ', 'aeiouun'),
+    '[^a-z0-9]+', '-', 'g'
+  ));
+  v_code := trim(both '-' from v_code);
+  if length(v_code) > 30 then
+    v_code := left(v_code, 30);
+  end if;
+  if v_code = '' then
+    v_code := 'proyecto';
+  end if;
+
+  loop
+    v_suffix := '';
+    for i in 1..6 loop
+      v_suffix := v_suffix || substr('abcdefghijklmnopqrstuvwxyz0123456789', 1 + floor(random() * 36)::int, 1);
+    end loop;
+
+    select exists(
+      select 1 from public.client_projects
+      where invite_code = v_code || '-' || v_suffix
+    ) into v_taken;
+
+    exit when not v_taken;
+  end loop;
+
+  update public.client_projects
+  set invite_code = v_code || '-' || v_suffix, updated_at = now()
+  where id = p_project_id and user_id is null;
+
+  return v_code || '-' || v_suffix;
+end;
+$$;
+
+revoke all on function public.ensure_project_invite_code(uuid) from public;
+grant execute on function public.ensure_project_invite_code(uuid) to authenticated;
