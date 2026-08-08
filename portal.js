@@ -138,7 +138,9 @@
     if(!portal.configured){ $("#config-warning").hidden=false; $("#config-warning").textContent="El acceso no está disponible en este momento."; $("#google-login").disabled=true; return; }
     const claim=pendingClaim();
     if(claim){ const box=$("#access-context"); box.hidden=false; box.innerHTML=`<strong>Tu proyecto${claim.name?` ${safe(claim.name)}`:""} ya está preparado.</strong><br>Entra con Google para activarlo y continuar.`; }
-    const session=await getSession();
+    let session=await getSession();
+    const invited = Boolean(getParam("claim")||getParam("invite")||claim);
+    if(session&&invited){ await db.auth.signOut(); session=null; }
     const login=$("#login-view"), profileView=$("#profile-view");
     if(session){
       const profile=await getProfile(session.user);
@@ -169,8 +171,15 @@
     if(!portal.configured) return;
     const status=$("#callback-status");
     try{
-      let session=await getSession(); const code=getParam("code");
-      if(!session&&code){ status.textContent="Confirmando tu acceso…"; const {error}=await db.auth.exchangeCodeForSession(code); if(error) throw error; session=await getSession(); }
+      const code=getParam("code");
+      if(code){
+        status.textContent="Confirmando tu acceso…";
+        const prev=await getSession();
+        if(prev){ status.textContent="Preparando tu cuenta…"; await db.auth.signOut(); }
+        const {error}=await db.auth.exchangeCodeForSession(code);
+        if(error) throw error;
+      }
+      let session=await getSession();
       if(!session) throw new Error("No pudimos confirmar el acceso.");
       const profile=await getProfile(session.user);
       if(!profile.onboarding_completed){ location.replace("acceso.html?complete=1"); return; }
