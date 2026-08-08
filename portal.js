@@ -339,7 +339,7 @@
     document.title=`${project.name} | Excepcional Build`; $("#project-title").textContent=project.name; $("#project-subtitle").innerHTML=`<span class="status-badge ${statusClass(project.status)}">${safe(project.status||project.project_stage)}</span>`; $("#project-top-actions").innerHTML=siteAction(project);
     const labels=["Configurar","Enviar información","Construcción","Revisión","Publicada"], pos=stageIndex(project);
     $("#project-stage-track").innerHTML=labels.map((label,i)=>`<div class="stage-step ${i<pos?"done":i===pos?"current":""}"><i>${i<pos?"✓":i+1}</i><span>${safe(label)}</span><small>${i===pos?"Ahora":""}</small></div>`).join("");
-    if(project.client_note){$("#project-client-note").hidden=false;$("#project-client-note").textContent=project.client_note;}
+    if(project.client_note && stageIndex(project) === 0){$("#project-client-note").hidden=false;$("#project-client-note").textContent=project.client_note;}
 
     const focus=$("#project-focus"), briefCard=$("#project-brief-card"), actionsCard=$("#project-actions-card");
     if(pos===0){focus.innerHTML=`<div class="focus-icon">1</div><div><span>Lo que sigue</span><h2>Elige la dirección de tu página</h2><p>Decide si quieres empezar gratis o usar un dominio propio.</p></div><a class="button button-primary" href="cotizar.html?project=${encodeURIComponent(id)}">Configurar mi página →</a>`;}
