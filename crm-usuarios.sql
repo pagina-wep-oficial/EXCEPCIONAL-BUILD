@@ -1,5 +1,10 @@
+-- Funciones RPC para la gestion de usuarios del CRM
+-- Todas son SECURITY DEFINER y verifican que el llamante este en app_admins.
+
+-- Rol actual del usuario dentro del CRM (null = sin acceso)
 create or replace function public.mi_rol_crm()
-returns text language sql stable security definer set search_path = ''
+returns text
+language sql stable security definer set search_path = ''
 as $function$
   select case
     when exists (select 1 from public.app_admins a where a.user_id = auth.uid()) then 'administrador'
@@ -8,21 +13,31 @@ as $function$
   end;
 $function$;
 
+-- ===== Listar usuarios (admin) =====
 create or replace function public.crm_listar_usuarios()
 returns table (user_id uuid, email text, rol text, activo boolean, creado_en timestamptz)
 language sql stable security definer set search_path = ''
 as $function$
   select u.id, u.email::text,
-    coalesce((select m.rol from public.crm_miembros m where m.usuario_id = u.id), 'cliente'),
-    coalesce((select m.activo from public.crm_miembros m where m.usuario_id = u.id), true),
+    case
+      when exists (select 1 from public.app_admins a where a.user_id = u.id) then 'administrador'
+      when exists (select 1 from public.crm_miembros m where m.usuario_id = u.id) then (select m2.rol from public.crm_miembros m2 where m2.usuario_id = u.id limit 1)
+      else 'cliente'
+    end,
+    coalesce(
+      (select m.activo from public.crm_miembros m where m.usuario_id = u.id),
+      exists (select 1 from public.app_admins a where a.user_id = u.id)
+    ),
     u.created_at
   from auth.users u
   where exists (select 1 from public.app_admins a where a.user_id = auth.uid())
   order by u.created_at desc;
 $function$;
 
+-- ===== Registrar usuario en el CRM (admin) =====
 create or replace function public.crm_registrar_usuario(p_email text, p_rol text)
-returns text language plpgsql security definer set search_path = ''
+returns text
+language plpgsql security definer set search_path = ''
 as $function$
 declare v_id uuid; v_rol text;
 begin
@@ -45,8 +60,10 @@ begin
 end;
 $function$;
 
+-- ===== Actualizar rol/estado (admin) =====
 create or replace function public.crm_actualizar_usuario(p_email text, p_rol text, p_activo boolean)
-returns text language plpgsql security definer set search_path = ''
+returns text
+language plpgsql security definer set search_path = ''
 as $function$
 declare v_id uuid; v_rol text;
 begin
@@ -73,8 +90,10 @@ begin
 end;
 $function$;
 
+-- ===== Eliminar usuario del CRM (admin) =====
 create or replace function public.crm_eliminar_usuario(p_email text)
-returns text language plpgsql security definer set search_path = ''
+returns text
+language plpgsql security definer set search_path = ''
 as $function$
 declare v_id uuid;
 begin
@@ -89,9 +108,3 @@ begin
   return 'OK';
 end;
 $function$;
-
-grant execute on function public.mi_rol_crm() to authenticated;
-grant execute on function public.crm_listar_usuarios() to authenticated;
-grant execute on function public.crm_registrar_usuario(text, text) to authenticated;
-grant execute on function public.crm_actualizar_usuario(text, text, boolean) to authenticated;
-grant execute on function public.crm_eliminar_usuario(text) to authenticated;
