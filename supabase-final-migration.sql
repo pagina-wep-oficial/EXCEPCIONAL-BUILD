@@ -82,6 +82,21 @@ begin
   if to_regclass('public.prospectos') is not null then
     execute 'alter table public.prospectos add column if not exists client_user_id uuid';
     execute 'alter table public.prospectos add column if not exists client_project_id uuid';
+    execute 'alter table public.prospectos add column if not exists borrado_en timestamptz';
+  end if;
+end $$;
+
+-- Papelera de prospectos: permite borrado permanente solo para miembros del CRM.
+do $$
+begin
+  if to_regclass('public.prospectos') is not null
+     and not exists (
+       select 1 from pg_policies
+       where schemaname = 'public' and tablename = 'prospectos'
+         and policyname = 'crm_eliminar_prospectos'
+     ) then
+    execute 'create policy crm_eliminar_prospectos on public.prospectos for delete to authenticated using (public.es_miembro_crm())';
+    execute 'grant delete on public.prospectos to authenticated';
   end if;
 end $$;
 
