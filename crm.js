@@ -5,7 +5,7 @@
   const db=portal.client;
   const WHATSAPP="529811332914";
   const PROD_ORIGIN=(location.protocol.startsWith("http")&&!['localhost','127.0.0.1'].includes(location.hostname))?location.origin:"https://excepcional-build.pages.dev";
-  const state={session:null,prospects:[],clients:[],projects:[],requests:[],currentProject:null,currentProspect:null};
+  const state={session:null,prospects:[],trash:[],clients:[],projects:[],requests:[],currentProject:null,currentProspect:null};
 
   const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const esc=(v="")=>String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
@@ -50,7 +50,7 @@
   function setView(name){
     $$(".crm-nav [data-view]").forEach(b=>b.classList.toggle("active",b.dataset.view===name));
     $$('[data-view-panel]').forEach(p=>p.classList.toggle("active",p.dataset.viewPanel===name));
-    const meta={dashboard:["Resumen","Vista general del negocio."],prospects:["Prospectos","Personas interesadas que todavía no han aceptado."],invited:["Clientes invitados","Aceptaron trabajar contigo y están pendientes de activar su cuenta."],clients:["Clientes","Personas que ya activaron su cuenta."],projects:["Proyectos","Control de producción, pagos y publicación."],requests:["Solicitudes","Cambios y mantenimiento pedidos por clientes."]}[name]||["CRM",""];
+    const meta={dashboard:["Resumen","Vista general del negocio."],prospects:["Prospectos","Personas interesadas que todavía no han aceptado."],invited:["Clientes invitados","Aceptaron trabajar contigo y están pendientes de activar su cuenta."],clients:["Clientes","Personas que ya activaron su cuenta."],projects:["Proyectos","Control de producción, pagos y publicación."],requests:["Solicitudes","Cambios y mantenimiento pedidos por clientes."],trash:["Papelera","Prospectos eliminados que puedes restaurar o borrar definitivamente."]}[name]||["CRM",""];
     $("#view-title").textContent=meta[0];$("#view-subtitle").textContent=meta[1];
   }
   async function checkAdmin(){const {data,error}=await db.rpc("is_app_admin");if(error)throw error;return Boolean(data);}
@@ -68,13 +68,13 @@
       db.from("client_requests").select("*").order("created_at",{ascending:false})
     ]);
     for(const r of results)if(r.error)throw r.error;
-    state.prospects=results[0].data||[];state.clients=results[1].data||[];state.projects=results[2].data||[];state.requests=results[3].data||[];renderAll();
+    const all=results[0].data||[];state.prospects=all.filter(p=>!p.borrado_en);state.trash=all.filter(p=>p.borrado_en);state.clients=results[1].data||[];state.projects=results[2].data||[];state.requests=results[3].data||[];renderAll();
   }
-  function renderAll(){renderDashboard();renderProspects();renderInvited();renderClients();renderProjects();renderRequests();fillClientSelect();}
+  function renderAll(){renderDashboard();renderProspects();renderTrash();renderInvited();renderClients();renderProjects();renderRequests();fillClientSelect();}
 
   function renderDashboard(){
     const active=state.prospects.filter(p=>!["Ganado","Descartado"].includes(p.estado));
-    $("#metric-prospects").textContent=active.length;$("#metric-invited").textContent=invitedProjects().length;$("#metric-clients").textContent=state.clients.length;$("#metric-projects").textContent=state.projects.filter(p=>/producción|produccion|revisión|revision|información|informacion|configuración|configuracion/i.test(p.project_stage||"")).length;$("#metric-requests").textContent=state.requests.filter(r=>!/resuelta|cerrada/i.test(r.status||"")).length;$("#nav-invited-count").textContent=invitedProjects().length?invitedProjects().length:"";
+    $("#metric-prospects").textContent=active.length;$("#metric-invited").textContent=invitedProjects().length;$("#metric-clients").textContent=state.clients.length;$("#metric-projects").textContent=state.projects.filter(p=>/producción|produccion|revisión|revision|información|informacion|configuración|configuracion/i.test(p.project_stage||"")).length;$("#metric-requests").textContent=state.requests.filter(r=>!/resuelta|cerrada/i.test(r.status||"")).length;$("#nav-invited-count").textContent=invitedProjects().length?invitedProjects().length:"";$("#nav-trash-count").textContent=state.trash.length?state.trash.length:"";
     const next=[];
     invitedProjects().slice(0,3).forEach(p=>{const lead=prospectById(p.source_prospect_id);next.push(`<div class="mini-item"><div><strong>${esc(p.name)}</strong><span>${lead?esc(lead.nombre):"Cliente"} · Falta activar cuenta</span></div><button class="tiny-btn orange" data-copy-invite="${p.id}">Invitación</button></div>`);});
     active.filter(p=>p.proxima_accion).sort((a,b)=>String(a.proxima_accion).localeCompare(String(b.proxima_accion))).slice(0,4).forEach(p=>next.push(`<div class="mini-item"><div><strong>${esc(p.negocio)}</strong><span>${esc(p.nombre)} · ${esc(p.proxima_accion)}</span></div><span class="badge ${statusClass(p.estado)}">${esc(p.estado)}</span></div>`));
@@ -87,9 +87,22 @@
     const visible=state.prospects.filter(p=>(!filter||p.estado===filter)&&`${p.negocio} ${p.nombre} ${p.municipio} ${p.telefono}`.toLowerCase().includes(q));
     $("#prospect-rows").innerHTML=visible.map(p=>{
       const linked=projectForProspect(p.id),wa=`https://wa.me/${waNumber(p.telefono)}?text=${encodeURIComponent(`Hola ${p.nombre||""}, soy de Excepcional Build.`)}`;
-      return `<tr><td><strong>${esc(p.negocio)}</strong><span class="sub">${esc(p.municipio||"")}</span></td><td>${esc(p.nombre)}<span class="sub">${esc(p.telefono)}</span></td><td>${esc(p.origen||"—")}</td><td><span class="badge ${statusClass(p.estado)}">${esc(p.estado||"Nuevo")}</span></td><td>${esc(p.proxima_accion||"Sin fecha")}</td><td><div class="row-actions"><a class="link-btn" href="${wa}" target="_blank" rel="noopener">WhatsApp</a>${linked?`<button class="tiny-btn green" data-open-project="${linked.id}">${linked.user_id?"Ver proyecto":"Ver invitación"}</button>`:`<button class="tiny-btn orange" data-accept-prospect="${p.id}">✓ Aceptó</button>`}<button class="tiny-btn" data-edit-prospect="${p.id}">Editar</button></div></td></tr>`;
+      return `<tr><td><strong>${esc(p.negocio)}</strong><span class="sub">${esc(p.municipio||"")}</span></td><td>${esc(p.nombre)}<span class="sub">${esc(p.telefono)}</span></td><td>${esc(p.origen||"—")}</td><td><span class="badge ${statusClass(p.estado)}">${esc(p.estado||"Nuevo")}</span></td><td>${esc(p.proxima_accion||"Sin fecha")}</td><td><div class="row-actions"><a class="link-btn" href="${wa}" target="_blank" rel="noopener">WhatsApp</a>${linked?`<button class="tiny-btn green" data-open-project="${linked.id}">${linked.user_id?"Ver proyecto":"Ver invitación"}</button>`:`<button class="tiny-btn orange" data-accept-prospect="${p.id}">✓ Aceptó</button>`}<button class="tiny-btn" data-edit-prospect="${p.id}">Editar</button><button class="tiny-btn danger" data-trash-prospect="${p.id}">Eliminar</button></div></td></tr>`;
     }).join("");$("#prospect-empty").hidden=visible.length>0;
   }
+
+  function renderTrash(){
+    const q=$("#trash-search")?.value.toLowerCase().trim()||"";
+    const visible=state.trash.filter(p=>`${p.negocio} ${p.nombre} ${p.municipio} ${p.telefono}`.toLowerCase().includes(q));
+    $("#trash-rows").innerHTML=visible.map(p=>`<tr><td><strong>${esc(p.negocio)}</strong><span class="sub">${esc(p.municipio||"")}</span></td><td>${esc(p.nombre)}<span class="sub">${esc(p.telefono)}</span></td><td>${esc(p.origen||"—")}</td><td><span class="badge ${statusClass(p.estado)}">${esc(p.estado||"Nuevo")}</span></td><td>${fmtDate(p.borrado_en)}</td><td><div class="row-actions"><button class="tiny-btn green" data-restore-prospect="${p.id}">↩ Restaurar</button><button class="tiny-btn danger" data-delete-prospect-forever="${p.id}">Borrar definitivamente</button></div></td></tr>`).join("");
+    $("#trash-empty").hidden=visible.length>0;
+    const emptyBtn=$("#empty-trash");if(emptyBtn)emptyBtn.disabled=!state.trash.length;
+  }
+
+  async function trashProspect(id){const p=prospectById(id);if(!p)return;if(!confirm(`¿Mover "${p.negocio}" a la papelera?`))return;const {error}=await db.from("prospectos").update({borrado_en:new Date().toISOString()}).eq("id",id);if(error){toast("No pudimos eliminar el prospecto.");return;}state.prospects=state.prospects.filter(x=>String(x.id)!==String(id));state.trash.unshift({...p,borrado_en:new Date().toISOString()});renderAll();toast("Prospecto enviado a la papelera.");}
+  async function restoreProspect(id){const p=state.trash.find(x=>String(x.id)===String(id));if(!p)return;const {error}=await db.from("prospectos").update({borrado_en:null}).eq("id",id);if(error){toast("No pudimos restaurar el prospecto.");return;}state.trash=state.trash.filter(x=>String(x.id)!==String(id));state.prospects.unshift({...p,borrado_en:null});renderAll();toast("Prospecto restaurado.");}
+  async function deleteProspectForever(id){const p=state.trash.find(x=>String(x.id)===String(id));if(!p)return;if(!confirm(`¿Borrar "${p.negocio}" definitivamente? Esta acción no se puede deshacer.`))return;const {error}=await db.from("prospectos").delete().eq("id",id);if(error){toast("No pudimos borrar el prospecto.");return;}state.trash=state.trash.filter(x=>String(x.id)!==String(id));renderAll();toast("Prospecto borrado permanentemente.");}
+  async function emptyTrash(){if(!state.trash.length)return;if(!confirm(`¿Vaciar la papelera? Se borrarán ${state.trash.length} prospectos definitivamente.`))return;const ids=state.trash.map(p=>p.id);const {error}=await db.from("prospectos").delete().in("id",ids);if(error){toast("No pudimos vaciar la papelera.");return;}state.trash=[];renderAll();toast("Papelera vaciada.");}
 
   function renderInvited(){
     const invited=invitedProjects();
@@ -179,8 +192,9 @@
   $("#agreement-form")?.addEventListener("submit",saveAgreement);$$('[data-close-agreement]').forEach(b=>b.addEventListener("click",()=>$("#agreement-modal").close()));
   $("#project-form")?.addEventListener("submit",saveProject);$$('[data-close-project]').forEach(b=>b.addEventListener("click",()=>$("#project-modal").close()));$("#new-project")?.addEventListener("click",()=>{setProjectForm({project_stage:"Invitación",status:"Pendiente de activar cuenta",site_visibility:"hidden",total_price:750,deposit_amount:375,balance_amount:375,payment_method:"Transferencia"});$("#project-setup-admin-content").innerHTML="<span>Sin configuración.</span>";$("#project-brief-admin-content").innerHTML="<span>Sin información.</span>";$("#project-files-admin").innerHTML="<span>No hay archivos.</span>";$("#project-modal").showModal();});
   $("#copy-project-invite")?.addEventListener("click",()=>state.currentProject&&copyInvite(state.currentProject.id));$("#whatsapp-project-invite")?.addEventListener("click",()=>state.currentProject&&sendInvite(state.currentProject.id));$("#renew-project-invite")?.addEventListener("click",renewInvite);$("#add-project-update")?.addEventListener("click",addUpdate);
-  $("#prospect-search")?.addEventListener("input",renderProspects);$("#prospect-filter")?.addEventListener("change",renderProspects);$("#client-search")?.addEventListener("input",renderClients);$("#project-search")?.addEventListener("input",renderProjects);$("#project-stage-filter")?.addEventListener("change",renderProjects);$("#request-search")?.addEventListener("input",renderRequests);$("#request-filter")?.addEventListener("change",renderRequests);
-  $("#prospect-rows")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.acceptProspect)openAgreement(t.dataset.acceptProspect);if(t.dataset.editProspect)editProspect(t.dataset.editProspect);if(t.dataset.openProject)openProject(t.dataset.openProject);});
+  $("#prospect-search")?.addEventListener("input",renderProspects);$("#prospect-filter")?.addEventListener("change",renderProspects);$("#trash-search")?.addEventListener("input",renderTrash);$("#empty-trash")?.addEventListener("click",emptyTrash);$("#client-search")?.addEventListener("input",renderClients);$("#project-search")?.addEventListener("input",renderProjects);$("#project-stage-filter")?.addEventListener("change",renderProjects);$("#request-search")?.addEventListener("input",renderRequests);$("#request-filter")?.addEventListener("change",renderRequests);
+  $("#prospect-rows")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.acceptProspect)openAgreement(t.dataset.acceptProspect);if(t.dataset.editProspect)editProspect(t.dataset.editProspect);if(t.dataset.openProject)openProject(t.dataset.openProject);if(t.dataset.trashProspect)trashProspect(t.dataset.trashProspect);});
+  $("#trash-rows")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.restoreProspect)restoreProspect(t.dataset.restoreProspect);if(t.dataset.deleteProspectForever)deleteProspectForever(t.dataset.deleteProspectForever);});
   $("#invited-grid")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.copyInvite)copyInvite(t.dataset.copyInvite);if(t.dataset.sendInvite)sendInvite(t.dataset.sendInvite);if(t.dataset.openProject)openProject(t.dataset.openProject);});
   $("#project-rows")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.openProject)openProject(t.dataset.openProject);if(t.dataset.copyInvite)copyInvite(t.dataset.copyInvite);});
   $("#clients-grid")?.addEventListener("click",e=>{const id=e.target.dataset.clientProjects;if(!id)return;setView("projects");$("#project-search").value=clientById(id)?.full_name||"";renderProjects();});
