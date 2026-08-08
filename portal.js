@@ -189,19 +189,39 @@
   }
 
   async function initPanel() {
-    const {profile}=await loadContext();
+    const {session,profile}=await loadContext();
     $("#panel-first-name").textContent=(profile.full_name||"cliente").split(/\s+/)[0];
-    const {data:projects,error}=await db.from("client_projects").select("*").order("created_at",{ascending:false});
-    if(error) throw error;
-    const grid=$("#projects-grid");
-    if(!projects?.length){ grid.innerHTML=`<div class="empty-card empty-card-wide"><div class="empty-icon">○</div><h3>Todavía no tienes proyectos</h3><p>Cuando aceptes una página con nosotros, aparecerá aquí.</p><a class="button button-light" href="https://wa.me/${WHATSAPP}" target="_blank" rel="noopener">Hablar por WhatsApp</a></div>`; return; }
-    const actionable=projects.find(p=>stageIndex(p)<4 && !/cancelad/i.test(stageKey(p)));
-    if(actionable){ const box=$("#panel-next-step"), [title,copy]=nextStepText(actionable); box.hidden=false; box.innerHTML=`<div class="next-step-icon">→</div><div><span>Lo siguiente</span><strong>${safe(title)}</strong><p>${safe(copy)}</p></div><a class="button button-primary" href="${projectPrimaryHref(actionable)}">Continuar</a>`; }
-    grid.innerHTML=projects.map(p=>{
+    const [projectsR,profilesR]=await Promise.all([
+      db.from("client_projects").select("*").order("created_at",{ascending:false}),
+      db.from("client_profiles").select("id,full_name")
+    ]);
+    if(projectsR.error) throw projectsR.error;
+    if(profilesR.error) throw profilesR.error;
+    const projects=projectsR.data||[];
+    const ownerById=new Map((profilesR.data||[]).map(p=>[p.id,p.full_name||p.email||"Cliente"]));
+    const uid=session.user.id;
+    const mine=projects.filter(p=>p.user_id===uid);
+    const others=projects.filter(p=>!p.user_id||p.user_id!==uid);
+    const grid=$("#projects-grid"), allBlock=$("#all-projects-block"), allGrid=$("#projects-grid-all"), search=$("#projects-search");
+    function projectCard(p){
       const [title,copy]=nextStepText(p), url=projectPrimaryHref(p), action=projectPrimaryLabel(p);
       const publicBadge=p.site_visibility==="public"?"Página publicada":p.site_visibility==="preview"?"Vista previa lista":title;
-      return `<article class="project-card-simple"><a class="project-card-main" href="${url}"><div class="project-card-icon">${stageIndex(p)===4?"✓":"EB"}</div><div class="project-card-copy"><span class="status-badge ${statusClass(p.status)}">${safe(publicBadge)}</span><h3>${safe(p.name)}</h3><p>${safe(copy)}</p><small>${safe(p.domain||"Dirección por definir")}</small></div><span class="project-chevron">›</span></a><div class="project-card-footer"><span>${date(p.created_at)}</span><a href="${url}">${safe(action)} →</a></div></article>`;
-    }).join("");
+      const ownerTag=p.user_id===uid?`<span class="mine-tag">Tuyo</span>`:`<span class="owner-tag">Proyecto de: ${safe(ownerById.get(p.user_id)||"Pendiente de activar")}</span>`;
+      return `<article class="project-card-simple"><a class="project-card-main" href="${url}"><div class="project-card-icon">${stageIndex(p)===4?"✓":"EB"}</div><div class="project-card-copy"><span class="status-badge ${statusClass(p.status)}">${safe(publicBadge)}</span><h3>${safe(p.name)}</h3><p>${safe(copy)}</p><small>${safe(p.domain||"Dirección por definir")}</small></div><span class="project-chevron">›</span></a><div class="project-card-footer">${ownerTag}<span>${date(p.created_at)}</span><a href="${url}">${safe(action)} →</a></div></article>`;
+    }
+    const render=()=>{
+      const q=(search?.value||"").toLowerCase().trim();
+      const match=p=>!q||`${p.name} ${p.domain||""} ${ownerById.get(p.user_id)||""}`.toLowerCase().includes(q);
+      const own=mine.filter(match), other=others.filter(match);
+      const actionable=mine.find(p=>stageIndex(p)<4&&!/cancelad/i.test(stageKey(p)));
+      if(actionable){ const box=$("#panel-next-step"), [title,copy]=nextStepText(actionable); box.hidden=false; box.innerHTML=`<div class="next-step-icon">→</div><div><span>Lo siguiente</span><strong>${safe(title)}</strong><p>${safe(copy)}</p></div><a class="button button-primary" href="${projectPrimaryHref(actionable)}">Continuar</a>`; }
+      grid.innerHTML=own.length?own.map(projectCard).join(""):`<div class="empty-card"><div class="empty-icon">○</div><h3>${q?"Sin resultados":mine.length?"":"Todavía no tienes proyectos"}</h3>${q?"":mine.length?"":"<p>Cuando aceptes una página con nosotros, aparecerá aquí.</p><a class=\"button button-light\" href=\"https://wa.me/${WHATSAPP}\" target=\"_blank\" rel=\"noopener\">Hablar por WhatsApp</a>"}</div>`;
+      const showAll=allBlock&&others.length>0;
+      if(allBlock)allBlock.hidden=!showAll;
+      if(showAll){ allGrid.innerHTML=other.length?other.map(projectCard).join(""):`<div class="empty-card"><div class="empty-icon">…</div><h3>Sin resultados</h3><p>Intenta con otro nombre o cliente.</p></div>`; }
+    };
+    if(search)search.addEventListener("input",render);
+    render();
   }
 
   async function initProfile() {
@@ -269,7 +289,27 @@
         const d=form.querySelector('[name="address_type"][value="dominio"]');d.checked=true;verifiedValue="";domainPrice=null;input.value="";$("#setup-domain-prices").hidden=true;setStatus("#setup-domain-status","Las funciones especiales requieren un dominio propio. Elige el nombre de tu dominio.");
       }
       renderSetupSummary();
+      scheduleSetupSave();
     }
+    let setupAutosaveTimer=null;
+    const scheduleSetupSave=()=>{
+      clearTimeout(setupAutosaveTimer);
+      setupAutosaveTimer=setTimeout(async()=>{
+        const isDomain=addressType()==="dominio", current=isDomain?normalizeDomain(input.value):normalizeSiteName(input.value);
+        const payload={project_id:id,user_id:session.user.id,address_type:isDomain?"dominio":"gratis",hosting_type:hostingType(),special_features_note:String(form.elements.special_features_note.value||"").trim()||null,domain_owned:isDomain&&$("#setup-domain-owned").checked};
+        if(verifiedValue&&verifiedValue===current){
+          if(isDomain){payload.domain=current;payload.site_name=null;}else{payload.site_name=current;payload.domain=null;}
+          if(isDomain&&domainPrice){payload.domain_first_year=(domainPrice.first_period_price??domainPrice.price)/100;payload.domain_renewal=(domainPrice.price??domainPrice.first_period_price)/100;}
+        }
+        try{
+          const {error:saveErr}=await db.from("client_project_setup").upsert(payload,{onConflict:"project_id"});
+          if(saveErr)return;
+          const st=$("#setup-status"); st.textContent="Configuración guardada automáticamente."; st.className="form-status success";
+          setTimeout(()=>{if(st.textContent==="Configuración guardada automáticamente.")st.className="form-status";},2500);
+        }catch(_){/* el envío final sigue mostrando errores */}
+      },900);
+    };
+    window.addEventListener("pagehide",()=>{clearTimeout(setupAutosaveTimer);});
     function renderSetupSummary(){
       const domain=addressType()==="dominio", host=hostingType()==="hostinger";
       const name=domain?(normalizeDomain(input.value)||"Dominio por elegir"):(normalizeSiteName(input.value)?`${normalizeSiteName(input.value)}.pages.dev`:"Enlace por elegir");
@@ -282,8 +322,8 @@
       $("#setup-summary-lines").innerHTML=lines.map(([a,b])=>`<div><span>${safe(a)}</span><strong>${safe(b)}</strong></div>`).join("");
     }
     $$('[name="address_type"], [name="hosting_type"]',form).forEach(el=>el.addEventListener("change",updateSetupUI));
-    input.addEventListener("input",()=>{verifiedValue="";domainPrice=null;$("#setup-domain-prices").hidden=true;setStatus("#setup-domain-status","");renderSetupSummary();});
-    $("#setup-domain-owned").addEventListener("change",()=>{verifiedValue="";domainPrice=null;$("#setup-domain-prices").hidden=true;setStatus("#setup-domain-status","");renderSetupSummary();});
+    input.addEventListener("input",()=>{verifiedValue="";domainPrice=null;$("#setup-domain-prices").hidden=true;setStatus("#setup-domain-status","");renderSetupSummary();scheduleSetupSave();});
+    $("#setup-domain-owned").addEventListener("change",()=>{verifiedValue="";domainPrice=null;$("#setup-domain-prices").hidden=true;setStatus("#setup-domain-status","");renderSetupSummary();scheduleSetupSave();});
     checkBtn.addEventListener("click",async()=>{
       const isDomain=addressType()==="dominio", value=isDomain?normalizeDomain(input.value):normalizeSiteName(input.value);
       if(!value){setStatus("#setup-domain-status",isDomain?"Escribe un dominio válido, por ejemplo tunegocio.com.":"Escribe un nombre corto sin espacios ni símbolos.","error");return;}
@@ -294,7 +334,7 @@
       verifiedValue=value; domainPrice=isDomain?result.price:null;
       if(isDomain&&domainPrice){const first=(domainPrice.first_period_price??domainPrice.price)/100,renew=(domainPrice.price??domainPrice.first_period_price)/100;$("#setup-domain-first").textContent=money(first);$("#setup-domain-renew").textContent=money(renew);$("#setup-domain-prices").hidden=false;}
       const msg=result.availability==="free"?`${isDomain?value:`${value}.pages.dev`} está disponible.`:`Anotamos ${isDomain?value:`${value}.pages.dev`}. Confirmaremos la disponibilidad antes de publicar.`;
-      setStatus("#setup-domain-status",msg,"success");renderSetupSummary();
+      setStatus("#setup-domain-status",msg,"success");renderSetupSummary();scheduleSetupSave();
     });
     form.addEventListener("submit",async e=>{
       e.preventDefault(); const isDomain=addressType()==="dominio", current=isDomain?normalizeDomain(input.value):normalizeSiteName(input.value);
@@ -385,14 +425,27 @@
       let briefPage=1;
       const showBriefPage=(n)=>{briefPage=Math.max(1,Math.min(4,n));$$('[data-brief-page]',briefForm).forEach(s=>s.hidden=Number(s.dataset.briefPage)!==briefPage);$$('[data-brief-go]').forEach(b=>b.classList.toggle("active",Number(b.dataset.briefGo)===briefPage));$("#brief-prev").hidden=briefPage===1;$("#brief-next").hidden=briefPage===4;};
       $$('[data-brief-go]').forEach(b=>b.addEventListener("click",()=>showBriefPage(Number(b.dataset.briefGo))));$("#brief-prev").addEventListener("click",()=>showBriefPage(briefPage-1));$("#brief-next").addEventListener("click",()=>showBriefPage(briefPage+1));
-      const updatePercent=()=>{$("#brief-progress-number").textContent=`${briefCompletion(briefForm,files.length)}%`;}; briefForm.addEventListener("input",updatePercent);briefForm.addEventListener("change",updatePercent);updatePercent();showBriefPage(1);
-      const saveBrief=async(submit=false)=>{
-        const payload={project_id:id,user_id:session.user.id};briefFields.forEach(n=>{if(briefForm.elements[n])payload[n]=String(briefForm.elements[n].value||"").trim()||null;});payload.content_options=$$('input[name="content_options"]:checked',briefForm).map(c=>c.value);payload.completion_percent=briefCompletion(briefForm,files.length);
-        setStatus("#brief-status",submit?"Enviando información…":"Guardando…");
-        const {data,error}=await db.from("client_project_briefs").upsert(payload,{onConflict:"project_id"}).select().single();if(error)throw error;brief=data;
-        if(submit){if(payload.completion_percent<50)throw new Error("Completa un poco más de información antes de enviarla.");const {error:rpcError}=await db.rpc("client_submit_project_brief",{p_project_id:id});if(rpcError)throw rpcError;setStatus("#brief-status","Listo. Ya recibimos tu información.","success");setTimeout(()=>location.reload(),700);}else{setStatus("#brief-status","Avance guardado.","success");}
+      const updatePercent=()=>{$("#brief-progress-number").textContent=`${briefCompletion(briefForm,files.length)}%`;};
+      let autosaveTimer=null, autosaveDirty=false;
+      const scheduleAutosave=()=>{
+        autosaveDirty=true; clearTimeout(autosaveTimer);
+        autosaveTimer=setTimeout(async()=>{
+          if(!autosaveDirty)return; autosaveDirty=false;
+          try{
+            await saveBrief(false,true);
+            const st=$("#brief-status"); st.textContent="Avance guardado automáticamente."; st.className="form-status success";
+            setTimeout(()=>{if(st.textContent==="Avance guardado automáticamente.")st.className="form-status";},2500);
+          }catch(_){/* el guardado manual y el envío siguen mostrando errores */}
+        },900);
       };
-      $("#brief-save").addEventListener("click",async()=>{try{await saveBrief(false);}catch(err){setStatus("#brief-status",friendlyError(err,"No pudimos guardar tu avance."),"error");}});
+      briefForm.addEventListener("input",()=>{updatePercent();scheduleAutosave();});briefForm.addEventListener("change",()=>{updatePercent();scheduleAutosave();});updatePercent();showBriefPage(1);
+      const saveBrief=async(submit=false,auto=false)=>{
+        const payload={project_id:id,user_id:session.user.id};briefFields.forEach(n=>{if(briefForm.elements[n])payload[n]=String(briefForm.elements[n].value||"").trim()||null;});payload.content_options=$$('input[name="content_options"]:checked',briefForm).map(c=>c.value);payload.completion_percent=briefCompletion(briefForm,files.length);
+        if(!auto)setStatus("#brief-status",submit?"Enviando información…":"Guardando…");
+        const {data,error}=await db.from("client_project_briefs").upsert(payload,{onConflict:"project_id"}).select().single();if(error)throw error;brief=data;
+        if(submit){if(payload.completion_percent<50)throw new Error("Completa un poco más de información antes de enviarla.");const {error:rpcError}=await db.rpc("client_submit_project_brief",{p_project_id:id});if(rpcError)throw rpcError;setStatus("#brief-status","Listo. Ya recibimos tu información.","success");setTimeout(()=>location.reload(),700);}else if(!auto){setStatus("#brief-status","Avance guardado.","success");}
+      };
+      window.addEventListener("pagehide",()=>{if(autosaveDirty){autosaveDirty=false;clearTimeout(autosaveTimer);saveBrief(false,true).catch(()=>{});}});
       $("#brief-submit").addEventListener("click",async()=>{const btn=$("#brief-submit");btn.disabled=true;try{await saveBrief(true);}catch(err){setStatus("#brief-status",friendlyError(err,"No pudimos enviar la información."),"error");btn.disabled=false;}});
 
       renderFiles(files,session);
