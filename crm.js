@@ -118,11 +118,11 @@
     const rows=$("#user-rows");if(!rows)return;
     const me=state.session?.user?.email||"";
     rows.innerHTML=state.users.map(u=>{
-      const esAdmin=u.rol==="administrador";const esYo=String(u.email).toLowerCase()===String(me).toLowerCase();
-      const rolBadge=`<span class="badge ${esAdmin?"orange":"blue"}">${esAdmin?"Administrador":"Asesor"}</span>`;
-      const estado=`<span class="badge ${u.activo?"green":"red"}">${u.activo?"Activo":"Desactivado"}</span>`;
+      const esAdmin=u.rol==="administrador",esAsesor=u.rol==="asesor",esCliente=!esAdmin&&!esAsesor;const esYo=String(u.email).toLowerCase()===String(me).toLowerCase();
+      const rolBadge=esAdmin?`<span class="badge orange">Administrador</span>`:esAsesor?`<span class="badge blue">Asesor</span>`:`<span class="badge yellow">Cliente</span>`;
+      const estado=esCliente?`<span class="badge">Sin acceso</span>`:`<span class="badge ${u.activo?"green":"red"}">${u.activo?"Activo":"Desactivado"}</span>`;
       const puedeCambiar=esAdmin&&!esYo;
-      const acciones=puedeCambiar?`<div class="row-actions"><select class="control user-rol-select" data-user-email="${esc(u.email)}" data-user-rol="${esc(u.rol)}" ${u.activo?"":"disabled"}><option value="asesor" ${u.rol==="asesor"?"selected":""}>Asesor</option><option value="administrador" ${u.rol==="administrador"?"selected":""}>Administrador</option></select><button class="tiny-btn ${u.activo?"danger":"green"}" data-toggle-user="${esc(u.email)}">${u.activo?"Desactivar":"Activar"}</button><button class="tiny-btn danger" data-delete-user="${esc(u.email)}">Quitar del CRM</button></div>`:`<span class="sub">${esYo?"Tú":esAdmin?"Solo lectura":"—"}</span>`;
+      const acciones=esCliente?`<div class="row-actions"><button class="tiny-btn green" data-grant-user="${esc(u.email)}" data-grant-rol="asesor">Dar acceso como asesor</button><button class="tiny-btn orange" data-grant-user="${esc(u.email)}" data-grant-rol="administrador">Hacer administrador</button></div>`:(puedeCambiar?`<div class="row-actions"><select class="control user-rol-select" data-user-email="${esc(u.email)}" data-user-rol="${esc(u.rol)}" ${u.activo?"":"disabled"}><option value="asesor" ${u.rol==="asesor"?"selected":""}>Asesor</option><option value="administrador" ${u.rol==="administrador"?"selected":""}>Administrador</option></select><button class="tiny-btn ${u.activo?"danger":"green"}" data-toggle-user="${esc(u.email)}">${u.activo?"Desactivar":"Activar"}</button><button class="tiny-btn danger" data-delete-user="${esc(u.email)}">Quitar del CRM</button></div>`:`<span class="sub">${esYo?"Tú":esAdmin?"Solo lectura":"—"}</span>`);
       return `<tr><td><strong>${esc(u.email)}</strong><span class="sub">${esYo?"Cuenta actual":""}</span></td><td>${rolBadge}</td><td>${estado}</td><td>${acciones}</td></tr>`;
     }).join("");
     $("#user-empty").hidden=state.users.length>0;
@@ -161,6 +161,11 @@
     const res=await db.rpc("crm_eliminar_usuario",{p_email:email});
     if(res.error){toast(res.error.message||"No pudimos quitar al usuario.");return;}
     toast("Usuario quitado del CRM.");await loadUsers();
+  }
+  async function grantUser(email,rol){
+    const res=await db.rpc("crm_registrar_usuario",{p_email:email,p_rol:rol});
+    if(res.error){toast(res.error.message||"No pudimos darle acceso.");return;}
+    toast(`Acceso otorgado como ${rol==="administrador"?"administrador":"asesor"}.`);await loadUsers();
   }
 
   function renderInvited(){
@@ -260,7 +265,7 @@
   $("#request-rows")?.addEventListener("change",async e=>{const id=e.target.dataset.requestStatus;if(!id)return;const {error}=await db.from("client_requests").update({status:e.target.value}).eq("id",id);if(error){toast("No pudimos actualizar la solicitud.");return;}const r=state.requests.find(x=>x.id===id);if(r)r.status=e.target.value;renderDashboard();toast("Solicitud actualizada.");});
   $("#dashboard-next-actions")?.addEventListener("click",e=>{if(e.target.dataset.copyInvite)copyInvite(e.target.dataset.copyInvite);});
   $("#crm-user-form")?.addEventListener("submit",addUser);
-  $("#user-rows")?.addEventListener("click",async e=>{const t=e.target;if(t.dataset.toggleUser){const u=state.users.find(x=>String(x.email).toLowerCase()===String(t.dataset.toggleUser).toLowerCase());if(u)await toggleUser(u.email,!u.activo);}if(t.dataset.deleteUser)await removeUser(t.dataset.deleteUser);});
+  $("#user-rows")?.addEventListener("click",async e=>{const t=e.target;if(t.dataset.toggleUser){const u=state.users.find(x=>String(x.email).toLowerCase()===String(t.dataset.toggleUser).toLowerCase());if(u)await toggleUser(u.email,!u.activo);}if(t.dataset.deleteUser)await removeUser(t.dataset.deleteUser);if(t.dataset.grantUser)await grantUser(t.dataset.grantUser,t.dataset.grantRol);});
   $("#user-rows")?.addEventListener("change",async e=>{const t=e.target;if(t.dataset.userEmail)await changeUserRole(t.dataset.userEmail,t.value);});
 
   (async()=>{if(!portal.configured){setLine("#crm-login-status","El CRM no está disponible en este momento.","error");return;}const {data:{session}}=await db.auth.getSession();await showSession(session);db.auth.onAuthStateChange((_e,s)=>{if(!s)showSession(null);});})().catch(err=>{console.error(err);setLine("#crm-login-status","No pudimos cargar el CRM.","error");});
