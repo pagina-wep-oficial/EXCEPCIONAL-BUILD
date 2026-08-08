@@ -30,6 +30,6 @@ export async function onRequestPost(context) {
     return json({ ok:true, file:record });
   } catch (error) {
     console.error(error);
-    return json({ ok:false, message:"No pudimos guardar el archivo. Revisa la configuración de Google Drive." }, 500);
+    return json({ ok:false, message:`No pudimos guardar el archivo. Revisa la configuración de Google Drive. (detalle: ${error.message})` }, 500);
   }
 }
