@@ -59,7 +59,7 @@
     if(!session){$("#crm-login").hidden=false;$("#crm-app").hidden=true;return;}
     try{
       const rol=await checkAdmin();
-      if(!rol){setLine("#crm-login-status","Esta cuenta no tiene permisos de administrador.","error");$("#crm-login").hidden=false;$("#crm-app").hidden=true;return;}
+      if(!rol){setLine("#crm-login-status","Esta cuenta no tiene acceso al CRM. Si crees que debería tenerlo, pídeselo al administrador.","error");$("#crm-login").hidden=false;$("#crm-app").hidden=true;return;}
       state.rol=rol;
       const esAdmin=rol==="administrador";
       $$(".admin-only").forEach(el=>el.hidden=!esAdmin);
@@ -252,6 +252,7 @@
   $$(".crm-nav [data-view]").forEach(b=>b.addEventListener("click",()=>setView(b.dataset.view)));
   $("#refresh-all")?.addEventListener("click",loadAll);$("#crm-logout")?.addEventListener("click",async()=>{await db.auth.signOut();location.reload();});
   $("#crm-login-form")?.addEventListener("submit",async e=>{e.preventDefault();const f=e.currentTarget,b=f.querySelector('button[type="submit"]');b.disabled=true;setLine("#crm-login-status","Entrando…");const {data,error}=await db.auth.signInWithPassword({email:f.email.value.trim(),password:f.password.value});if(error){setLine("#crm-login-status","Correo o contraseña incorrectos.","error");b.disabled=false;return;}await showSession(data.session);b.disabled=false;});
+  $("#crm-google-login")?.addEventListener("click",async()=>{const button=$("#crm-google-login");button.disabled=true;setLine("#crm-login-status","Abriendo Google…");const {error}=await db.auth.signInWithOAuth({provider:"google",options:{redirectTo:`${portal.callbackUrl()}?next=crm-local.html`,scopes:"openid email profile"}});if(error){setLine("#crm-login-status","No pudimos abrir Google. Intenta nuevamente.","error");button.disabled=false;}});
   $("#prospect-form")?.addEventListener("submit",saveProspect);$("#cancel-prospect")?.addEventListener("click",()=>{$("#prospect-form").reset();$("#prospect-form").elements.id.value="";$("#cancel-prospect").hidden=true;setLine("#prospect-status","")});$("#export-prospects")?.addEventListener("click",exportProspects);
   $("#agreement-form")?.addEventListener("submit",saveAgreement);$$('[data-close-agreement]').forEach(b=>b.addEventListener("click",()=>$("#agreement-modal").close()));
   $("#project-form")?.addEventListener("submit",saveProject);$$('[data-close-project]').forEach(b=>b.addEventListener("click",()=>$("#project-modal").close()));$("#new-project")?.addEventListener("click",()=>{setProjectForm({project_stage:"Invitación",status:"Pendiente de activar cuenta",site_visibility:"hidden",total_price:750,deposit_amount:375,balance_amount:375,payment_method:"Transferencia"});$("#project-setup-admin-content").innerHTML="<span>Sin configuración.</span>";$("#project-brief-admin-content").innerHTML="<span>Sin información.</span>";$("#project-files-admin").innerHTML="<span>No hay archivos.</span>";$("#project-modal").showModal();});

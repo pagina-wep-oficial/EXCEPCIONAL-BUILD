@@ -181,6 +181,7 @@
       }
       let session=await getSession();
       if(!session) throw new Error("No pudimos confirmar el acceso.");
+      if(getParam("next")==="crm-local.html"){ status.textContent="Listo. Abriendo el CRM…"; location.replace("crm-local.html"); return; }
       const profile=await getProfile(session.user);
       if(!profile.onboarding_completed){ location.replace("acceso.html?complete=1"); return; }
       status.textContent="Listo. Abriendo tu proyecto…"; await finishAccess(session);
