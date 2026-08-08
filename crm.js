@@ -117,12 +117,12 @@
   function renderUsers(){
     const rows=$("#user-rows");if(!rows)return;
     const me=state.session?.user?.email||"";
+    const puedoAdmin=state.rol==="administrador";
     rows.innerHTML=state.users.map(u=>{
       const esAdmin=u.rol==="administrador",esAsesor=u.rol==="asesor",esCliente=!esAdmin&&!esAsesor;const esYo=String(u.email).toLowerCase()===String(me).toLowerCase();
       const rolBadge=esAdmin?`<span class="badge orange">Administrador</span>`:esAsesor?`<span class="badge blue">Asesor</span>`:`<span class="badge yellow">Cliente</span>`;
       const estado=esCliente?`<span class="badge">Sin acceso</span>`:`<span class="badge ${u.activo?"green":"red"}">${u.activo?"Activo":"Desactivado"}</span>`;
-      const puedeCambiar=esAdmin&&!esYo;
-      const acciones=esCliente?`<div class="row-actions"><button class="tiny-btn green" data-grant-user="${esc(u.email)}" data-grant-rol="asesor">Dar acceso como asesor</button><button class="tiny-btn orange" data-grant-user="${esc(u.email)}" data-grant-rol="administrador">Hacer administrador</button></div>`:(puedeCambiar?`<div class="row-actions"><select class="control user-rol-select" data-user-email="${esc(u.email)}" data-user-rol="${esc(u.rol)}" ${u.activo?"":"disabled"}><option value="asesor" ${u.rol==="asesor"?"selected":""}>Asesor</option><option value="administrador" ${u.rol==="administrador"?"selected":""}>Administrador</option></select><button class="tiny-btn ${u.activo?"danger":"green"}" data-toggle-user="${esc(u.email)}">${u.activo?"Desactivar":"Activar"}</button><button class="tiny-btn danger" data-delete-user="${esc(u.email)}">Quitar del CRM</button></div>`:`<span class="sub">${esYo?"Tú":esAdmin?"Solo lectura":"—"}</span>`);
+      const acciones=esYo?`<span class="sub">Tú</span>`:(!puedoAdmin?`<span class="sub">Solo lectura</span>`:(esCliente?`<div class="row-actions"><button class="tiny-btn green" data-grant-user="${esc(u.email)}" data-grant-rol="asesor">Dar acceso como asesor</button><button class="tiny-btn orange" data-grant-user="${esc(u.email)}" data-grant-rol="administrador">Hacer administrador</button></div>`:`<div class="row-actions"><select class="control user-rol-select" data-user-email="${esc(u.email)}" data-user-rol="${esc(u.rol)}" ${u.activo?"":"disabled"}><option value="asesor" ${u.rol==="asesor"?"selected":""}>Asesor</option><option value="administrador" ${u.rol==="administrador"?"selected":""}>Administrador</option></select><button class="tiny-btn ${u.activo?"danger":"green"}" data-toggle-user="${esc(u.email)}">${u.activo?"Desactivar":"Activar"}</button><button class="tiny-btn danger" data-delete-user="${esc(u.email)}">Quitar del CRM</button></div>`));
       return `<tr><td><strong>${esc(u.email)}</strong><span class="sub">${esYo?"Cuenta actual":""}</span></td><td>${rolBadge}</td><td>${estado}</td><td>${acciones}</td></tr>`;
     }).join("");
     $("#user-empty").hidden=state.users.length>0;
