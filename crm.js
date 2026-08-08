@@ -5,7 +5,7 @@
   const db=portal.client;
   const WHATSAPP="529811332914";
   const PROD_ORIGIN=(location.protocol.startsWith("http")&&!['localhost','127.0.0.1'].includes(location.hostname))?location.origin:"https://excepcional-build.pages.dev";
-  const state={session:null,prospects:[],trash:[],clients:[],projects:[],requests:[],currentProject:null,currentProspect:null};
+  const state={session:null,rol:null,prospects:[],trash:[],clients:[],projects:[],requests:[],users:[],currentProject:null,currentProspect:null};
 
   const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const esc=(v="")=>String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
@@ -50,14 +50,23 @@
   function setView(name){
     $$(".crm-nav [data-view]").forEach(b=>b.classList.toggle("active",b.dataset.view===name));
     $$('[data-view-panel]').forEach(p=>p.classList.toggle("active",p.dataset.viewPanel===name));
-    const meta={dashboard:["Resumen","Vista general del negocio."],prospects:["Prospectos","Personas interesadas que todavía no han aceptado."],invited:["Clientes invitados","Aceptaron trabajar contigo y están pendientes de activar su cuenta."],clients:["Clientes","Personas que ya activaron su cuenta."],projects:["Proyectos","Control de producción, pagos y publicación."],requests:["Solicitudes","Cambios y mantenimiento pedidos por clientes."],trash:["Papelera","Prospectos eliminados que puedes restaurar o borrar definitivamente."]}[name]||["CRM",""];
+    const meta={dashboard:["Resumen","Vista general del negocio."],prospects:["Prospectos","Personas interesadas que todavía no han aceptado."],invited:["Clientes invitados","Aceptaron trabajar contigo y están pendientes de activar su cuenta."],clients:["Clientes","Personas que ya activaron su cuenta."],projects:["Proyectos","Control de producción, pagos y publicación."],requests:["Solicitudes","Cambios y mantenimiento pedidos por clientes."],users:["Usuarios","Cuentas con acceso al CRM y sus permisos."],trash:["Papelera","Prospectos eliminados que puedes restaurar o borrar definitivamente."]}[name]||["CRM",""];
     $("#view-title").textContent=meta[0];$("#view-subtitle").textContent=meta[1];
   }
-  async function checkAdmin(){const {data,error}=await db.rpc("is_app_admin");if(error)throw error;return Boolean(data);}
+  async function checkAdmin(){const {data,error}=await db.rpc("mi_rol_crm");if(error)throw error;return data==="administrador"?data:"asesor";}
   async function showSession(session){
     state.session=session;
     if(!session){$("#crm-login").hidden=false;$("#crm-app").hidden=true;return;}
-    try{if(!await checkAdmin()){setLine("#crm-login-status","Esta cuenta no tiene permisos de administrador.","error");$("#crm-login").hidden=false;$("#crm-app").hidden=true;return;}$("#crm-login").hidden=true;$("#crm-app").hidden=false;$("#admin-email").textContent=session.user.email||"";$("#admin-name").textContent=session.user.user_metadata?.full_name||session.user.email?.split("@")[0]||"Administrador";await loadAll();}
+    try{
+      const rol=await checkAdmin();
+      if(!rol){setLine("#crm-login-status","Esta cuenta no tiene permisos de administrador.","error");$("#crm-login").hidden=false;$("#crm-app").hidden=true;return;}
+      state.rol=rol;
+      const esAdmin=rol==="administrador";
+      $$(".admin-only").forEach(el=>el.hidden=!esAdmin);
+      $("#crm-login").hidden=true;$("#crm-app").hidden=false;$("#admin-email").textContent=session.user.email||"";$("#admin-name").textContent=session.user.user_metadata?.full_name||session.user.email?.split("@")[0]||"Administrador";$("#admin-rol").textContent=esAdmin?"Administrador":"Asesor";
+      if(!esAdmin&&!["dashboard","prospects","trash"].includes($(".crm-nav [data-view].active")?.dataset.view||"dashboard"))setView("dashboard");
+      await loadAll();
+    }
     catch(err){setLine("#crm-login-status","No pudimos comprobar tus permisos.","error");}
   }
   async function loadAll(){
@@ -68,7 +77,7 @@
       db.from("client_requests").select("*").order("created_at",{ascending:false})
     ]);
     for(const r of results)if(r.error)throw r.error;
-    const all=results[0].data||[];state.prospects=all.filter(p=>!p.borrado_en);state.trash=all.filter(p=>p.borrado_en);state.clients=results[1].data||[];state.projects=results[2].data||[];state.requests=results[3].data||[];renderAll();
+    const all=results[0].data||[];state.prospects=all.filter(p=>!p.borrado_en);state.trash=all.filter(p=>p.borrado_en);state.clients=results[1].data||[];state.projects=results[2].data||[];state.requests=results[3].data||[];renderAll();if(state.rol==="administrador")await loadUsers();
   }
   function renderAll(){renderDashboard();renderProspects();renderTrash();renderInvited();renderClients();renderProjects();renderRequests();fillClientSelect();}
 
@@ -103,6 +112,56 @@
   async function restoreProspect(id){const p=state.trash.find(x=>String(x.id)===String(id));if(!p)return;const {error}=await db.from("prospectos").update({borrado_en:null}).eq("id",id);if(error){toast("No pudimos restaurar el prospecto.");return;}state.trash=state.trash.filter(x=>String(x.id)!==String(id));state.prospects.unshift({...p,borrado_en:null});renderAll();toast("Prospecto restaurado.");}
   async function deleteProspectForever(id){const p=state.trash.find(x=>String(x.id)===String(id));if(!p)return;if(!confirm(`¿Borrar "${p.negocio}" definitivamente? Esta acción no se puede deshacer.`))return;const {error}=await db.from("prospectos").delete().eq("id",id);if(error){toast("No pudimos borrar el prospecto.");return;}state.trash=state.trash.filter(x=>String(x.id)!==String(id));renderAll();toast("Prospecto borrado permanentemente.");}
   async function emptyTrash(){if(!state.trash.length)return;if(!confirm(`¿Vaciar la papelera? Se borrarán ${state.trash.length} prospectos definitivamente.`))return;const ids=state.trash.map(p=>p.id);const {error}=await db.from("prospectos").delete().in("id",ids);if(error){toast("No pudimos vaciar la papelera.");return;}state.trash=[];renderAll();toast("Papelera vaciada.");}
+
+  async function loadUsers(){const {data,error}=await db.rpc("crm_listar_usuarios");if(error)throw error;state.users=data||[];renderUsers();}
+  function renderUsers(){
+    const rows=$("#user-rows");if(!rows)return;
+    const me=state.session?.user?.email||"";
+    rows.innerHTML=state.users.map(u=>{
+      const esAdmin=u.rol==="administrador";const esYo=String(u.email).toLowerCase()===String(me).toLowerCase();
+      const rolBadge=`<span class="badge ${esAdmin?"orange":"blue"}">${esAdmin?"Administrador":"Asesor"}</span>`;
+      const estado=`<span class="badge ${u.activo?"green":"red"}">${u.activo?"Activo":"Desactivado"}</span>`;
+      const puedeCambiar=esAdmin&&!esYo;
+      const acciones=puedeCambiar?`<div class="row-actions"><select class="control user-rol-select" data-user-email="${esc(u.email)}" data-user-rol="${esc(u.rol)}" ${u.activo?"":"disabled"}><option value="asesor" ${u.rol==="asesor"?"selected":""}>Asesor</option><option value="administrador" ${u.rol==="administrador"?"selected":""}>Administrador</option></select><button class="tiny-btn ${u.activo?"danger":"green"}" data-toggle-user="${esc(u.email)}">${u.activo?"Desactivar":"Activar"}</button><button class="tiny-btn danger" data-delete-user="${esc(u.email)}">Quitar del CRM</button></div>`:`<span class="sub">${esYo?"Tú":esAdmin?"Solo lectura":"—"}</span>`;
+      return `<tr><td><strong>${esc(u.email)}</strong><span class="sub">${esYo?"Cuenta actual":""}</span></td><td>${rolBadge}</td><td>${estado}</td><td>${acciones}</td></tr>`;
+    }).join("");
+    $("#user-empty").hidden=state.users.length>0;
+  }
+  async function addUser(e){
+    e.preventDefault();
+    const email=String($("#user-email").value||"").trim().toLowerCase(),password=$("#user-password").value||"",rol=$("#user-role").value;
+    if(!email||!password||password.length<6){setLine("#user-status","Escribe el correo y una contraseña de al menos 6 caracteres.","error");return;}
+    const b=e.currentTarget.querySelector('button[type="submit"]');b.disabled=true;setLine("#user-status","Guardando…");
+    try{
+      const {error:signError}=await db.auth.signUp({email,password});
+      if(signError&&!/already registered|already been registered|usuario ya/i.test(signError.message))throw signError;
+      const res=await db.rpc("crm_registrar_usuario",{p_email:email,p_rol:rol});
+      if(res.error)throw res.error;
+      if(res.data==="NO_EXISTE"){setLine("#user-status","La cuenta no se pudo crear.","error");return;}
+      $("#user-password").value="";setLine("#user-status","Usuario guardado con permiso "+(rol==="administrador"?"administrador":"asesor")+".","success");
+      await loadUsers();
+    }catch(err){setLine("#user-status",err.message||"No pudimos guardar el usuario.","error");}
+    finally{b.disabled=false;}
+  }
+  async function changeUserRole(email,rol){
+    if(!email||!rol)return;
+    const res=await db.rpc("crm_actualizar_usuario",{p_email:email,p_rol:rol,p_activo:true});
+    if(res.error){toast(res.error.message||"No pudimos cambiar el permiso.");return;}
+    toast("Permiso actualizado.");await loadUsers();
+  }
+  async function toggleUser(email,activo){
+    const current=state.users.find(u=>String(u.email).toLowerCase()===String(email).toLowerCase());
+    if(!current)return;
+    const res=await db.rpc("crm_actualizar_usuario",{p_email:email,p_rol:current.rol,p_activo:activo});
+    if(res.error){toast(res.error.message||"No pudimos cambiar el estado.");return;}
+    toast(activo?"Usuario activado.":"Usuario desactivado.");await loadUsers();
+  }
+  async function removeUser(email){
+    if(!confirm(`¿Quitar a ${email} del CRM? Podrá seguir siendo cliente, pero ya no entrará al CRM.`))return;
+    const res=await db.rpc("crm_eliminar_usuario",{p_email:email});
+    if(res.error){toast(res.error.message||"No pudimos quitar al usuario.");return;}
+    toast("Usuario quitado del CRM.");await loadUsers();
+  }
 
   function renderInvited(){
     const invited=invitedProjects();
@@ -200,6 +259,9 @@
   $("#clients-grid")?.addEventListener("click",e=>{const id=e.target.dataset.clientProjects;if(!id)return;setView("projects");$("#project-search").value=clientById(id)?.full_name||"";renderProjects();});
   $("#request-rows")?.addEventListener("change",async e=>{const id=e.target.dataset.requestStatus;if(!id)return;const {error}=await db.from("client_requests").update({status:e.target.value}).eq("id",id);if(error){toast("No pudimos actualizar la solicitud.");return;}const r=state.requests.find(x=>x.id===id);if(r)r.status=e.target.value;renderDashboard();toast("Solicitud actualizada.");});
   $("#dashboard-next-actions")?.addEventListener("click",e=>{if(e.target.dataset.copyInvite)copyInvite(e.target.dataset.copyInvite);});
+  $("#crm-user-form")?.addEventListener("submit",addUser);
+  $("#user-rows")?.addEventListener("click",async e=>{const t=e.target;if(t.dataset.toggleUser){const u=state.users.find(x=>String(x.email).toLowerCase()===String(t.dataset.toggleUser).toLowerCase());if(u)await toggleUser(u.email,!u.activo);}if(t.dataset.deleteUser)await removeUser(t.dataset.deleteUser);});
+  $("#user-rows")?.addEventListener("change",async e=>{const t=e.target;if(t.dataset.userEmail)await changeUserRole(t.dataset.userEmail,t.value);});
 
   (async()=>{if(!portal.configured){setLine("#crm-login-status","El CRM no está disponible en este momento.","error");return;}const {data:{session}}=await db.auth.getSession();await showSession(session);db.auth.onAuthStateChange((_e,s)=>{if(!s)showSession(null);});})().catch(err=>{console.error(err);setLine("#crm-login-status","No pudimos cargar el CRM.","error");});
 })();
