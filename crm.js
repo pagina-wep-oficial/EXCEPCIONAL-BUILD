@@ -123,22 +123,20 @@
       const rolBadge=esAdmin?`<span class="badge orange">Administrador</span>`:esAsesor?`<span class="badge blue">Asesor</span>`:`<span class="badge yellow">Cliente</span>`;
       const estado=esCliente?`<span class="badge">Sin acceso</span>`:`<span class="badge ${u.activo?"green":"red"}">${u.activo?"Activo":"Desactivado"}</span>`;
       const acciones=esYo?`<span class="sub">Tú</span>`:(!puedoAdmin?`<span class="sub">Solo lectura</span>`:(esCliente?`<div class="row-actions"><button class="tiny-btn green" data-grant-user="${esc(u.email)}" data-grant-rol="asesor">Dar acceso como asesor</button><button class="tiny-btn orange" data-grant-user="${esc(u.email)}" data-grant-rol="administrador">Hacer administrador</button></div>`:`<div class="row-actions"><select class="control user-rol-select" data-user-email="${esc(u.email)}" data-user-rol="${esc(u.rol)}" ${u.activo?"":"disabled"}><option value="asesor" ${u.rol==="asesor"?"selected":""}>Asesor</option><option value="administrador" ${u.rol==="administrador"?"selected":""}>Administrador</option></select><button class="tiny-btn ${u.activo?"danger":"green"}" data-toggle-user="${esc(u.email)}">${u.activo?"Desactivar":"Activar"}</button><button class="tiny-btn danger" data-delete-user="${esc(u.email)}">Quitar del CRM</button></div>`));
-      return `<tr><td><strong>${esc(u.email)}</strong><span class="sub">${esYo?"Cuenta actual":""}</span></td><td>${rolBadge}</td><td>${estado}</td><td>${acciones}</td></tr>`;
+      return `<tr><td><strong>${esc(u.nombre||u.email)}</strong>${u.nombre?`<span class="sub">${esc(u.email)}</span>`:""}<span class="sub">${esYo?"Cuenta actual":""}</span></td><td>${rolBadge}</td><td>${estado}</td><td>${acciones}</td></tr>`;
     }).join("");
     $("#user-empty").hidden=state.users.length>0;
   }
   async function addUser(e){
     e.preventDefault();
-    const email=String($("#user-email").value||"").trim().toLowerCase(),password=$("#user-password").value||"",rol=$("#user-role").value;
-    if(!email||!password||password.length<6){setLine("#user-status","Escribe el correo y una contraseña de al menos 6 caracteres.","error");return;}
+    const email=String($("#user-email").value||"").trim().toLowerCase(),nombre=String($("#user-name").value||"").trim(),rol=$("#user-role").value;
+    if(!email||!nombre){setLine("#user-status","Escribe el correo y el nombre de la persona.","error");return;}
     const b=e.currentTarget.querySelector('button[type="submit"]');b.disabled=true;setLine("#user-status","Guardando…");
     try{
-      const {error:signError}=await db.auth.signUp({email,password});
-      if(signError&&!/already registered|already been registered|usuario ya/i.test(signError.message))throw signError;
-      const res=await db.rpc("crm_registrar_usuario",{p_email:email,p_rol:rol});
+      const res=await db.rpc("crm_agregar_usuario",{p_email:email,p_nombre:nombre,p_rol:rol});
       if(res.error)throw res.error;
-      if(res.data==="NO_EXISTE"){setLine("#user-status","La cuenta no se pudo crear.","error");return;}
-      $("#user-password").value="";setLine("#user-status","Usuario guardado con permiso "+(rol==="administrador"?"administrador":"asesor")+".","success");
+      if(res.data==="NO_EXISTE"){setLine("#user-status","Ese correo todavía no tiene cuenta. Pídele a la persona que entre una vez con Google al portal para crearla, y después la agregas aquí.","error");return;}
+      $("#user-email").value="";$("#user-name").value="";setLine("#user-status","Usuario guardado con permiso "+(rol==="administrador"?"administrador":"asesor")+".","success");
       await loadUsers();
     }catch(err){setLine("#user-status",err.message||"No pudimos guardar el usuario.","error");}
     finally{b.disabled=false;}
@@ -251,7 +249,6 @@
 
   $$(".crm-nav [data-view]").forEach(b=>b.addEventListener("click",()=>setView(b.dataset.view)));
   $("#refresh-all")?.addEventListener("click",loadAll);$("#crm-logout")?.addEventListener("click",async()=>{await db.auth.signOut();location.reload();});
-  $("#crm-login-form")?.addEventListener("submit",async e=>{e.preventDefault();const f=e.currentTarget,b=f.querySelector('button[type="submit"]');b.disabled=true;setLine("#crm-login-status","Entrando…");const {data,error}=await db.auth.signInWithPassword({email:f.email.value.trim(),password:f.password.value});if(error){setLine("#crm-login-status","Correo o contraseña incorrectos.","error");b.disabled=false;return;}await showSession(data.session);b.disabled=false;});
   $("#crm-google-login")?.addEventListener("click",async()=>{const button=$("#crm-google-login");button.disabled=true;setLine("#crm-login-status","Abriendo Google…");const {error}=await db.auth.signInWithOAuth({provider:"google",options:{redirectTo:`${portal.callbackUrl()}?next=crm-local.html`,scopes:"openid email profile"}});if(error){setLine("#crm-login-status","No pudimos abrir Google. Intenta nuevamente.","error");button.disabled=false;}});
   $("#prospect-form")?.addEventListener("submit",saveProspect);$("#cancel-prospect")?.addEventListener("click",()=>{$("#prospect-form").reset();$("#prospect-form").elements.id.value="";$("#cancel-prospect").hidden=true;setLine("#prospect-status","")});$("#export-prospects")?.addEventListener("click",exportProspects);
   $("#agreement-form")?.addEventListener("submit",saveAgreement);$$('[data-close-agreement]').forEach(b=>b.addEventListener("click",()=>$("#agreement-modal").close()));
