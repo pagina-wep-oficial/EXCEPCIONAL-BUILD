@@ -171,17 +171,21 @@
     if(!portal.configured) return;
     const status=$("#callback-status");
     try{
+      const nextParam=getParam("next")||localStorage.getItem(portal.authNextKey);
       const code=getParam("code");
       if(code){
         status.textContent="Confirmando tu acceso…";
-        const prev=await getSession();
-        if(prev){ status.textContent="Preparando tu cuenta…"; await db.auth.signOut(); }
         const {error}=await db.auth.exchangeCodeForSession(code);
         if(error) throw error;
       }
       let session=await getSession();
       if(!session) throw new Error("No pudimos confirmar el acceso.");
-      if(getParam("next")==="crm-local.html"){ status.textContent="Listo. Abriendo el CRM…"; location.replace("crm-local.html"); return; }
+      if(nextParam==="crm-local.html"){
+        localStorage.removeItem(portal.authNextKey);
+        status.textContent="Listo. Abriendo el CRM…";
+        location.replace("crm-local.html");
+        return;
+      }
       const profile=await getProfile(session.user);
       if(!profile.onboarding_completed){ location.replace("acceso.html?complete=1"); return; }
       status.textContent="Listo. Abriendo tu proyecto…"; await finishAccess(session);

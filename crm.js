@@ -20,6 +20,7 @@
   const projectForProspect=(id)=>state.projects.find(p=>String(p.source_prospect_id||"")===String(id));
   const projectsForClient=(id)=>state.projects.filter(p=>p.user_id===id);
   const invitedProjects=()=>state.projects.filter(p=>!p.user_id);
+  const projectVisibilityLabel=(value)=>({hidden:"Oculta",preview:"Vista previa",public:"Publicada"}[value]||"Oculta");
 
   function statusClass(value=""){
     const s=String(value).toLowerCase();
@@ -189,6 +190,19 @@
   }
 
   function fillClientSelect(){const select=$("#project-form [name=user_id]");if(!select)return;const current=select.value;select.innerHTML=`<option value="">Sin cuenta todavía</option>`+state.clients.map(c=>`<option value="${c.id}">${esc(c.full_name||c.email)} · ${esc(c.email||"")}</option>`).join("");select.value=current;}
+  function updateProjectSummary(){
+    const form=$("#project-form"); if(!form) return;
+    const userId=form.elements.user_id.value;
+    const client=clientById(userId);
+    $("#project-summary-client").textContent=client?.full_name||client?.email||"Sin asignar";
+    $("#project-summary-stage").textContent=form.elements.project_stage.value||"Invitación";
+    $("#project-summary-visibility").textContent=projectVisibilityLabel(form.elements.site_visibility.value);
+    $("#project-summary-payment").textContent=money(form.elements.total_price.value||0);
+  }
+  function setProjectTab(name="summary"){
+    $$("[data-project-tab]").forEach(btn=>btn.classList.toggle("active",btn.dataset.projectTab===name));
+    $$("[data-project-panel]").forEach(panel=>panel.classList.toggle("active",panel.dataset.projectPanel===name));
+  }
 
   function openAgreement(id){const p=prospectById(id);if(!p)return;state.currentProspect=p;const f=$("#agreement-form"),el=f.elements;f.reset();el.prospect_id.value=p.id;el.project_name.value=p.negocio||"Nuevo proyecto";el.total_price.value=750;el.deposit_amount.value=375;el.balance_amount.value=375;el.payment_method.value="Transferencia";el.client_note.value="Tu proyecto ya está preparado. Activa tu cuenta para configurar la dirección de tu página y enviarnos la información del negocio.";setLine("#agreement-status","");$("#agreement-modal").showModal();}
   async function saveAgreement(e){
@@ -210,7 +224,7 @@
   async function sendInvite(id){const p=projectById(id),lead=prospectById(p?.source_prospect_id);if(!p||!lead?.telefono)return;await ensureInvite(p);await markInviteSent(p);window.open(`https://wa.me/${waNumber(lead.telefono)}?text=${encodeURIComponent(inviteMessage(p))}`,"_blank","noopener");}
 
   function setProjectForm(project={}){
-    const f=$("#project-form"),el=f.elements;state.currentProject=project.id?project:null;f.reset();el.id.value=project.id||"";el.source_prospect_id.value=project.source_prospect_id||"";el.name.value=project.name||"";fillClientSelect();el.user_id.value=project.user_id||"";el.project_stage.value=project.project_stage||"Invitación";el.status.value=project.status||"Pendiente de activar cuenta";el.address_type.value=project.address_type||"gratis";el.domain.value=project.domain||"";el.hosting_type.value=project.hosting_type||"cloudflare";el.site_visibility.value=project.site_visibility||"hidden";el.site_url.value=project.site_url||"";el.preview_url.value=project.preview_url||"";el.total_price.value=project.total_price??750;el.deposit_amount.value=project.deposit_amount??375;el.balance_amount.value=project.balance_amount??375;el.payment_method.value=project.payment_method||"Transferencia";el.deposit_paid.checked=Boolean(project.deposit_paid);el.balance_paid.checked=Boolean(project.balance_paid);el.client_note.value=project.client_note||"";$("#project-modal-title").textContent=project.id?project.name:"Nuevo proyecto";setLine("#project-form-status","");const inv=inviteUrl(project);$("#project-invite-box").hidden=!project.id||Boolean(project.user_id);$("#project-invite-url").textContent=inv||"Guarda el proyecto para generar una invitación.";$("#update-title").value="";$("#update-status").value="";$("#update-description").value="";
+    const f=$("#project-form"),el=f.elements;state.currentProject=project.id?project:null;f.reset();el.id.value=project.id||"";el.source_prospect_id.value=project.source_prospect_id||"";el.name.value=project.name||"";fillClientSelect();el.user_id.value=project.user_id||"";el.project_stage.value=project.project_stage||"Invitación";el.status.value=project.status||"Pendiente de activar cuenta";el.address_type.value=project.address_type||"gratis";el.domain.value=project.domain||"";el.hosting_type.value=project.hosting_type||"cloudflare";el.site_visibility.value=project.site_visibility||"hidden";el.site_url.value=project.site_url||"";el.preview_url.value=project.preview_url||"";el.total_price.value=project.total_price??750;el.deposit_amount.value=project.deposit_amount??375;el.balance_amount.value=project.balance_amount??375;el.payment_method.value=project.payment_method||"Transferencia";el.deposit_paid.checked=Boolean(project.deposit_paid);el.balance_paid.checked=Boolean(project.balance_paid);el.client_note.value=project.client_note||"";$("#project-modal-title").textContent=project.id?project.name:"Nuevo proyecto";setLine("#project-form-status","");const inv=inviteUrl(project);$("#project-invite-box").hidden=!project.id||Boolean(project.user_id);$("#project-invite-url").textContent=inv||"Guarda el proyecto para generar una invitación.";$("#update-title").value="";$("#update-status").value="";$("#update-description").value="";setProjectTab("summary");updateProjectSummary();
   }
 
   async function downloadAdminFile(fileId,fileName){try{const r=await fetch(`/api/project-file?id=${encodeURIComponent(fileId)}`,{headers:{Authorization:`Bearer ${state.session.access_token}`}});if(!r.ok)throw new Error();const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=fileName||"archivo";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch{toast("No pudimos descargar el archivo.");}}
@@ -249,11 +263,14 @@
 
   $$(".crm-nav [data-view]").forEach(b=>b.addEventListener("click",()=>setView(b.dataset.view)));
   $("#refresh-all")?.addEventListener("click",loadAll);$("#crm-logout")?.addEventListener("click",async()=>{await db.auth.signOut();location.reload();});
-  $("#crm-google-login")?.addEventListener("click",async()=>{const button=$("#crm-google-login");button.disabled=true;setLine("#crm-login-status","Abriendo Google…");const {error}=await db.auth.signInWithOAuth({provider:"google",options:{redirectTo:`${portal.callbackUrl()}?next=crm-local.html`,scopes:"openid email profile"}});if(error){setLine("#crm-login-status","No pudimos abrir Google. Intenta nuevamente.","error");button.disabled=false;}});
+  $("#crm-google-login")?.addEventListener("click",async()=>{const button=$("#crm-google-login");button.disabled=true;setLine("#crm-login-status","Abriendo Google…");localStorage.setItem(portal.authNextKey,"crm-local.html");const {error}=await db.auth.signInWithOAuth({provider:"google",options:{redirectTo:`${portal.callbackUrl()}?next=crm-local.html`,scopes:"openid email profile"}});if(error){localStorage.removeItem(portal.authNextKey);setLine("#crm-login-status","No pudimos abrir Google. Intenta nuevamente.","error");button.disabled=false;}});
   $("#prospect-form")?.addEventListener("submit",saveProspect);$("#cancel-prospect")?.addEventListener("click",()=>{$("#prospect-form").reset();$("#prospect-form").elements.id.value="";$("#cancel-prospect").hidden=true;setLine("#prospect-status","")});$("#export-prospects")?.addEventListener("click",exportProspects);
   $("#agreement-form")?.addEventListener("submit",saveAgreement);$$('[data-close-agreement]').forEach(b=>b.addEventListener("click",()=>$("#agreement-modal").close()));
   $("#project-form")?.addEventListener("submit",saveProject);$$('[data-close-project]').forEach(b=>b.addEventListener("click",()=>$("#project-modal").close()));$("#new-project")?.addEventListener("click",()=>{setProjectForm({project_stage:"Invitación",status:"Pendiente de activar cuenta",site_visibility:"hidden",total_price:750,deposit_amount:375,balance_amount:375,payment_method:"Transferencia"});$("#project-setup-admin-content").innerHTML="<span>Sin configuración.</span>";$("#project-brief-admin-content").innerHTML="<span>Sin información.</span>";$("#project-files-admin").innerHTML="<span>No hay archivos.</span>";$("#project-modal").showModal();});
   $("#copy-project-invite")?.addEventListener("click",()=>state.currentProject&&copyInvite(state.currentProject.id));$("#whatsapp-project-invite")?.addEventListener("click",()=>state.currentProject&&sendInvite(state.currentProject.id));$("#renew-project-invite")?.addEventListener("click",renewInvite);$("#add-project-update")?.addEventListener("click",addUpdate);
+  $$("[data-project-tab]").forEach(b=>b.addEventListener("click",()=>setProjectTab(b.dataset.projectTab)));
+  ["user_id","project_stage","site_visibility","total_price"].forEach(name=>$("#project-form")?.elements?.[name]?.addEventListener("input",updateProjectSummary));
+  ["user_id","project_stage","site_visibility"].forEach(name=>$("#project-form")?.elements?.[name]?.addEventListener("change",updateProjectSummary));
   $("#prospect-search")?.addEventListener("input",renderProspects);$("#prospect-filter")?.addEventListener("change",renderProspects);$("#trash-search")?.addEventListener("input",renderTrash);$("#empty-trash")?.addEventListener("click",emptyTrash);$("#client-search")?.addEventListener("input",renderClients);$("#project-search")?.addEventListener("input",renderProjects);$("#project-stage-filter")?.addEventListener("change",renderProjects);$("#request-search")?.addEventListener("input",renderRequests);$("#request-filter")?.addEventListener("change",renderRequests);
   $("#prospect-rows")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.acceptProspect)openAgreement(t.dataset.acceptProspect);if(t.dataset.editProspect)editProspect(t.dataset.editProspect);if(t.dataset.openProject)openProject(t.dataset.openProject);if(t.dataset.trashProspect)trashProspect(t.dataset.trashProspect);});
   $("#trash-rows")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.restoreProspect)restoreProspect(t.dataset.restoreProspect);if(t.dataset.deleteProspectForever)deleteProspectForever(t.dataset.deleteProspectForever);});
