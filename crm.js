@@ -22,6 +22,7 @@
   const projectsForClient=(id)=>state.projects.filter(p=>p.user_id===id);
   const invitedProjects=()=>state.projects.filter(p=>!p.user_id);
   const isArchivedProject=(project)=>/(cancelado|descontinuado)/i.test(`${project?.project_stage||""} ${project?.status||""}`);
+  const archivedKind=(project)=>/descontinuado/i.test(`${project?.project_stage||""} ${project?.status||""}`)?"descontinuado":(/cancelado/i.test(`${project?.project_stage||""} ${project?.status||""}`)?"cancelado":"");
   const projectVisibilityLabel=(value)=>({hidden:"Oculta",preview:"Vista previa",public:"Publicada"}[value]||"Oculta");
   const projectAdminHref=(id)=>`project-admin.html?id=${encodeURIComponent(id)}`;
   const CRM_VIEW_KEY="eb_crm_view";
@@ -256,7 +257,7 @@
     $("#client-detail-subtitle").textContent=client.email||"Cliente activo del portal.";
     summary.innerHTML=[["Correo",client.email||"—"],["WhatsApp",client.phone||"—"],["Ubicación",client.location||"—"],["Proyectos activos",String(active)],["Publicados",String(published)],["Total de proyectos",String(projects.length)]].map(([label,value])=>`<div><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`).join("");
     actions.innerHTML=`${wa?`<a class="button light small" href="${wa}" target="_blank" rel="noopener">WhatsApp</a>`:""}<button class="button light small" type="button" data-open-clients>Ver todos</button>`;
-    projectsBox.innerHTML=(activeProjects.length||archivedProjects.length)?`${activeProjects.length?`<section class="client-detail-section"><div class="client-detail-section-head"><strong>Proyectos activos</strong><span>${activeProjects.length}</span></div>${activeProjects.map(project=>`<article class="client-detail-project"><div><strong>${esc(project.name||"Proyecto")}</strong><span>${esc(project.project_stage||"Configuración")} · ${esc(project.status||"Sin estado")}</span><span>${esc(project.domain||project.site_url||"Dirección por definir")}</span></div><div class="row-actions"><button class="tiny-btn green" data-open-project="${project.id}">Administrar</button></div></article>`).join("")}</section>`:""}${archivedProjects.length?`<section class="client-detail-section archived"><div class="client-detail-section-head"><strong>Historial: cancelados o descontinuados</strong><span>${archivedProjects.length}</span></div>${archivedProjects.map(project=>`<article class="client-detail-project archived"><div><strong>${esc(project.name||"Proyecto")}</strong><span>${esc(project.project_stage||"Cancelado")} · ${esc(project.status||"Sin estado")}</span><span>${esc(project.domain||project.site_url||"Dirección por definir")}</span></div><div class="row-actions"><button class="tiny-btn green" data-open-project="${project.id}">Administrar</button></div></article>`).join("")}</section>`:""}`:`<div class="empty">Este cliente aún no tiene proyectos.</div>`;
+    projectsBox.innerHTML=(activeProjects.length||archivedProjects.length)?`${activeProjects.length?`<section class="client-detail-section"><div class="client-detail-section-head"><strong>Proyectos activos</strong><span>${activeProjects.length}</span></div>${activeProjects.map(project=>`<article class="client-detail-project"><div><strong>${esc(project.name||"Proyecto")}</strong><span>${esc(project.project_stage||"Configuración")} · ${esc(project.status||"Sin estado")}</span><span>${esc(project.domain||project.site_url||"Dirección por definir")}</span></div><div class="row-actions"><button class="tiny-btn green" data-open-project="${project.id}">Administrar</button></div></article>`).join("")}</section>`:""}${archivedProjects.length?`<section class="client-detail-section archived"><div class="client-detail-section-head"><strong>Historial: cancelados o descontinuados</strong><span>${archivedProjects.length}</span></div>${archivedProjects.map(project=>`<article class="client-detail-project archived"><div><strong>${esc(project.name||"Proyecto")}</strong><span>${esc(project.project_stage||"Cancelado")} · ${esc(project.status||"Sin estado")}</span><span>${esc(project.domain||project.site_url||"Dirección por definir")}</span></div><div class="row-actions"><button class="tiny-btn green" data-open-project="${project.id}">Administrar</button><button class="tiny-btn" data-restore-project="${project.id}">Reactivar</button><button class="tiny-btn danger" data-delete-project="${project.id}">Borrar</button></div></article>`).join("")}</section>`:""}`:`<div class="empty">Este cliente aún no tiene proyectos.</div>`;
   }
 
   function openClient(id){
@@ -308,6 +309,31 @@
     if(!id){ setLine("#project-form-status","Falta el proyecto a administrar.","error"); return; }
     await loadProjectDetails(id,false);
   }
+  function activeStageForRestore(project){
+    if(project?.site_visibility==="public") return "Mantenimiento";
+    if(project?.preview_url||project?.site_url) return "Revisión";
+    return "Configuración";
+  }
+  function syncProjectState(saved){
+    const idx=state.projects.findIndex(p=>p.id===saved.id);
+    if(idx>=0) state.projects[idx]=saved;
+    else state.projects.unshift(saved);
+    state.currentProject=saved;
+    renderAll();
+    renderClientDetail();
+    setProjectForm(saved);
+  }
+  function updateProjectLifecycleUI(project){
+    const archived=isArchivedProject(project);
+    const kind=archivedKind(project);
+    const cancelBtn=$("#archive-project-cancel"), discontinueBtn=$("#archive-project-discontinue"), restoreBtn=$("#restore-project"), deleteBtn=$("#delete-project-permanently"), copy=$("#project-lifecycle-copy"), updateBox=$("#project-update-box");
+    if(cancelBtn) cancelBtn.hidden=archived||!project?.id;
+    if(discontinueBtn) discontinueBtn.hidden=archived||!project?.id;
+    if(restoreBtn) restoreBtn.hidden=!archived||!project?.id;
+    if(deleteBtn) deleteBtn.hidden=!archived||!project?.id;
+    if(copy) copy.textContent=archived?(kind==="descontinuado"?"Este proyecto quedó descontinuado. Puedes reactivarlo o borrarlo permanentemente.":"Este proyecto quedó cancelado. Puedes reactivarlo o borrarlo permanentemente."):"Si el proyecto ya no sigue, puedes cancelarlo o marcarlo como descontinuado sin perder el historial.";
+    if(updateBox) updateBox.hidden=archived;
+  }
 
   function openAgreement(id){const p=prospectById(id);if(!p)return;state.currentProspect=p;const f=$("#agreement-form"),el=f.elements;f.reset();el.prospect_id.value=p.id;el.project_name.value=p.negocio||"Nuevo proyecto";el.total_price.value=750;el.deposit_amount.value=375;el.balance_amount.value=375;el.payment_method.value="Transferencia";el.client_note.value="Tu proyecto ya está preparado. Activa tu cuenta para configurar la dirección de tu página y enviarnos la información del negocio.";setLine("#agreement-status","");$("#agreement-modal").showModal();}
   async function saveAgreement(e){
@@ -355,7 +381,7 @@
   }
 
   function setProjectForm(project={}){
-    const f=$("#project-form"),el=f.elements;state.currentProject=project.id?project:null;f.reset();el.id.value=project.id||"";el.source_prospect_id.value=project.source_prospect_id||"";el.name.value=project.name||"";fillClientSelect();el.user_id.value=project.user_id||"";el.project_stage.value=project.project_stage||"Invitación";el.status.value=project.status||"Pendiente de activar cuenta";el.address_type.value=project.address_type||"gratis";el.domain.value=project.domain||"";el.hosting_type.value=project.hosting_type||"cloudflare";el.site_visibility.value=project.site_visibility||"hidden";el.site_url.value=project.site_url||"";el.preview_url.value=project.preview_url||"";el.total_price.value=project.total_price??750;el.deposit_amount.value=project.deposit_amount??375;el.balance_amount.value=project.balance_amount??375;el.payment_method.value=project.payment_method||"Transferencia";el.deposit_paid.checked=Boolean(project.deposit_paid);el.balance_paid.checked=Boolean(project.balance_paid);el.client_note.value=project.client_note||"";$("#project-modal-title").textContent=project.id?project.name:"Nuevo proyecto";setLine("#project-form-status","");const inv=inviteUrl(project);$("#project-invite-box").hidden=!project.id||Boolean(project.user_id);$("#project-invite-url").textContent=inv||"Guarda el proyecto para generar una invitación.";$("#update-title").value="";$("#update-status").value="";$("#update-description").value="";setProjectTab("summary");updateProjectSummary();
+    const f=$("#project-form"),el=f.elements;state.currentProject=project.id?project:null;f.reset();el.id.value=project.id||"";el.source_prospect_id.value=project.source_prospect_id||"";el.name.value=project.name||"";fillClientSelect();el.user_id.value=project.user_id||"";el.project_stage.value=project.project_stage||"Invitación";el.status.value=project.status||"Pendiente de activar cuenta";el.address_type.value=project.address_type||"gratis";el.domain.value=project.domain||"";el.hosting_type.value=project.hosting_type||"cloudflare";el.site_visibility.value=project.site_visibility||"hidden";el.site_url.value=project.site_url||"";el.preview_url.value=project.preview_url||"";el.total_price.value=project.total_price??750;el.deposit_amount.value=project.deposit_amount??375;el.balance_amount.value=project.balance_amount??375;el.payment_method.value=project.payment_method||"Transferencia";el.deposit_paid.checked=Boolean(project.deposit_paid);el.balance_paid.checked=Boolean(project.balance_paid);el.client_note.value=project.client_note||"";$("#project-modal-title").textContent=project.id?project.name:"Nuevo proyecto";setLine("#project-form-status","");const inv=inviteUrl(project);$("#project-invite-box").hidden=!project.id||Boolean(project.user_id);$("#project-invite-url").textContent=inv||"Guarda el proyecto para generar una invitación.";$("#update-title").value="";$("#update-status").value="";$("#update-description").value="";setProjectTab("summary");updateProjectSummary();updateProjectLifecycleUI(project);
   }
 
   async function downloadAdminFile(fileId,fileName){try{const r=await fetch(`/api/project-file?id=${encodeURIComponent(fileId)}`,{headers:{Authorization:`Bearer ${state.session.access_token}`}});if(!r.ok)throw new Error();const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=fileName||"archivo";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch{toast("No pudimos descargar el archivo.");}}
@@ -378,6 +404,55 @@
     location.assign(projectAdminHref(id));
   }
 
+  async function archiveProjectState(mode){
+    const project=state.currentProject;
+    if(!project?.id)return;
+    const label=mode==="cancel"?"cancelado":"descontinuado";
+    if(!confirm(`¿Marcar ${project.name||"este proyecto"} como ${label}?`))return;
+    setLine("#project-form-status",`Marcando como ${label}…`);
+    const payload={project_stage:mode==="cancel"?"Cancelado":"Descontinuado",status:mode==="cancel"?"Proyecto cancelado":"Proyecto descontinuado",updated_at:new Date().toISOString()};
+    const {data,error}=await db.from("client_projects").update(payload).eq("id",project.id).select().single();
+    if(error){setLine("#project-form-status",error.message||"No pudimos cambiar el estado.","error");return;}
+    const idx=state.projects.findIndex(p=>p.id===data.id);if(idx>=0)state.projects[idx]=data;else state.projects.unshift(data);
+    setProjectForm(data);renderAll();renderClientDetail();setLine("#project-form-status",`Proyecto ${label}.`,"success");toast(`Proyecto ${label}.`);
+  }
+
+  async function restoreArchivedProject(id=state.currentProject?.id){
+    const project=projectById(id);
+    if(!project?.id||!isArchivedProject(project))return;
+    if(!confirm(`¿Reactivar ${project.name||"este proyecto"}?`))return;
+    const stage=activeStageForRestore(project);
+    setLine("#project-form-status","Reactivando proyecto…");
+    const {data,error}=await db.from("client_projects").update({project_stage:stage,status:"Proyecto reactivado",updated_at:new Date().toISOString()}).eq("id",project.id).select().single();
+    if(error){setLine("#project-form-status",error.message||"No pudimos reactivar el proyecto.","error");return;}
+    const idx=state.projects.findIndex(p=>p.id===data.id);if(idx>=0)state.projects[idx]=data;else state.projects.unshift(data);
+    setProjectForm(data);renderAll();renderClientDetail();setLine("#project-form-status","Proyecto reactivado.","success");toast("Proyecto reactivado.");
+  }
+
+  async function deleteProjectPermanently(id=state.currentProject?.id){
+    const project=projectById(id);
+    if(!project?.id||!isArchivedProject(project))return;
+    if(!confirm(`¿Borrar permanentemente ${project.name||"este proyecto"}? Esta acción no se puede deshacer.`))return;
+    setLine("#project-form-status","Borrando proyecto…");
+    const cleanup=await Promise.all([
+      db.from("client_updates").delete().eq("project_id",project.id),
+      db.from("client_project_setup").delete().eq("project_id",project.id),
+      db.from("client_project_briefs").delete().eq("project_id",project.id),
+      db.from("client_project_files").delete().eq("project_id",project.id)
+    ]);
+    const cleanupErr=cleanup.find(r=>r.error)?.error;
+    if(cleanupErr){setLine("#project-form-status",cleanupErr.message||"No pudimos limpiar el proyecto.","error");return;}
+    if(project.source_prospect_id) await db.from("prospectos").update({client_project_id:null}).eq("id",project.source_prospect_id);
+    const removed=await db.from("client_projects").delete().eq("id",project.id);
+    if(removed.error){setLine("#project-form-status",removed.error.message||"No pudimos borrar el proyecto.","error");return;}
+    state.projects=state.projects.filter(p=>p.id!==project.id);
+    if(state.currentProject?.id===project.id) state.currentProject=null;
+    renderAll();
+    if(crmPage==="project-admin"){ location.assign("crm-local.html"); return; }
+    $("#project-modal")?.close();
+    toast("Proyecto borrado permanentemente.");
+  }
+
   async function saveProject(e){
     e.preventDefault();const f=e.currentTarget,fd=new FormData(f),id=String(fd.get("id")||""),old=projectById(id),userId=String(fd.get("user_id")||"")||null,stage=String(fd.get("project_stage")||"Configuración");
     const payload={user_id:userId,name:String(fd.get("name")||"").trim(),project_stage:stage,status:String(fd.get("status")||"").trim()||stage,address_type:String(fd.get("address_type")||"gratis"),domain:String(fd.get("domain")||"").trim()||null,hosting_type:String(fd.get("hosting_type")||"cloudflare"),site_visibility:String(fd.get("site_visibility")||"hidden"),site_url:String(fd.get("site_url")||"").trim()||null,preview_url:String(fd.get("preview_url")||"").trim()||null,total_price:fd.get("total_price")?Number(fd.get("total_price")):null,deposit_amount:fd.get("deposit_amount")?Number(fd.get("deposit_amount")):null,balance_amount:fd.get("balance_amount")?Number(fd.get("balance_amount")):null,payment_method:String(fd.get("payment_method")||"").trim()||null,deposit_paid:fd.get("deposit_paid")==="on",balance_paid:fd.get("balance_paid")==="on",client_note:String(fd.get("client_note")||"").trim()||null,source_prospect_id:String(fd.get("source_prospect_id")||"")||null,updated_at:new Date().toISOString()};
@@ -386,7 +461,7 @@
     if(result.error){setLine("#project-form-status",result.error.message||"No pudimos guardar.","error");return;}
     const saved=result.data,idx=state.projects.findIndex(p=>p.id===saved.id);if(idx>=0)state.projects[idx]=saved;else state.projects.unshift(saved);
     if(saved.source_prospect_id)await db.from("prospectos").update({client_user_id:userId,client_project_id:saved.id}).eq("id",saved.source_prospect_id).then(()=>{});
-    setProjectForm(saved);if(crmPage!=="project-admin")renderAll();setLine("#project-form-status","Proyecto guardado.","success");toast("Proyecto actualizado.");
+    setProjectForm(saved);if(crmPage!=="project-admin")renderAll();renderClientDetail();setLine("#project-form-status","Proyecto guardado.","success");toast("Proyecto actualizado.");
   }
 
   async function addUpdate(){const p=state.currentProject;if(!p?.id)return;const title=$("#update-title").value.trim();if(!title){toast("Escribe un título para el avance.");return;}const payload={project_id:p.id,user_id:p.user_id||null,title,description:$("#update-description").value.trim()||null,status:$("#update-status").value.trim()||null};const {error}=await db.from("client_updates").insert(payload);if(error){toast(error.message||"No pudimos agregar el avance.");return;}$("#update-title").value="";$("#update-status").value="";$("#update-description").value="";toast("Avance agregado.");}
@@ -402,7 +477,7 @@
   $("#prospect-form")?.addEventListener("submit",saveProspect);$("#cancel-prospect")?.addEventListener("click",()=>{$("#prospect-form").reset();$("#prospect-form").elements.id.value="";$("#cancel-prospect").hidden=true;setLine("#prospect-status","")});$("#export-prospects")?.addEventListener("click",exportProspects);
   $("#agreement-form")?.addEventListener("submit",saveAgreement);$$('[data-close-agreement]').forEach(b=>b.addEventListener("click",()=>$("#agreement-modal").close()));
   $("#project-form")?.addEventListener("submit",saveProject);$$('[data-close-project]').forEach(b=>b.addEventListener("click",()=>$("#project-modal").close()));$("#new-project")?.addEventListener("click",()=>{setProjectForm({project_stage:"Invitación",status:"Pendiente de activar cuenta",site_visibility:"hidden",total_price:750,deposit_amount:375,balance_amount:375,payment_method:"Transferencia"});$("#project-setup-admin-content").innerHTML="<span>Sin configuración.</span>";$("#project-brief-admin-content").innerHTML="<span>Sin información.</span>";$("#project-files-admin").innerHTML="<span>No hay archivos.</span>";$("#project-modal").showModal();});
-  $("#copy-project-invite")?.addEventListener("click",()=>state.currentProject&&copyInvite(state.currentProject.id));$("#whatsapp-project-invite")?.addEventListener("click",()=>state.currentProject&&sendInvite(state.currentProject.id));$("#renew-project-invite")?.addEventListener("click",renewInvite);$("#cancel-project-invite")?.addEventListener("click",()=>state.currentProject&&cancelInvite(state.currentProject.id));$("#add-project-update")?.addEventListener("click",addUpdate);
+  $("#copy-project-invite")?.addEventListener("click",()=>state.currentProject&&copyInvite(state.currentProject.id));$("#whatsapp-project-invite")?.addEventListener("click",()=>state.currentProject&&sendInvite(state.currentProject.id));$("#renew-project-invite")?.addEventListener("click",renewInvite);$("#cancel-project-invite")?.addEventListener("click",()=>state.currentProject&&cancelInvite(state.currentProject.id));$("#archive-project-cancel")?.addEventListener("click",()=>archiveProjectState("cancel"));$("#archive-project-discontinue")?.addEventListener("click",()=>archiveProjectState("discontinue"));$("#restore-project")?.addEventListener("click",restoreArchivedProject);$("#delete-project-permanently")?.addEventListener("click",()=>deleteProjectPermanently());$("#add-project-update")?.addEventListener("click",addUpdate);
   $$("[data-project-tab]").forEach(b=>b.addEventListener("click",()=>setProjectTab(b.dataset.projectTab)));
   $$("[data-prospect-stage]").forEach(b=>b.addEventListener("click",()=>setProspectStage(b.dataset.prospectStage)));
   ["user_id","project_stage","site_visibility","total_price"].forEach(name=>$("#project-form")?.elements?.[name]?.addEventListener("input",updateProjectSummary));
@@ -413,9 +488,9 @@
   $("#client-project-groups")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.openProject)openProject(t.dataset.openProject);if(t.dataset.openClient)openClient(t.dataset.openClient);});
   $("#trash-rows")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.restoreProspect)restoreProspect(t.dataset.restoreProspect);if(t.dataset.deleteProspectForever)deleteProspectForever(t.dataset.deleteProspectForever);});
   $("#invited-grid")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.copyInvite)copyInvite(t.dataset.copyInvite);if(t.dataset.sendInvite)sendInvite(t.dataset.sendInvite);if(t.dataset.openProject)openProject(t.dataset.openProject);if(t.dataset.cancelInvite)cancelInvite(t.dataset.cancelInvite);});
-  $("#project-rows")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.openProject)openProject(t.dataset.openProject);if(t.dataset.copyInvite)copyInvite(t.dataset.copyInvite);});
+  $("#project-rows")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.openProject)openProject(t.dataset.openProject);if(t.dataset.copyInvite)copyInvite(t.dataset.copyInvite);if(t.dataset.openClient)openClient(t.dataset.openClient);});
   $("#clients-grid")?.addEventListener("click",e=>{const id=e.target.dataset.openClient;if(!id)return;openClient(id);});
-  $("#client-detail-projects")?.addEventListener("click",e=>{const id=e.target.dataset.openProject;if(id)openProject(id);});
+  $("#client-detail-projects")?.addEventListener("click",e=>{const t=e.target,id=t.dataset.openProject;if(id)openProject(id);if(t.dataset.restoreProject)restoreArchivedProject(t.dataset.restoreProject);if(t.dataset.deleteProject)deleteProjectPermanently(t.dataset.deleteProject);});
   $("#client-detail-actions")?.addEventListener("click",e=>{if(e.target.dataset.openClients)setView("clients");});
   $("#client-detail-back")?.addEventListener("click",()=>setView("clients"));
   $("#client-detail-new-project")?.addEventListener("click",()=>{const client=clientById(state.currentClient);if(!client)return;setProjectForm({user_id:client.id,project_stage:"Invitación",status:"Pendiente de activar cuenta",site_visibility:"hidden",total_price:750,deposit_amount:375,balance_amount:375,payment_method:"Transferencia"});$("#project-setup-admin-content").innerHTML="<span>Sin configuración.</span>";$("#project-brief-admin-content").innerHTML="<span>Sin información.</span>";$("#project-files-admin").innerHTML="<span>No hay archivos.</span>";$("#project-modal").showModal();});
