@@ -6,7 +6,7 @@
   const crmPage=document.body?.dataset.crmPage||"dashboard";
   const WHATSAPP="529811332914";
   const PROD_ORIGIN=(location.protocol.startsWith("http")&&!['localhost','127.0.0.1'].includes(location.hostname))?location.origin:"https://excepcional-build.pages.dev";
-  const state={session:null,rol:null,prospects:[],trash:[],clients:[],projects:[],requests:[],users:[],currentProject:null,currentProspect:null};
+  const state={session:null,rol:null,prospects:[],trash:[],clients:[],projects:[],requests:[],users:[],currentProject:null,currentProspect:null,currentClient:null};
 
   const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const esc=(v="")=>String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
@@ -53,9 +53,14 @@
   function inviteMessage(project){const p=prospectById(project.source_prospect_id),name=p?.nombre||"";return `Hola${name?` ${name}`:""}. Tu proyecto con Excepcional Build ya está preparado.\n\nActiva tu cuenta aquí para continuar con la configuración de tu página y enviarnos la información del negocio:\n${inviteUrl(project)}`;}
 
   function setView(name){
-    if(crmPage!=="project-admin") localStorage.setItem(CRM_VIEW_KEY,name);
-    $$(".crm-nav [data-view]").forEach(b=>b.classList.toggle("active",b.dataset.view===name));
+    if(crmPage!=="project-admin") localStorage.setItem(CRM_VIEW_KEY,name==="client-detail"?"clients":name);
+    $$(".crm-nav [data-view]").forEach(b=>b.classList.toggle("active",b.dataset.view===name||(name==="client-detail"&&b.dataset.view==="clients")));
     $$('[data-view-panel]').forEach(p=>p.classList.toggle("active",p.dataset.viewPanel===name));
+    if(name==="client-detail"){
+      $("#view-title").textContent="Cliente";
+      $("#view-subtitle").textContent="Vista dedicada para administrar solo a este cliente.";
+      return;
+    }
     const meta={dashboard:["Resumen","Vista general del negocio."],prospects:["Prospectos","Personas interesadas que todavía no han aceptado."],invited:["Clientes invitados","Aceptaron trabajar contigo y están pendientes de activar su cuenta."],clients:["Clientes","Personas que ya activaron su cuenta."],projects:["Proyectos","Control de producción, pagos y publicación."],requests:["Solicitudes","Cambios y mantenimiento pedidos por clientes."],users:["Usuarios","Cuentas con acceso al CRM y sus permisos."],trash:["Papelera","Prospectos eliminados que puedes restaurar o borrar definitivamente."]}[name]||["CRM",""];
     $("#view-title").textContent=meta[0];$("#view-subtitle").textContent=meta[1];
   }
@@ -93,7 +98,7 @@
     const all=results[0].data||[];state.prospects=all.filter(p=>!p.borrado_en);state.trash=all.filter(p=>p.borrado_en);state.clients=results[1].data||[];state.projects=results[2].data||[];state.requests=results[3].data||[];
     if(render){renderAll();if(state.rol==="administrador")await loadUsers();}
   }
-  function renderAll(){renderDashboard();renderProspects();renderTrash();renderInvited();renderClients();renderProjects();renderRequests();fillClientSelect();}
+  function renderAll(){renderDashboard();renderProspects();renderTrash();renderInvited();renderClients();renderClientDetail();renderProjects();renderRequests();fillClientSelect();}
 
   function renderDashboard(){
     const active=state.prospects.filter(p=>{
@@ -213,7 +218,37 @@
 
   function renderClients(){
     const q=$("#client-search")?.value.toLowerCase().trim()||"";const visible=state.clients.filter(c=>`${c.full_name} ${c.email} ${c.phone} ${c.location}`.toLowerCase().includes(q));
-    $("#clients-grid").innerHTML=visible.length?visible.map(c=>{const projects=projectsForClient(c.id),published=projects.filter(p=>p.site_visibility==="public").length,avatar=c.avatar_url?`<img src="${esc(c.avatar_url)}" alt="">`:esc((c.full_name||c.email||"EB").split(/\s+/).map(x=>x[0]).join("").slice(0,2).toUpperCase()),wa=c.phone?`https://wa.me/${waNumber(c.phone)}`:"";return `<article class="client-card"><div class="client-card-top"><div class="client-avatar">${avatar}</div><div><h3>${esc(c.full_name||"Cliente")}</h3><p>${esc(c.email||"")}</p></div></div><div class="client-meta"><div><span>WhatsApp</span><strong>${esc(c.phone||"—")}</strong></div><div><span>Ubicación</span><strong>${esc(c.location||"—")}</strong></div><div><span>Proyectos</span><strong>${projects.length}</strong></div><div><span>Publicados</span><strong>${published}</strong></div></div><div class="row-actions" style="margin-top:12px">${wa?`<a class="link-btn" href="${wa}" target="_blank" rel="noopener">WhatsApp</a>`:""}<button class="tiny-btn" data-client-projects="${c.id}">Ver proyectos</button></div></article>`}).join(""):`<div class="empty">Todavía no hay clientes con cuenta activa.</div>`;
+    $("#clients-grid").innerHTML=visible.length?visible.map(c=>{const projects=projectsForClient(c.id),published=projects.filter(p=>p.site_visibility==="public").length,avatar=c.avatar_url?`<img src="${esc(c.avatar_url)}" alt="">`:esc((c.full_name||c.email||"EB").split(/\s+/).map(x=>x[0]).join("").slice(0,2).toUpperCase()),wa=c.phone?`https://wa.me/${waNumber(c.phone)}`:"";return `<article class="client-card"><div class="client-card-top"><div class="client-avatar">${avatar}</div><div><h3>${esc(c.full_name||"Cliente")}</h3><p>${esc(c.email||"")}</p></div></div><div class="client-meta"><div><span>WhatsApp</span><strong>${esc(c.phone||"—")}</strong></div><div><span>Ubicación</span><strong>${esc(c.location||"—")}</strong></div><div><span>Proyectos</span><strong>${projects.length}</strong></div><div><span>Publicados</span><strong>${published}</strong></div></div><div class="row-actions" style="margin-top:12px">${wa?`<a class="link-btn" href="${wa}" target="_blank" rel="noopener">WhatsApp</a>`:""}<button class="tiny-btn" data-open-client="${c.id}">Ver cliente</button></div></article>`}).join(""):`<div class="empty">Todavía no hay clientes con cuenta activa.</div>`;
+  }
+
+  function renderClientDetail(){
+    const client=clientById(state.currentClient);
+    const summary=$("#client-detail-summary"),projectsBox=$("#client-detail-projects"),actions=$("#client-detail-actions");
+    if(!summary||!projectsBox||!actions)return;
+    if(!client){
+      $("#client-detail-name").textContent="Cliente";
+      $("#client-detail-subtitle").textContent="Aquí ves solo la información y proyectos de este cliente.";
+      summary.innerHTML=`<div><span>Estado</span><strong>Selecciona un cliente</strong></div>`;
+      projectsBox.innerHTML=`<div class="empty">Abre un cliente desde la pestaña Clientes.</div>`;
+      actions.innerHTML="";
+      return;
+    }
+    const projects=projectsForClient(client.id);
+    const published=projects.filter(p=>p.site_visibility==="public").length;
+    const active=projects.filter(p=>!/(cancelado|descontinuado)/i.test(`${p.project_stage||""} ${p.status||""}`)).length;
+    const wa=client.phone?`https://wa.me/${waNumber(client.phone)}`:"";
+    $("#client-detail-name").textContent=client.full_name||client.email||"Cliente";
+    $("#client-detail-subtitle").textContent=client.email||"Cliente activo del portal.";
+    summary.innerHTML=[["Correo",client.email||"—"],["WhatsApp",client.phone||"—"],["Ubicación",client.location||"—"],["Proyectos activos",String(active)],["Publicados",String(published)],["Total de proyectos",String(projects.length)]].map(([label,value])=>`<div><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`).join("");
+    actions.innerHTML=`${wa?`<a class="button light small" href="${wa}" target="_blank" rel="noopener">WhatsApp</a>`:""}<button class="button light small" type="button" data-open-clients>Ver todos</button>`;
+    projectsBox.innerHTML=projects.length?projects.map(project=>`<article class="client-detail-project"><div><strong>${esc(project.name||"Proyecto")}</strong><span>${esc(project.project_stage||"Configuración")} · ${esc(project.status||"Sin estado")}</span><span>${esc(project.domain||project.site_url||"Dirección por definir")}</span></div><div class="row-actions"><button class="tiny-btn green" data-open-project="${project.id}">Administrar</button></div></article>`).join(""):`<div class="empty">Este cliente aún no tiene proyectos.</div>`;
+  }
+
+  function openClient(id){
+    if(!clientById(id))return;
+    state.currentClient=id;
+    renderClientDetail();
+    setView("client-detail");
   }
 
   function renderProjects(){
@@ -354,11 +389,15 @@
   $("#prospect-search")?.addEventListener("input",renderProspects);$("#prospect-filter")?.addEventListener("change",renderProspects);$("#trash-search")?.addEventListener("input",renderTrash);$("#empty-trash")?.addEventListener("click",emptyTrash);$("#client-search")?.addEventListener("input",renderClients);$("#project-search")?.addEventListener("input",renderProjects);$("#project-stage-filter")?.addEventListener("change",renderProjects);$("#request-search")?.addEventListener("input",renderRequests);$("#request-filter")?.addEventListener("change",renderRequests);
   $("#prospect-rows")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.acceptProspect)openAgreement(t.dataset.acceptProspect);if(t.dataset.editProspect)editProspect(t.dataset.editProspect);if(t.dataset.openProject)openProject(t.dataset.openProject);if(t.dataset.trashProspect)trashProspect(t.dataset.trashProspect);});
   $("#accepted-rows")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.copyInvite)copyInvite(t.dataset.copyInvite);if(t.dataset.openProject)openProject(t.dataset.openProject);});
-  $("#client-project-groups")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.openProject)openProject(t.dataset.openProject);});
+  $("#client-project-groups")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.openProject)openProject(t.dataset.openProject);if(t.dataset.openClient)openClient(t.dataset.openClient);});
   $("#trash-rows")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.restoreProspect)restoreProspect(t.dataset.restoreProspect);if(t.dataset.deleteProspectForever)deleteProspectForever(t.dataset.deleteProspectForever);});
   $("#invited-grid")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.copyInvite)copyInvite(t.dataset.copyInvite);if(t.dataset.sendInvite)sendInvite(t.dataset.sendInvite);if(t.dataset.openProject)openProject(t.dataset.openProject);if(t.dataset.cancelInvite)cancelInvite(t.dataset.cancelInvite);});
   $("#project-rows")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.openProject)openProject(t.dataset.openProject);if(t.dataset.copyInvite)copyInvite(t.dataset.copyInvite);});
-  $("#clients-grid")?.addEventListener("click",e=>{const id=e.target.dataset.clientProjects;if(!id)return;setView("projects");$("#project-search").value=clientById(id)?.full_name||"";renderProjects();});
+  $("#clients-grid")?.addEventListener("click",e=>{const id=e.target.dataset.openClient;if(!id)return;openClient(id);});
+  $("#client-detail-projects")?.addEventListener("click",e=>{const id=e.target.dataset.openProject;if(id)openProject(id);});
+  $("#client-detail-actions")?.addEventListener("click",e=>{if(e.target.dataset.openClients)setView("clients");});
+  $("#client-detail-back")?.addEventListener("click",()=>setView("clients"));
+  $("#client-detail-new-project")?.addEventListener("click",()=>{const client=clientById(state.currentClient);if(!client)return;setProjectForm({user_id:client.id,project_stage:"Invitación",status:"Pendiente de activar cuenta",site_visibility:"hidden",total_price:750,deposit_amount:375,balance_amount:375,payment_method:"Transferencia"});$("#project-setup-admin-content").innerHTML="<span>Sin configuración.</span>";$("#project-brief-admin-content").innerHTML="<span>Sin información.</span>";$("#project-files-admin").innerHTML="<span>No hay archivos.</span>";$("#project-modal").showModal();});
   $("#request-rows")?.addEventListener("change",async e=>{const id=e.target.dataset.requestStatus;if(!id)return;const {error}=await db.from("client_requests").update({status:e.target.value}).eq("id",id);if(error){toast("No pudimos actualizar la solicitud.");return;}const r=state.requests.find(x=>x.id===id);if(r)r.status=e.target.value;renderDashboard();toast("Solicitud actualizada.");});
   $("#dashboard-next-actions")?.addEventListener("click",e=>{if(e.target.dataset.copyInvite)copyInvite(e.target.dataset.copyInvite);});
   $("#crm-user-form")?.addEventListener("submit",addUser);
