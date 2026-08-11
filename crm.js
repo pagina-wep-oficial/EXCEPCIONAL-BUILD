@@ -21,6 +21,7 @@
   const projectForProspect=(id)=>state.projects.find(p=>String(p.source_prospect_id||"")===String(id));
   const projectsForClient=(id)=>state.projects.filter(p=>p.user_id===id);
   const invitedProjects=()=>state.projects.filter(p=>!p.user_id);
+  const isArchivedProject=(project)=>/(cancelado|descontinuado)/i.test(`${project?.project_stage||""} ${project?.status||""}`);
   const projectVisibilityLabel=(value)=>({hidden:"Oculta",preview:"Vista previa",public:"Publicada"}[value]||"Oculta");
   const projectAdminHref=(id)=>`project-admin.html?id=${encodeURIComponent(id)}`;
   const CRM_VIEW_KEY="eb_crm_view";
@@ -139,9 +140,21 @@
     const groups=$("#client-project-groups"), groupsEmpty=$("#client-project-groups-empty");
     if(groups) groups.innerHTML=groupedClients.map(({client,projects})=>{
       const published=projects.filter(p=>p.site_visibility==="public").length;
-      const pending=projects.filter(p=>p.project_stage!=="Publicado"&&p.project_stage!=="Mantenimiento").length;
+      const pending=projects.filter(p=>!isArchivedProject(p)&&p.project_stage!=="Publicado"&&p.project_stage!=="Mantenimiento").length;
       return `<details class="client-project-group"><summary><div><strong>${esc(client.full_name||client.email||"Cliente")}</strong><span>${esc(client.email||"")}</span></div><div class="client-project-stats"><b>${projects.length} proyecto${projects.length===1?"":"s"}</b><b>${published} publicados</b><b>${pending} pendientes</b></div></summary><div class="client-project-list">${projects.map(project=>`<div class="client-project-item"><div class="client-project-copy"><strong>${esc(project.name)}</strong><span>${esc(project.project_stage||"Configuración")} · ${esc(project.status||"Sin estado")}</span></div><div class="row-actions"><button class="tiny-btn green" data-open-project="${project.id}">Administrar</button></div></div>`).join("")}</div></details>`;
     }).join("");
+    if(groups&&groupedClients.length){
+      [...groups.querySelectorAll(".client-project-group")].forEach((groupEl,groupIndex)=>{
+        const group=groupedClients[groupIndex];
+        if(!group)return;
+        [...groupEl.querySelectorAll(".client-project-item .row-actions")].forEach((actionsEl,projectIndex)=>{
+          if(!actionsEl||actionsEl.querySelector("[data-open-client]"))return;
+          const project=group.projects[projectIndex];
+          if(!project)return;
+          actionsEl.insertAdjacentHTML("afterbegin",`<button class="tiny-btn" data-open-client="${group.client.id}">Ver cliente</button>`);
+        });
+      });
+    }
     if(groupsEmpty) groupsEmpty.hidden=groupedClients.length>0;
   }
 
@@ -234,14 +247,16 @@
       return;
     }
     const projects=projectsForClient(client.id);
+    const activeProjects=projects.filter(project=>!isArchivedProject(project));
+    const archivedProjects=projects.filter(project=>isArchivedProject(project));
     const published=projects.filter(p=>p.site_visibility==="public").length;
-    const active=projects.filter(p=>!/(cancelado|descontinuado)/i.test(`${p.project_stage||""} ${p.status||""}`)).length;
+    const active=activeProjects.length;
     const wa=client.phone?`https://wa.me/${waNumber(client.phone)}`:"";
     $("#client-detail-name").textContent=client.full_name||client.email||"Cliente";
     $("#client-detail-subtitle").textContent=client.email||"Cliente activo del portal.";
     summary.innerHTML=[["Correo",client.email||"—"],["WhatsApp",client.phone||"—"],["Ubicación",client.location||"—"],["Proyectos activos",String(active)],["Publicados",String(published)],["Total de proyectos",String(projects.length)]].map(([label,value])=>`<div><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`).join("");
     actions.innerHTML=`${wa?`<a class="button light small" href="${wa}" target="_blank" rel="noopener">WhatsApp</a>`:""}<button class="button light small" type="button" data-open-clients>Ver todos</button>`;
-    projectsBox.innerHTML=projects.length?projects.map(project=>`<article class="client-detail-project"><div><strong>${esc(project.name||"Proyecto")}</strong><span>${esc(project.project_stage||"Configuración")} · ${esc(project.status||"Sin estado")}</span><span>${esc(project.domain||project.site_url||"Dirección por definir")}</span></div><div class="row-actions"><button class="tiny-btn green" data-open-project="${project.id}">Administrar</button></div></article>`).join(""):`<div class="empty">Este cliente aún no tiene proyectos.</div>`;
+    projectsBox.innerHTML=(activeProjects.length||archivedProjects.length)?`${activeProjects.length?`<section class="client-detail-section"><div class="client-detail-section-head"><strong>Proyectos activos</strong><span>${activeProjects.length}</span></div>${activeProjects.map(project=>`<article class="client-detail-project"><div><strong>${esc(project.name||"Proyecto")}</strong><span>${esc(project.project_stage||"Configuración")} · ${esc(project.status||"Sin estado")}</span><span>${esc(project.domain||project.site_url||"Dirección por definir")}</span></div><div class="row-actions"><button class="tiny-btn green" data-open-project="${project.id}">Administrar</button></div></article>`).join("")}</section>`:""}${archivedProjects.length?`<section class="client-detail-section archived"><div class="client-detail-section-head"><strong>Historial: cancelados o descontinuados</strong><span>${archivedProjects.length}</span></div>${archivedProjects.map(project=>`<article class="client-detail-project archived"><div><strong>${esc(project.name||"Proyecto")}</strong><span>${esc(project.project_stage||"Cancelado")} · ${esc(project.status||"Sin estado")}</span><span>${esc(project.domain||project.site_url||"Dirección por definir")}</span></div><div class="row-actions"><button class="tiny-btn green" data-open-project="${project.id}">Administrar</button></div></article>`).join("")}</section>`:""}`:`<div class="empty">Este cliente aún no tiene proyectos.</div>`;
   }
 
   function openClient(id){
@@ -255,6 +270,12 @@
     const q=$("#project-search")?.value.toLowerCase().trim()||"",stage=$("#project-stage-filter")?.value||"";
     const visible=state.projects.filter(p=>{const c=clientById(p.user_id),lead=prospectById(p.source_prospect_id);return(!stage||p.project_stage===stage)&&`${p.name} ${p.domain} ${c?.full_name||""} ${lead?.nombre||""}`.toLowerCase().includes(q)});
     $("#project-rows").innerHTML=visible.map(p=>{const c=clientById(p.user_id),lead=prospectById(p.source_prospect_id),pageState={hidden:"Oculta",preview:"Vista previa",public:"Publicada"}[p.site_visibility]||"Oculta";return `<tr><td><strong>${esc(p.name)}</strong><span class="sub">${esc(p.domain||"Dirección por definir")}</span></td><td>${c?`${esc(c.full_name||"Cliente")}<span class="sub">${esc(c.email||"")}</span>`:`<span class="badge yellow">${esc(lead?.nombre||"Invitado")}</span>`}</td><td><span class="badge ${statusClass(p.project_stage)}">${esc(p.project_stage||"Configuración")}</span><span class="sub">${esc(p.status||"")}</span></td><td>${pageState}</td><td>${money(p.total_price)}<span class="sub">${p.deposit_paid?"Anticipo ✓":"Anticipo pendiente"}</span></td><td><div class="row-actions"><button class="tiny-btn" data-open-project="${p.id}">Administrar</button>${!p.user_id?`<button class="tiny-btn orange" data-copy-invite="${p.id}">Invitación</button>`:""}</div></td></tr>`}).join("");$("#project-empty").hidden=visible.length>0;
+    const rows=[...($("#project-rows")?.querySelectorAll("tr")||[])];
+    rows.forEach((row,index)=>{
+      const project=visible[index],actions=row.querySelector(".row-actions");
+      if(!project?.user_id||!actions||actions.querySelector("[data-open-client]"))return;
+      actions.insertAdjacentHTML("afterbegin",`<button class="tiny-btn" data-open-client="${project.user_id}">Ver cliente</button>`);
+    });
   }
 
   function renderRequests(){
