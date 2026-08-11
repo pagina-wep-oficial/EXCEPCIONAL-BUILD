@@ -17,6 +17,7 @@
   const money = (v) => v == null || v === "" || Number.isNaN(Number(v)) ? "—" : new Intl.NumberFormat("es-MX", {style:"currency",currency:"MXN"}).format(Number(v));
   const date = (v) => v ? new Intl.DateTimeFormat("es-MX", {day:"numeric",month:"short",year:"numeric"}).format(new Date(v)) : "—";
   const stageKey = (p) => String(p?.project_stage || p?.status || "").toLowerCase();
+  const archivedClientState = (project) => /cancelad/.test(stageKey(project)) ? "cancelado" : (/descontinuad/.test(stageKey(project)) ? "descontinuado" : "");
 
   function friendlyError(error, fallback="No pudimos completar esta acción.") {
     const raw = String(error?.message || "");
@@ -65,6 +66,11 @@
     if(project.site_visibility === "public" && project.site_url) return `<a class="button button-primary" href="${safe(project.site_url)}" target="_blank" rel="noopener">${safe(label||"Abrir mi página")} ↗</a>`;
     if(project.site_visibility === "preview" && (project.preview_url || project.site_url)) return `<a class="button button-primary" href="${safe(project.preview_url || project.site_url)}" target="_blank" rel="noopener">${safe(label||"Ver avance")} ↗</a>`;
     return "";
+  }
+  function continueProjectHref(project, profile, source="portal-cliente") {
+    const state=archivedClientState(project)||"pausado";
+    const text=[`Hola, soy ${profile?.full_name||"cliente"}.`,`Quiero continuar con mi proyecto ${project?.name||""}.`,`Estado actual: ${state}.`,`Proyecto ID: ${project?.id||""}.`,`Origen: ${source}.`].join("\n");
+    return `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(text)}`;
   }
 
   async function captureClaimFromUrl() {
@@ -409,22 +415,36 @@
     ]);
     for(const r of results) if(r.error) throw r.error;
     let requests=results[0].data||[], updates=results[1].data||[], brief=results[2].data, files=results[3].data||[];
-    document.title=`${project.name} | Excepcional Build`; $("#project-title").textContent=project.name; $("#project-subtitle").innerHTML=`<span class="status-badge ${statusClass(project.status)}">${safe(project.status||project.project_stage)}</span>`; $("#project-top-actions").innerHTML=siteAction(project);
+    document.title=`${project.name} | Excepcional Build`; $("#project-title").textContent=project.name; $("#project-subtitle").innerHTML=`<span class="status-badge ${statusClass(project.status||project.project_stage)}">${safe(project.status||project.project_stage)}</span>`; $("#project-top-actions").innerHTML=siteAction(project);
     const labels=["Configurar","Enviar información","Construcción","Revisión","Publicada"], pos=stageIndex(project);
     $("#project-stage-track").innerHTML=labels.map((label,i)=>`<div class="stage-step ${i<pos?"done":i===pos?"current":""}"><i>${i<pos?"✓":i+1}</i><span>${safe(label)}</span><small>${i===pos?"Ahora":""}</small></div>`).join("");
     if(project.client_note && stageIndex(project) === 0){$("#project-client-note").hidden=false;$("#project-client-note").textContent=project.client_note;}
 
     const focus=$("#project-focus"), briefCard=$("#project-brief-card"), actionsCard=$("#project-actions-card");
+    const archivedState=archivedClientState(project);
+    if(archivedState){
+      const isCancelled=archivedState==="cancelado";
+      const contactHref=continueProjectHref(project,profile,isCancelled?"cancelado":"descontinuado");
+      $("#project-top-actions").innerHTML=`<a class="button button-primary" href="${contactHref}" target="_blank" rel="noopener">Quiero continuar →</a>`;
+      $("#project-stage-track").innerHTML=`<div class="stage-step current archived"><i>!</i><span>${isCancelled?"Cancelado":"Descontinuado"}</span><small>Contáctanos para retomarlo</small></div>`;
+      $("#project-client-note").hidden=false;
+      $("#project-client-note").innerHTML=`Este proyecto está <strong>${isCancelled?"cancelado":"descontinuado"}</strong>. Si quieres retomarlo, escríbenos y revisamos contigo cómo seguir.`;
+      focus.innerHTML=`<div class="focus-icon archived">!</div><div><span>${isCancelled?"Proyecto cancelado":"Proyecto descontinuado"}</span><h2>${isCancelled?"Tu proyecto fue cancelado":"Tu proyecto fue descontinuado"}</h2><p>${isCancelled?"Si quieres retomarlo, podemos revisarlo contigo y reactivarlo.":"Si quieres continuar con este proyecto, escríbenos y lo revisamos contigo."}</p></div><a class="button button-primary" href="${contactHref}" target="_blank" rel="noopener">Quiero continuar con el proyecto →</a>`;
+      briefCard.hidden=true;
+      actionsCard.hidden=true;
+      $("#payment-card").hidden=true;
+    } else {
     if(pos===0){focus.innerHTML=`<div class="focus-icon">1</div><div><span>Lo que sigue</span><h2>Elige la dirección de tu página</h2><p>Decide si quieres empezar gratis o usar un dominio propio.</p></div><a class="button button-primary" href="cotizar.html?project=${encodeURIComponent(id)}">Configurar mi página →</a>`;}
     if(pos===1){focus.innerHTML=`<div class="focus-icon">2</div><div><span>Lo que sigue</span><h2>Envíanos la información de tu negocio</h2><p>Completa lo que puedas y sube las fotos o archivos que quieras usar.</p></div><a class="button button-primary" href="#informacion">Comenzar →</a>`;briefCard.hidden=false;briefCard.id="informacion";}
     if(pos===2){focus.innerHTML=`<div class="focus-icon done">✓</div><div><span>Información recibida</span><h2>Estamos preparando tu página</h2><p>Por ahora no necesitas hacer nada. Te avisaremos cuando tengamos una vista lista.</p></div><button class="button button-light" id="show-brief-again" type="button">Ver lo que envié</button>`;briefCard.hidden=true;setTimeout(()=>$("#show-brief-again")?.addEventListener("click",()=>{briefCard.hidden=false;briefCard.scrollIntoView({behavior:"smooth"});}),0);}
     if(pos===3){focus.innerHTML=`<div class="focus-icon">3</div><div><span>Lista para revisar</span><h2>Mira tu página antes de publicarla</h2><p>Revísala con calma. Si quieres cambiar algo, envíanos una solicitud.</p></div>${siteAction(project,"Ver vista previa")||"<span class=\"muted-box\">La vista previa estará disponible en cuanto la activemos.</span>"}`;actionsCard.hidden=false;}
     if(pos===4){focus.innerHTML=`<div class="focus-icon done">✓</div><div><span>Proyecto publicado</span><h2>Tu página ya está en internet</h2><p>Puedes compartirla y pedir cambios o mantenimiento cuando lo necesites.</p></div>${siteAction(project,"Abrir mi página")||""}`;actionsCard.hidden=false;}
+    }
 
     const hasPayments=[project.total_price,project.deposit_amount,project.balance_amount].some(v=>v!=null&&v!=="");
-    if(hasPayments){$("#payment-card").hidden=false;$("#project-payments").innerHTML=`<div class="payment-box"><span>Total acordado</span><strong>${money(project.total_price)}</strong><small>${safe(project.payment_method||"")}</small></div><div class="payment-box"><span>Anticipo</span><strong>${money(project.deposit_amount)}</strong><em class="payment-state ${project.deposit_paid?"paid":""}">${project.deposit_paid?"Pagado":"Pendiente"}</em></div><div class="payment-box"><span>Saldo final</span><strong>${money(project.balance_amount)}</strong><em class="payment-state ${project.balance_paid?"paid":""}">${project.balance_paid?"Pagado":"Pendiente"}</em></div>`;}
+    if(!archivedState&&hasPayments){$("#payment-card").hidden=false;$("#project-payments").innerHTML=`<div class="payment-box"><span>Total acordado</span><strong>${money(project.total_price)}</strong><small>${safe(project.payment_method||"")}</small></div><div class="payment-box"><span>Anticipo</span><strong>${money(project.deposit_amount)}</strong><em class="payment-state ${project.deposit_paid?"paid":""}">${project.deposit_paid?"Pagado":"Pendiente"}</em></div><div class="payment-box"><span>Saldo final</span><strong>${money(project.balance_amount)}</strong><em class="payment-state ${project.balance_paid?"paid":""}">${project.balance_paid?"Pagado":"Pendiente"}</em></div>`;}
 
-    const briefForm=$("#project-brief-form"); if(briefForm){
+    const briefForm=$("#project-brief-form"); if(briefForm && !archivedState){
       briefFields.forEach(n=>{if(briefForm.elements[n])briefForm.elements[n].value=brief?.[n]||"";});
       let options=Array.isArray(brief?.content_options)?brief.content_options:[]; $$('input[name="content_options"]',briefForm).forEach(c=>c.checked=options.includes(c.value));
       let briefPage=1;
@@ -478,7 +498,7 @@
         }finally{uploading=false;}
       });
     }
-    if(actionsCard&&!actionsCard.hidden){
+    if(actionsCard&&!actionsCard.hidden && !archivedState){
       const types=pos===3?["cambio"]:["actualizar","mantenimiento","mejorar"];
       if(pos===4&&project.address_type==="gratis")types.push("dominio"); if(pos===4&&project.hosting_type==="cloudflare")types.push("hosting");
       $("#project-actions").innerHTML=types.map(t=>`<button class="action-card" type="button" data-request-type="${t}"><b>${requestLabels[t][0]}</b><span>${requestLabels[t][1]}</span></button>`).join("");

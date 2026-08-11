@@ -122,6 +122,7 @@ img{max-width:100%}
 .status-waiting{background:var(--yellow-soft);color:#805d17}.status-waiting:before{background:#d89b1f}
 .status-review{background:var(--orange-soft);color:#9d4e2e}.status-review:before{background:var(--orange)}
 .status-cancelled{background:var(--red-soft);color:#8f4033}.status-cancelled:before{background:#b84d3d}
+.stage-step.archived i,.focus-icon.archived{background:#fff1ed!important;color:#9b4637!important;border-color:#f0cfc7!important}
 
 /* Profile */
 .profile-intro{display:flex;align-items:center;gap:15px;margin:2px 0 18px}
