@@ -95,7 +95,10 @@
   function renderAll(){renderDashboard();renderProspects();renderTrash();renderInvited();renderClients();renderProjects();renderRequests();fillClientSelect();}
 
   function renderDashboard(){
-    const active=state.prospects.filter(p=>!["Ganado","Descartado"].includes(p.estado));
+    const active=state.prospects.filter(p=>{
+      const linked=projectForProspect(p.id);
+      return !linked && !["Ganado","Descartado"].includes(p.estado);
+    });
     $("#metric-prospects").textContent=active.length;$("#metric-invited").textContent=invitedProjects().length;$("#metric-clients").textContent=state.clients.length;$("#metric-projects").textContent=state.projects.filter(p=>/producción|produccion|revisión|revision|información|informacion|configuración|configuracion/i.test(p.project_stage||"")).length;$("#metric-requests").textContent=state.requests.filter(r=>!/resuelta|cerrada/i.test(r.status||"")).length;$("#nav-invited-count").textContent=invitedProjects().length?invitedProjects().length:"";$("#nav-trash-count").textContent=state.trash.length?state.trash.length:"";
     const next=[];
     invitedProjects().slice(0,3).forEach(p=>{const lead=prospectById(p.source_prospect_id);next.push(`<div class="mini-item"><div><strong>${esc(p.name)}</strong><span>${lead?esc(lead.nombre):"Cliente"} · Falta activar cuenta</span></div><button class="tiny-btn orange" data-copy-invite="${p.id}">Invitación</button></div>`);});
@@ -106,11 +109,34 @@
 
   function renderProspects(){
     const q=$("#prospect-search")?.value.toLowerCase().trim()||"", filter=$("#prospect-filter")?.value||"";
-    const visible=state.prospects.filter(p=>(!filter||p.estado===filter)&&`${p.negocio} ${p.nombre} ${p.municipio} ${p.telefono}`.toLowerCase().includes(q));
+    const visible=state.prospects.filter(p=>{
+      const linked=projectForProspect(p.id);
+      return !linked && (!filter||p.estado===filter) && `${p.negocio} ${p.nombre} ${p.municipio} ${p.telefono}`.toLowerCase().includes(q);
+    });
+    const accepted=invitedProjects().filter(p=>{
+      const lead=prospectById(p.source_prospect_id);
+      return `${p.name||""} ${lead?.nombre||""} ${lead?.negocio||""} ${lead?.municipio||""} ${lead?.telefono||""}`.toLowerCase().includes(q);
+    });
+    const groupedClients=state.clients.map(client=>{
+      const projects=projectsForClient(client.id).filter(p=>`${client.full_name||""} ${client.email||""} ${p.name||""} ${p.domain||""}`.toLowerCase().includes(q));
+      return {client,projects};
+    }).filter(group=>group.projects.length);
     $("#prospect-rows").innerHTML=visible.map(p=>{
-      const linked=projectForProspect(p.id),wa=`https://wa.me/${waNumber(p.telefono)}?text=${encodeURIComponent(`Hola ${p.nombre||""}, soy de Excepcional Build.`)}`;
-      return `<tr><td><strong>${esc(p.negocio)}</strong><span class="sub">${esc(p.municipio||"")}</span></td><td>${esc(p.nombre)}<span class="sub">${esc(p.telefono)}</span></td><td>${esc(p.origen||"—")}</td><td><span class="badge ${statusClass(p.estado)}">${esc(p.estado||"Nuevo")}</span></td><td>${esc(p.proxima_accion||"Sin fecha")}</td><td><div class="row-actions"><a class="link-btn" href="${wa}" target="_blank" rel="noopener">WhatsApp</a>${linked?`<button class="tiny-btn green" data-open-project="${linked.id}">${linked.user_id?"Ver proyecto":"Ver invitación"}</button>`:`<button class="tiny-btn orange" data-accept-prospect="${p.id}">✓ Aceptó</button>`}<button class="tiny-btn" data-edit-prospect="${p.id}">Editar</button><button class="tiny-btn danger" data-trash-prospect="${p.id}">Eliminar</button></div></td></tr>`;
+      const wa=`https://wa.me/${waNumber(p.telefono)}?text=${encodeURIComponent(`Hola ${p.nombre||""}, soy de Excepcional Build.`)}`;
+      return `<tr><td><strong>${esc(p.negocio)}</strong><span class="sub">${esc(p.municipio||"")}</span></td><td>${esc(p.nombre)}<span class="sub">${esc(p.telefono)}</span></td><td>${esc(p.origen||"—")}</td><td><span class="badge ${statusClass(p.estado)}">${esc(p.estado||"Nuevo")}</span></td><td>${esc(p.proxima_accion||"Sin fecha")}</td><td><div class="row-actions"><a class="link-btn" href="${wa}" target="_blank" rel="noopener">WhatsApp</a><button class="tiny-btn orange" data-accept-prospect="${p.id}">✓ Aceptó</button><button class="tiny-btn" data-edit-prospect="${p.id}">Editar</button><button class="tiny-btn danger" data-trash-prospect="${p.id}">Eliminar</button></div></td></tr>`;
     }).join("");$("#prospect-empty").hidden=visible.length>0;
+    $("#accepted-rows").innerHTML=accepted.map(project=>{
+      const lead=prospectById(project.source_prospect_id);
+      return `<tr><td><strong>${esc(lead?.negocio||project.name)}</strong><span class="sub">${esc(lead?.municipio||"")}</span></td><td>${esc(lead?.nombre||"Cliente")}${lead?.telefono?`<span class="sub">${esc(lead.telefono)}</span>`:""}</td><td><strong>${esc(project.name||"Proyecto")}</strong><span class="sub">${esc(project.domain||"Dirección por definir")}</span></td><td>${fmtDate(project.accepted_at||project.created_at)}</td><td>${project.invitation_sent_at?`Enviada ${fmtDate(project.invitation_sent_at)}`:"Sin enviar"}</td><td><div class="row-actions"><button class="tiny-btn orange" data-copy-invite="${project.id}">Invitación</button><button class="tiny-btn green" data-open-project="${project.id}">Administrar</button></div></td></tr>`;
+    }).join("");
+    $("#accepted-empty").hidden=accepted.length>0;
+    const groups=$("#client-project-groups"), groupsEmpty=$("#client-project-groups-empty");
+    if(groups) groups.innerHTML=groupedClients.map(({client,projects})=>{
+      const published=projects.filter(p=>p.site_visibility==="public").length;
+      const pending=projects.filter(p=>p.project_stage!=="Publicado"&&p.project_stage!=="Mantenimiento").length;
+      return `<details class="client-project-group"><summary><div><strong>${esc(client.full_name||client.email||"Cliente")}</strong><span>${esc(client.email||"")}</span></div><div class="client-project-stats"><b>${projects.length} proyecto${projects.length===1?"":"s"}</b><b>${published} publicados</b><b>${pending} pendientes</b></div></summary><div class="client-project-list">${projects.map(project=>`<div class="client-project-item"><div class="client-project-copy"><strong>${esc(project.name)}</strong><span>${esc(project.project_stage||"Configuración")} · ${esc(project.status||"Sin estado")}</span></div><div class="row-actions"><button class="tiny-btn green" data-open-project="${project.id}">Administrar</button></div></div>`).join("")}</div></details>`;
+    }).join("");
+    if(groupsEmpty) groupsEmpty.hidden=groupedClients.length>0;
   }
 
   function renderTrash(){
