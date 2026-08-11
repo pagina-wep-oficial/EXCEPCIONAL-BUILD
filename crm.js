@@ -24,6 +24,7 @@
   const projectVisibilityLabel=(value)=>({hidden:"Oculta",preview:"Vista previa",public:"Publicada"}[value]||"Oculta");
   const projectAdminHref=(id)=>`project-admin.html?id=${encodeURIComponent(id)}`;
   const CRM_VIEW_KEY="eb_crm_view";
+  let prospectStage="new";
 
   function statusClass(value=""){
     const s=String(value).toLowerCase();
@@ -241,6 +242,11 @@
     $$("[data-project-tab]").forEach(btn=>btn.classList.toggle("active",btn.dataset.projectTab===name));
     $$("[data-project-panel]").forEach(panel=>panel.classList.toggle("active",panel.dataset.projectPanel===name));
   }
+  function setProspectStage(name="new"){
+    prospectStage=name;
+    $$("[data-prospect-stage]").forEach(btn=>btn.classList.toggle("active",btn.dataset.prospectStage===name));
+    $$("[data-prospect-panel]").forEach(panel=>panel.classList.toggle("active",panel.dataset.prospectPanel===name));
+  }
   async function initProjectAdminPage(){
     const id=new URLSearchParams(location.search).get("id");
     if(!id){ setLine("#project-form-status","Falta el proyecto a administrar.","error"); return; }
@@ -342,10 +348,13 @@
   $("#project-form")?.addEventListener("submit",saveProject);$$('[data-close-project]').forEach(b=>b.addEventListener("click",()=>$("#project-modal").close()));$("#new-project")?.addEventListener("click",()=>{setProjectForm({project_stage:"Invitación",status:"Pendiente de activar cuenta",site_visibility:"hidden",total_price:750,deposit_amount:375,balance_amount:375,payment_method:"Transferencia"});$("#project-setup-admin-content").innerHTML="<span>Sin configuración.</span>";$("#project-brief-admin-content").innerHTML="<span>Sin información.</span>";$("#project-files-admin").innerHTML="<span>No hay archivos.</span>";$("#project-modal").showModal();});
   $("#copy-project-invite")?.addEventListener("click",()=>state.currentProject&&copyInvite(state.currentProject.id));$("#whatsapp-project-invite")?.addEventListener("click",()=>state.currentProject&&sendInvite(state.currentProject.id));$("#renew-project-invite")?.addEventListener("click",renewInvite);$("#cancel-project-invite")?.addEventListener("click",()=>state.currentProject&&cancelInvite(state.currentProject.id));$("#add-project-update")?.addEventListener("click",addUpdate);
   $$("[data-project-tab]").forEach(b=>b.addEventListener("click",()=>setProjectTab(b.dataset.projectTab)));
+  $$("[data-prospect-stage]").forEach(b=>b.addEventListener("click",()=>setProspectStage(b.dataset.prospectStage)));
   ["user_id","project_stage","site_visibility","total_price"].forEach(name=>$("#project-form")?.elements?.[name]?.addEventListener("input",updateProjectSummary));
   ["user_id","project_stage","site_visibility"].forEach(name=>$("#project-form")?.elements?.[name]?.addEventListener("change",updateProjectSummary));
   $("#prospect-search")?.addEventListener("input",renderProspects);$("#prospect-filter")?.addEventListener("change",renderProspects);$("#trash-search")?.addEventListener("input",renderTrash);$("#empty-trash")?.addEventListener("click",emptyTrash);$("#client-search")?.addEventListener("input",renderClients);$("#project-search")?.addEventListener("input",renderProjects);$("#project-stage-filter")?.addEventListener("change",renderProjects);$("#request-search")?.addEventListener("input",renderRequests);$("#request-filter")?.addEventListener("change",renderRequests);
   $("#prospect-rows")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.acceptProspect)openAgreement(t.dataset.acceptProspect);if(t.dataset.editProspect)editProspect(t.dataset.editProspect);if(t.dataset.openProject)openProject(t.dataset.openProject);if(t.dataset.trashProspect)trashProspect(t.dataset.trashProspect);});
+  $("#accepted-rows")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.copyInvite)copyInvite(t.dataset.copyInvite);if(t.dataset.openProject)openProject(t.dataset.openProject);});
+  $("#client-project-groups")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.openProject)openProject(t.dataset.openProject);});
   $("#trash-rows")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.restoreProspect)restoreProspect(t.dataset.restoreProspect);if(t.dataset.deleteProspectForever)deleteProspectForever(t.dataset.deleteProspectForever);});
   $("#invited-grid")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.copyInvite)copyInvite(t.dataset.copyInvite);if(t.dataset.sendInvite)sendInvite(t.dataset.sendInvite);if(t.dataset.openProject)openProject(t.dataset.openProject);if(t.dataset.cancelInvite)cancelInvite(t.dataset.cancelInvite);});
   $("#project-rows")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.openProject)openProject(t.dataset.openProject);if(t.dataset.copyInvite)copyInvite(t.dataset.copyInvite);});
