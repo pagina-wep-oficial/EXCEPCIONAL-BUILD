@@ -23,6 +23,7 @@
   const invitedProjects=()=>state.projects.filter(p=>!p.user_id);
   const projectVisibilityLabel=(value)=>({hidden:"Oculta",preview:"Vista previa",public:"Publicada"}[value]||"Oculta");
   const projectAdminHref=(id)=>`project-admin.html?id=${encodeURIComponent(id)}`;
+  const CRM_VIEW_KEY="eb_crm_view";
 
   function statusClass(value=""){
     const s=String(value).toLowerCase();
@@ -51,27 +52,34 @@
   function inviteMessage(project){const p=prospectById(project.source_prospect_id),name=p?.nombre||"";return `Hola${name?` ${name}`:""}. Tu proyecto con Excepcional Build ya está preparado.\n\nActiva tu cuenta aquí para continuar con la configuración de tu página y enviarnos la información del negocio:\n${inviteUrl(project)}`;}
 
   function setView(name){
+    if(crmPage!=="project-admin") localStorage.setItem(CRM_VIEW_KEY,name);
     $$(".crm-nav [data-view]").forEach(b=>b.classList.toggle("active",b.dataset.view===name));
     $$('[data-view-panel]').forEach(p=>p.classList.toggle("active",p.dataset.viewPanel===name));
     const meta={dashboard:["Resumen","Vista general del negocio."],prospects:["Prospectos","Personas interesadas que todavía no han aceptado."],invited:["Clientes invitados","Aceptaron trabajar contigo y están pendientes de activar su cuenta."],clients:["Clientes","Personas que ya activaron su cuenta."],projects:["Proyectos","Control de producción, pagos y publicación."],requests:["Solicitudes","Cambios y mantenimiento pedidos por clientes."],users:["Usuarios","Cuentas con acceso al CRM y sus permisos."],trash:["Papelera","Prospectos eliminados que puedes restaurar o borrar definitivamente."]}[name]||["CRM",""];
     $("#view-title").textContent=meta[0];$("#view-subtitle").textContent=meta[1];
   }
+  function resolveInitialView(role){
+    const saved=localStorage.getItem(CRM_VIEW_KEY)||"dashboard";
+    if(role!=="administrador"&&!["dashboard","prospects","trash"].includes(saved)) return "dashboard";
+    return saved;
+  }
   async function checkAdmin(){const {data,error}=await db.rpc("mi_rol_crm");if(error)throw error;return data==="administrador"?data:"asesor";}
   async function showSession(session){
     state.session=session;
-    if(!session){$("#crm-login").hidden=false;$("#crm-app").hidden=true;return;}
+    if(!session){$("#crm-login").hidden=false;$("#crm-app").hidden=true;document.body.classList.remove("crm-booting");return;}
     try{
       const rol=await checkAdmin();
-      if(!rol){setLine("#crm-login-status","Esta cuenta no tiene acceso al CRM. Si crees que debería tenerlo, pídeselo al administrador.","error");$("#crm-login").hidden=false;$("#crm-app").hidden=true;return;}
+      if(!rol){setLine("#crm-login-status","Esta cuenta no tiene acceso al CRM. Si crees que debería tenerlo, pídeselo al administrador.","error");$("#crm-login").hidden=false;$("#crm-app").hidden=true;document.body.classList.remove("crm-booting");return;}
       state.rol=rol;
       const esAdmin=rol==="administrador";
       $$(".admin-only").forEach(el=>el.hidden=!esAdmin);
       $("#crm-login").hidden=true;$("#crm-app").hidden=false;if($("#admin-email"))$("#admin-email").textContent=session.user.email||"";if($("#admin-name"))$("#admin-name").textContent=session.user.user_metadata?.full_name||session.user.email?.split("@")[0]||"Administrador";if($("#admin-rol"))$("#admin-rol").textContent=esAdmin?"Administrador":"Asesor";
+      document.body.classList.remove("crm-booting");
       if(crmPage==="project-admin"){ await loadAll(false); await initProjectAdminPage(); return; }
-      if(!esAdmin&&!["dashboard","prospects","trash"].includes($(".crm-nav [data-view].active")?.dataset.view||"dashboard"))setView("dashboard");
+      setView(resolveInitialView(rol));
       await loadAll();
     }
-    catch(err){setLine("#crm-login-status","No pudimos comprobar tus permisos.","error");}
+    catch(err){setLine("#crm-login-status","No pudimos comprobar tus permisos.","error");$("#crm-login").hidden=false;$("#crm-app").hidden=true;document.body.classList.remove("crm-booting");}
   }
   async function loadAll(render=true){
     const results=await Promise.all([
