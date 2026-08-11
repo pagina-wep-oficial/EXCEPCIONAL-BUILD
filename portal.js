@@ -215,17 +215,18 @@
     const grid=$("#projects-grid"), allBlock=$("#all-projects-block"), allGrid=$("#projects-grid-all"), search=$("#projects-search");
     function projectCard(p){
       const [title,copy]=nextStepText(p), url=projectPrimaryHref(p), action=projectPrimaryLabel(p);
-      const publicBadge=p.site_visibility==="public"?"Página publicada":p.site_visibility==="preview"?"Vista previa lista":title;
+      const archived=archivedClientState(p);
+      const publicBadge=archived?(archived==="cancelado"?"Proyecto cancelado":"Proyecto descontinuado"):(p.site_visibility==="public"?"Pagina publicada":p.site_visibility==="preview"?"Vista previa lista":title);
       const ownerTag=p.user_id===uid?`<span class="mine-tag">Tuyo</span>`:`<span class="owner-tag">Proyecto de: ${safe(ownerById.get(p.user_id)||"Pendiente de activar")}</span>`;
-      return `<article class="project-card-simple"><a class="project-card-main" href="${url}"><div class="project-card-icon">${stageIndex(p)===4?"✓":"EB"}</div><div class="project-card-copy"><span class="status-badge ${statusClass(p.status)}">${safe(publicBadge)}</span><h3>${safe(p.name)}</h3><p>${safe(copy)}</p><small>${safe(p.domain||"Dirección por definir")}</small></div><span class="project-chevron">›</span></a><div class="project-card-footer">${ownerTag}<span>${date(p.created_at)}</span><a href="${url}">${safe(action)} →</a></div></article>`;
+      return `<article class="project-card-simple"><a class="project-card-main" href="${url}"><div class="project-card-icon">${stageIndex(p)===4?"OK":archived?"!":"EB"}</div><div class="project-card-copy"><span class="status-badge ${statusClass(p.status||p.project_stage)}">${safe(publicBadge)}</span><h3>${safe(p.name)}</h3><p>${safe(copy)}</p><small>${safe(p.domain||"Direccion por definir")}</small></div><span class="project-chevron">></span></a><div class="project-card-footer">${ownerTag}<span>${date(p.created_at)}</span><a href="${url}">${safe(action)} ></a></div></article>`;
     }
     const render=()=>{
       const norm=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
       const q=norm(search?.value);
       const match=p=>!q||norm(`${p.name} ${p.domain||""} ${ownerById.get(p.user_id)||""}`).includes(q);
       const own=mine.filter(match), other=others.filter(match);
-      const actionable=mine.find(p=>stageIndex(p)<4&&!/cancelad/i.test(stageKey(p)));
-      if(actionable){ const box=$("#panel-next-step"), [title,copy]=nextStepText(actionable); box.hidden=false; box.innerHTML=`<div class="next-step-icon">→</div><div><span>Lo siguiente</span><strong>${safe(title)}</strong><p>${safe(copy)}</p></div><a class="button button-primary" href="${projectPrimaryHref(actionable)}">Continuar</a>`; }
+      const actionable=mine.find(p=>stageIndex(p)<4&&!archivedClientState(p));
+      const box=$("#panel-next-step"); if(actionable){ const [title,copy]=nextStepText(actionable); box.hidden=false; box.innerHTML=`<div class="next-step-icon">></div><div><span>Lo siguiente</span><strong>${safe(title)}</strong><p>${safe(copy)}</p></div><a class="button button-primary" href="${projectPrimaryHref(actionable)}">Continuar</a>`; } else if(box){ box.hidden=true; box.innerHTML=""; }
       grid.innerHTML=own.length?own.map(projectCard).join(""):`<div class="empty-card"><div class="empty-icon">○</div><h3>${q?"Sin resultados":mine.length?"":"Todavía no tienes proyectos"}</h3>${q?"":mine.length?"":"<p>Cuando aceptes una página con nosotros, aparecerá aquí.</p><a class=\"button button-light\" href=\"https://wa.me/${WHATSAPP}\" target=\"_blank\" rel=\"noopener\">Hablar por WhatsApp</a>"}</div>`;
       const showAll=allBlock&&others.length>0;
       if(allBlock)allBlock.hidden=!showAll;
@@ -272,8 +273,7 @@
     const {session}=await loadContext(); const id=getParam("project"); if(!id){location.replace("panel.html");return;}
     const [{data:project,error},{data:setup,error:setupErr}]=await Promise.all([db.from("client_projects").select("*").eq("id",id).single(),db.from("client_project_setup").select("*").eq("project_id",id).maybeSingle()]);
     if(error||setupErr) throw error||setupErr;
-    if(stageIndex(project)>=2){ location.replace(`proyecto.html?id=${encodeURIComponent(id)}`); return; }
-    $("#configure-project-name").textContent=project.name; $("#configure-price").textContent=money(project.total_price); $("#configure-payment").textContent=project.payment_method||"Acordado contigo";
+    if(archivedClientState(project)||stageIndex(project)>=2){ location.replace(`proyecto.html?id=${encodeURIComponent(id)}`); return; }
     $("#configure-back").href=`proyecto.html?id=${encodeURIComponent(id)}`; $("#configure-mobile-back").href=`proyecto.html?id=${encodeURIComponent(id)}`;
     const form=$("#setup-form"), input=$("#setup-name"), checkBtn=$("#setup-check");
     let verifiedValue="", domainPrice=null;
