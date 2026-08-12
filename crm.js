@@ -7,6 +7,8 @@
   const WHATSAPP="529811332914";
   const PROD_ORIGIN=(location.protocol.startsWith("http")&&!['localhost','127.0.0.1'].includes(location.hostname))?location.origin:"https://excepcional-build.pages.dev";
   const state={session:null,rol:null,prospects:[],trash:[],clients:[],projects:[],requests:[],users:[],currentProject:null,currentProspect:null,currentClient:null};
+  let crmRealtimeChannel=null;
+  let crmRefreshTimer=0;
 
   const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const esc=(v="")=>String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
@@ -102,11 +104,12 @@
   async function checkAdmin(){const {data,error}=await db.rpc("mi_rol_crm");if(error)throw error;return data==="administrador"?data:"asesor";}
   async function showSession(session){
     state.session=session;
-    if(!session){$("#crm-login").hidden=false;$("#crm-app").hidden=true;document.body.classList.remove("crm-booting");return;}
+    if(!session){stopCrmRealtime();$("#crm-login").hidden=false;$("#crm-app").hidden=true;document.body.classList.remove("crm-booting");return;}
     try{
       const rol=await checkAdmin();
       if(!rol){setLine("#crm-login-status","Esta cuenta no tiene acceso al CRM. Si crees que debería tenerlo, pídeselo al administrador.","error");$("#crm-login").hidden=false;$("#crm-app").hidden=true;document.body.classList.remove("crm-booting");return;}
       state.rol=rol;
+      startCrmRealtime();
       const esAdmin=rol==="administrador";
       $$(".admin-only").forEach(el=>el.hidden=!esAdmin);
       $("#crm-login").hidden=true;$("#crm-app").hidden=false;if($("#admin-email"))$("#admin-email").textContent=session.user.email||"";if($("#admin-name"))$("#admin-name").textContent=session.user.user_metadata?.full_name||session.user.email?.split("@")[0]||"Administrador";if($("#admin-rol"))$("#admin-rol").textContent=esAdmin?"Administrador":"Asesor";
@@ -133,6 +136,39 @@
     for(const r of results)if(r.error)throw r.error;
     const all=results[0].data||[];state.prospects=all.filter(p=>!p.borrado_en);state.trash=all.filter(p=>p.borrado_en);state.clients=results[1].data||[];state.projects=results[2].data||[];state.requests=results[3].data||[];
     if(render){renderAll();if(state.rol==="administrador")await loadUsers();}
+  }
+  async function refreshCrmLive(){
+    if(!state.session)return;
+    if(crmPage==="project-admin"){
+      await loadAll(false);
+      const currentId=state.currentProject?.id||getParam("id");
+      if(currentId) await loadProjectDetails(currentId,false);
+      else await initProjectAdminPage();
+      if(state.rol==="administrador") await loadUsers();
+      return;
+    }
+    await loadAll();
+  }
+  function scheduleCrmRefresh(){
+    clearTimeout(crmRefreshTimer);
+    crmRefreshTimer=setTimeout(()=>refreshCrmLive().catch(err=>console.error("crm live refresh",err)),250);
+  }
+  function stopCrmRealtime(){
+    clearTimeout(crmRefreshTimer);
+    if(crmRealtimeChannel){
+      db.removeChannel(crmRealtimeChannel);
+      crmRealtimeChannel=null;
+    }
+  }
+  function startCrmRealtime(){
+    stopCrmRealtime();
+    if(!state.session||!db?.channel)return;
+    const channel=db.channel(`crm-live-${crmPage}`);
+    ["prospectos","client_profiles","client_projects","client_requests","client_updates","client_project_setup","client_project_briefs","client_project_files","app_admins"].forEach(table=>{
+      channel.on("postgres_changes",{event:"*",schema:"public",table},()=>scheduleCrmRefresh());
+    });
+    crmRealtimeChannel=channel;
+    channel.subscribe();
   }
   function renderAll(){renderDashboard();renderProspects();renderTrash();renderInvited();renderClients();renderClientDetail();renderProjects();renderRequests();fillClientSelect();}
 
@@ -609,6 +645,7 @@
   $("#crm-user-form")?.addEventListener("submit",addUser);
   $("#user-rows")?.addEventListener("click",async e=>{const t=e.target;if(t.dataset.toggleUser){const u=state.users.find(x=>String(x.email).toLowerCase()===String(t.dataset.toggleUser).toLowerCase());if(u)await toggleUser(u.email,!u.activo);}if(t.dataset.deleteUser)await removeUser(t.dataset.deleteUser);if(t.dataset.grantUser)await grantUser(t.dataset.grantUser,t.dataset.grantRol);});
   $("#user-rows")?.addEventListener("change",async e=>{const t=e.target;if(t.dataset.userEmail)await changeUserRole(t.dataset.userEmail,t.value);});
+  window.addEventListener("pagehide",stopCrmRealtime);
 
-  (async()=>{if(!portal.configured){setLine("#crm-login-status","El CRM no está disponible en este momento.","error");return;}const {data:{session}}=await db.auth.getSession();await showSession(session);db.auth.onAuthStateChange((_e,s)=>{if(!s)showSession(null);});})().catch(err=>{console.error(err);setLine("#crm-login-status","No pudimos cargar el CRM.","error");});
+  (async()=>{if(!portal.configured){setLine("#crm-login-status","El CRM no está disponible en este momento.","error");return;}const {data:{session}}=await db.auth.getSession();await showSession(session);db.auth.onAuthStateChange((_e,s)=>{showSession(s||null);});})().catch(err=>{console.error(err);setLine("#crm-login-status","No pudimos cargar el CRM.","error");});
 })();

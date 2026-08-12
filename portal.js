@@ -7,6 +7,8 @@
   const WHATSAPP = "529811332914";
   const CLAIM_KEY = "eb_project_claim";
   const CONSULTAR_ENDPOINT = "https://scaebulgcuvqpucondws.supabase.co/functions/v1/consultar-dominio";
+  let liveChannel = null;
+  let liveRefreshTimer = 0;
 
   const $ = (s, r=document) => r.querySelector(s);
   const $$ = (s, r=document) => [...r.querySelectorAll(s)];
@@ -109,6 +111,28 @@
     const external=String(project?.editor_launch_url||"").trim();
     if(external) return external;
     return `editor.html?project=${encodeURIComponent(project.id)}`;
+  }
+  function stopLiveUpdates(){
+    clearTimeout(liveRefreshTimer);
+    if(liveChannel){
+      db.removeChannel(liveChannel);
+      liveChannel=null;
+    }
+  }
+  function startLiveUpdates(name,specs,handler){
+    stopLiveUpdates();
+    if(!db?.channel||!specs?.length)return;
+    const channel=db.channel(name);
+    specs.forEach(spec=>{
+      const config={event:"*",schema:"public",table:spec.table};
+      if(spec.filter) config.filter=spec.filter;
+      channel.on("postgres_changes",config,()=>{
+        clearTimeout(liveRefreshTimer);
+        liveRefreshTimer=setTimeout(()=>handler().catch(err=>console.error("portal live refresh",err)),250);
+      });
+    });
+    liveChannel=channel;
+    channel.subscribe();
   }
 
   async function captureClaimFromUrl() {
@@ -239,18 +263,9 @@
   async function initPanel() {
     const {session,profile}=await loadContext();
     $("#panel-first-name").textContent=(profile.full_name||"cliente").split(/\s+/)[0];
-    const [projectsR,profilesR]=await Promise.all([
-      db.from("client_projects").select("*").order("created_at",{ascending:false}),
-      db.from("client_profiles").select("id,full_name")
-    ]);
-    if(projectsR.error) throw projectsR.error;
-    if(profilesR.error) throw profilesR.error;
-    const projects=projectsR.data||[];
-    const ownerById=new Map((profilesR.data||[]).map(p=>[p.id,p.full_name||p.email||"Cliente"]));
     const uid=session.user.id;
-    const mine=projects.filter(p=>p.user_id===uid);
-    const others=projects.filter(p=>!p.user_id||p.user_id!==uid);
     const grid=$("#projects-grid"), allBlock=$("#all-projects-block"), allGrid=$("#projects-grid-all"), search=$("#projects-search");
+    let mine=[], others=[], ownerById=new Map();
     function projectCard(p){
       const [title,copy]=nextStepText(p), url=projectPrimaryHref(p), action=projectPrimaryLabel(p);
       const archived=archivedClientState(p);
@@ -270,8 +285,25 @@
       if(allBlock)allBlock.hidden=!showAll;
       if(showAll){ allGrid.innerHTML=other.length?other.map(projectCard).join(""):`<div class="empty-card"><div class="empty-icon">…</div><h3>Sin resultados</h3><p>Intenta con otro nombre o cliente.</p></div>`; }
     };
-    if(search)search.addEventListener("input",render);
-    render();
+    const refreshPanel=async()=>{
+      const [projectsR,profilesR]=await Promise.all([
+        db.from("client_projects").select("*").order("created_at",{ascending:false}),
+        db.from("client_profiles").select("id,full_name")
+      ]);
+      if(projectsR.error) throw projectsR.error;
+      if(profilesR.error) throw profilesR.error;
+      const projects=projectsR.data||[];
+      ownerById=new Map((profilesR.data||[]).map(p=>[p.id,p.full_name||p.email||"Cliente"]));
+      mine=projects.filter(p=>p.user_id===uid);
+      others=projects.filter(p=>!p.user_id||p.user_id!==uid);
+      render();
+    };
+    if(search&&!search.dataset.liveBound){
+      search.dataset.liveBound="1";
+      search.addEventListener("input",render);
+    }
+    await refreshPanel();
+    startLiveUpdates(`portal-panel-${uid}`,[{table:"client_projects"},{table:"client_profiles"}],refreshPanel);
   }
 
   async function initProfile() {
@@ -313,6 +345,7 @@
     if(error||setupErr) throw error||setupErr;
     if(archivedClientState(project)||stageIndex(project)>=2){ location.replace(`proyecto.html?id=${encodeURIComponent(id)}`); return; }
     $("#configure-back").href=`proyecto.html?id=${encodeURIComponent(id)}`; $("#configure-mobile-back").href=`proyecto.html?id=${encodeURIComponent(id)}`;
+    startLiveUpdates(`portal-configure-${id}`,[{table:"client_projects",filter:`id=eq.${id}`},{table:"client_project_setup",filter:`project_id=eq.${id}`}],async()=>location.reload());
     const form=$("#setup-form"), input=$("#setup-name"), checkBtn=$("#setup-check");
     let verifiedValue="", domainPrice=null;
     const initialAddress=setup?.address_type||project.address_type||"gratis", initialHosting=setup?.hosting_type||project.hosting_type||"cloudflare";
@@ -453,6 +486,7 @@
     ]);
     for(const r of results) if(r.error) throw r.error;
     let requests=results[0].data||[], updates=results[1].data||[], brief=results[2].data, files=results[3].data||[];
+    startLiveUpdates(`portal-project-${id}`,[{table:"client_projects",filter:`id=eq.${id}`},{table:"client_requests",filter:`project_id=eq.${id}`},{table:"client_updates",filter:`project_id=eq.${id}`}],async()=>location.reload());
     document.title=`${project.name} | Excepcional Build`; $("#project-title").textContent=project.name; $("#project-subtitle").innerHTML=`<span class="status-badge ${statusClass(project.status||project.project_stage)}">${safe(project.status||project.project_stage)}</span>`; $("#project-top-actions").innerHTML=siteAction(project);
     const labels=["Configurar","Enviar información","Construcción","Revisión","Publicada"], pos=stageIndex(project);
     $("#project-stage-track").innerHTML=labels.map((label,i)=>`<div class="stage-step ${i<pos?"done":i===pos?"current":""}"><i>${i<pos?"✓":i+1}</i><span>${safe(label)}</span><small>${i===pos?"Ahora":""}</small></div>`).join("");
@@ -591,6 +625,7 @@
       db.from("client_project_briefs").select("*").eq("project_id",id).maybeSingle()
     ]);
     if(error||briefErr) throw error||briefErr;
+    startLiveUpdates(`portal-editor-${id}`,[{table:"client_projects",filter:`id=eq.${id}`}],async()=>location.reload());
     const access=editorAccessState(project);
     if(access.status!=="active"){
       location.replace(`proyecto.html?id=${encodeURIComponent(id)}`);
@@ -640,5 +675,6 @@
       const grid=$("#projects-grid");if(grid)grid.innerHTML=`<div class="empty-card empty-card-wide"><h3>No pudimos cargar tus proyectos</h3><p>${safe(msg)}</p></div>`;
     }
   }
+  window.addEventListener("pagehide",stopLiveUpdates);
   start();
 })();
