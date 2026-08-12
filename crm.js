@@ -381,7 +381,8 @@
     if(existing&&!confirm(`Este prospecto ya tiene una invitación activa${existing.name?` (${existing.name})`:""}. ¿Crear otra de todas formas?`))return;
     const b=f.querySelector('button[type="submit"]');b.disabled=true;setLine("#agreement-status","Creando proyecto…");
     try{
-      const {data,error}=await db.from("client_projects").insert({user_id:null,name:String(fd.get("project_name")||"").trim(),status:"Pendiente de activar cuenta",project_stage:"Invitación",site_visibility:"hidden",address_type:"gratis",hosting_type:"cloudflare",source_prospect_id:String(lead.id),total_price:total,deposit_amount:deposit,balance_amount:balance,payment_method:String(fd.get("payment_method")||"").trim(),accepted_at:new Date().toISOString(),client_note:String(fd.get("client_note")||"").trim()||null}).select().single();if(error)throw error;
+      const token=crypto.randomUUID();
+      const {data,error}=await db.from("client_projects").insert({user_id:null,name:String(fd.get("project_name")||"").trim(),status:"Pendiente de activar cuenta",project_stage:"Invitación",site_visibility:"hidden",address_type:"gratis",hosting_type:"cloudflare",source_prospect_id:String(lead.id),total_price:total,deposit_amount:deposit,balance_amount:balance,payment_method:String(fd.get("payment_method")||"").trim(),accepted_at:new Date().toISOString(),claim_token:token,client_note:String(fd.get("client_note")||"").trim()||null}).select().single();if(error)throw error;
       await ensureInvite(data);
       await db.from("prospectos").update({estado:"Ganado",client_project_id:data.id}).eq("id",lead.id);
       state.projects.unshift(data);lead.estado="Ganado";lead.client_project_id=data.id;$("#agreement-modal").close();renderAll();toast("Proyecto e invitación creados.");setView("invited");
