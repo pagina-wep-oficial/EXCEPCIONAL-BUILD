@@ -11,6 +11,7 @@
   - 12 meses: $500 MXN
 - Si vence el acceso, la pagina sigue en linea y solo se pausa el editor.
 - Cambios especiales, nuevas secciones, sistemas o redisenos se cotizan aparte.
+- Ubicacion en el portal: dentro de cada `proyecto.html`, despues de pagos/acciones y antes de `Avances`.
 
 ## Reembolso y cancelacion
 
@@ -55,4 +56,3 @@ Campos minimos:
 - `payment_reference`
 - `created_at`
 - `updated_at`
-

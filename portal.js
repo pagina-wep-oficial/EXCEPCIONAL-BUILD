@@ -78,6 +78,33 @@
     const text=[`Hola, soy ${profile?.full_name||"cliente"}.`,`Quiero continuar con mi proyecto ${project?.name||""}.`,`Estado actual: ${state}.`,`Proyecto ID: ${project?.id||""}.`,`Origen: ${source}.`].join("\n");
     return `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(text)}`;
   }
+  function editorSupportHref(project, profile, topic="suscripcion") {
+    const text=[
+      `Hola, soy ${profile?.full_name||"cliente"}.`,
+      `Necesito ayuda con mi ${topic} del editor de mi sitio.`,
+      `Proyecto: ${project?.name||""}.`,
+      `Proyecto ID: ${project?.id||""}.`
+    ].join("\n");
+    return `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(text)}`;
+  }
+  function editorPlanHref(project, profile, months, price, action="activar") {
+    const text=[
+      `Hola, soy ${profile?.full_name||"cliente"}.`,
+      `Quiero ${action} el editor autogestionable para mi sitio ${project?.name||""}.`,
+      `Plan: ${months} mes${months==="1"?"":"es"} por $${price} MXN.`,
+      `Proyecto ID: ${project?.id||""}.`
+    ].join("\n");
+    return `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(text)}`;
+  }
+  function editorAccessState(project) {
+    const raw=String(project?.editor_access_status||project?.editor_status||"").toLowerCase();
+    const ends=project?.editor_access_ends_at||project?.editor_ends_at||"";
+    const expired=ends&&new Date(ends).getTime()<Date.now();
+    if(project?.editor_enabled&& !expired) return {status:"active",ends};
+    if(/activo|active/.test(raw)&&!expired) return {status:"active",ends};
+    if(expired||/vencido|expired|pausado|paused|cancelado/.test(raw)) return {status:"expired",ends};
+    return {status:"none",ends:""};
+  }
 
   async function captureClaimFromUrl() {
     const id=getParam("claim"), token=getParam("token"), code=getParam("invite");
@@ -219,31 +246,6 @@
     const mine=projects.filter(p=>p.user_id===uid);
     const others=projects.filter(p=>!p.user_id||p.user_id!==uid);
     const grid=$("#projects-grid"), allBlock=$("#all-projects-block"), allGrid=$("#projects-grid-all"), search=$("#projects-search");
-    function initEditorOffer(){
-      const section=$("#editor-offer-section"), select=$("#editor-project-select"), support=$("#editor-support-link");
-      if(!section||!select) return;
-      const editable=mine.filter(p=>!archivedClientState(p));
-      if(!editable.length){ section.hidden=true; return; }
-      section.hidden=false;
-      select.innerHTML=editable.map(p=>`<option value="${safe(p.id)}">${safe(p.name)}${p.domain?` - ${safe(p.domain)}`:""}</option>`).join("");
-      const selectedProject=()=>editable.find(p=>p.id===select.value)||editable[0];
-      const supportHref=()=>`https://wa.me/${WHATSAPP}?text=${encodeURIComponent(`Hola, necesito ayuda con mi suscripcion del editor de mi sitio.\nProyecto: ${selectedProject()?.name||""}\nProyecto ID: ${selectedProject()?.id||""}`)}`;
-      const syncSupport=()=>{ if(support) support.href=supportHref(); };
-      select.addEventListener("change",syncSupport);
-      syncSupport();
-      $$("[data-editor-plan]",section).forEach(btn=>btn.addEventListener("click",()=>{
-        const project=selectedProject();
-        const months=btn.dataset.editorPlan;
-        const price=btn.dataset.editorPrice;
-        const text=[
-          `Hola, soy ${profile.full_name||"cliente"}.`,
-          `Quiero activar el editor autogestionable para mi sitio ${project?.name||""}.`,
-          `Plan: ${months} mes${months==="1"?"":"es"} por $${price} MXN.`,
-          `Proyecto ID: ${project?.id||""}.`
-        ].join("\n");
-        location.assign(`https://wa.me/${WHATSAPP}?text=${encodeURIComponent(text)}`);
-      }));
-    }
     function projectCard(p){
       const [title,copy]=nextStepText(p), url=projectPrimaryHref(p), action=projectPrimaryLabel(p);
       const archived=archivedClientState(p);
@@ -264,7 +266,6 @@
       if(showAll){ allGrid.innerHTML=other.length?other.map(projectCard).join(""):`<div class="empty-card"><div class="empty-icon">…</div><h3>Sin resultados</h3><p>Intenta con otro nombre o cliente.</p></div>`; }
     };
     if(search)search.addEventListener("input",render);
-    initEditorOffer();
     render();
   }
 
@@ -475,6 +476,34 @@
 
     const hasPayments=[project.total_price,project.deposit_amount,project.balance_amount].some(v=>v!=null&&v!=="");
     if(!archivedState&&hasPayments){$("#payment-card").hidden=false;$("#project-payments").innerHTML=`<div class="payment-box"><span>Total acordado</span><strong>${money(project.total_price)}</strong><small>${safe(project.payment_method||"")}</small></div><div class="payment-box"><span>Anticipo</span><strong>${money(project.deposit_amount)}</strong><em class="payment-state ${project.deposit_paid?"paid":""}">${project.deposit_paid?"Pagado":"Pendiente"}</em></div><div class="payment-box"><span>Saldo final</span><strong>${money(project.balance_amount)}</strong><em class="payment-state ${project.balance_paid?"paid":""}">${project.balance_paid?"Pagado":"Pendiente"}</em></div>`;}
+
+    const editorCard=$("#project-editor-card");
+    if(editorCard && !archivedState){
+      const access=editorAccessState(project);
+      const active=access.status==="active";
+      const expired=access.status==="expired";
+      const action=expired?"renovar":"activar";
+      const planButtons=[["1","50","1 mes"],["3","140","3 meses"],["6","270","6 meses"],["12","500","12 meses"]].map(([months,price,label])=>`<a class="editor-plan-card ${months==="12"?"featured":""}" href="${editorPlanHref(project,profile,months,price,action)}" target="_blank" rel="noopener"><span>${label}</span><strong>$${price}</strong><small>${months==="1"?"Para cambios puntuales.":months==="12"?"Mejor precio anual.":"Para mantenerlo activo."}</small></a>`).join("");
+      editorCard.hidden=false;
+      editorCard.innerHTML=active?`
+        <div class="editor-project-head">
+          <div><p class="eyebrow">Editor autogestionable</p><h2>Tu editor esta activo</h2><p>Cambia textos, imagenes, videos, horarios, precios y promociones por tu cuenta.</p></div>
+          <span class="editor-badge active">Activo${access.ends?` hasta ${date(access.ends)}`:""}</span>
+        </div>
+        <div class="editor-active-box">
+          <a class="button button-primary" href="editor.html?project=${encodeURIComponent(project.id)}">Abrir editor</a>
+          <a class="button button-light" href="${editorSupportHref(project,profile)}" target="_blank" rel="noopener">Ayuda con suscripcion</a>
+        </div>`:`
+        <div class="editor-project-head">
+          <div><p class="eyebrow">Editor autogestionable</p><h2>${expired?"Tu acceso al editor expiro":"Controla esta pagina tu mismo"}</h2><p>${expired?"Renueva para volver a editar este sitio por tu cuenta.":"Cambia textos, imagenes, videos, horarios, precios y promociones sin esperar soporte."}</p></div>
+          <span class="editor-badge ${expired?"expired":""}">${expired?"Vencido":"Por sitio web"}</span>
+        </div>
+        <div class="editor-plan-grid">${planButtons}</div>
+        <div class="editor-rules"><p>El acceso dura el periodo pagado. Si vence, tu pagina sigue en linea, pero el editor se pausa.</p><a href="politicas-editor.html">Ver reglas de cancelacion y reembolso</a></div>
+        <div class="editor-support"><div><strong>Problemas con tu suscripcion?</strong><span>Cobro, cancelacion, reembolso o activacion se atienden por WhatsApp.</span></div><a class="button button-light" href="${editorSupportHref(project,profile)}" target="_blank" rel="noopener">Ayuda por WhatsApp</a></div>`;
+    } else if(editorCard){
+      editorCard.hidden=true;
+    }
 
     const briefForm=$("#project-brief-form"); if(briefForm && !archivedState){
       briefFields.forEach(n=>{if(briefForm.elements[n])briefForm.elements[n].value=brief?.[n]||"";});
