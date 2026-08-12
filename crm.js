@@ -51,6 +51,7 @@
     return `project-admin.html?${params.toString()}`;
   }
   const CRM_VIEW_KEY="eb_crm_view";
+  const projectTabKey=(id)=>`eb_project_tab_${id||"new"}`;
   let prospectStage="new";
 
   function statusClass(value=""){
@@ -373,6 +374,8 @@
     $("#project-summary-payment").textContent=money(form.elements.total_price.value||0);
   }
   function setProjectTab(name="summary"){
+    const projectId=state.currentProject?.id||$("#project-form")?.elements?.id?.value||"new";
+    try{ localStorage.setItem(projectTabKey(projectId),name); }catch{}
     $$("[data-project-tab]").forEach(btn=>btn.classList.toggle("active",btn.dataset.projectTab===name));
     $$("[data-project-panel]").forEach(panel=>panel.classList.toggle("active",panel.dataset.projectPanel===name));
   }
@@ -531,7 +534,7 @@
   }
 
   function setProjectForm(project={}){
-    const f=$("#project-form"),el=f.elements;state.currentProject=project.id?project:null;f.reset();el.id.value=project.id||"";el.source_prospect_id.value=project.source_prospect_id||"";el.name.value=project.name||"";fillClientSelect();el.user_id.value=project.user_id||"";el.project_stage.value=project.project_stage||"Invitación";el.status.value=project.status||"Pendiente de activar cuenta";el.address_type.value=project.address_type||"gratis";el.domain.value=project.domain||"";el.hosting_type.value=project.hosting_type||"cloudflare";el.site_visibility.value=project.site_visibility||"hidden";el.site_url.value=project.site_url||"";el.preview_url.value=project.preview_url||"";el.total_price.value=project.total_price??750;el.deposit_amount.value=project.deposit_amount??375;el.balance_amount.value=project.balance_amount??375;el.payment_method.value=project.payment_method||"Transferencia";el.deposit_paid.checked=Boolean(project.deposit_paid);el.balance_paid.checked=Boolean(project.balance_paid);el.client_note.value=project.client_note||"";$("#project-modal-title").textContent=project.id?project.name:"Nuevo proyecto";setLine("#project-form-status","");setLine("#project-editor-line","");const inv=inviteUrl(project);$("#project-invite-box").hidden=!project.id||Boolean(project.user_id);$("#project-invite-url").textContent=inv||"Guarda el proyecto para generar una invitación.";$("#update-title").value="";$("#update-status").value="";$("#update-description").value="";setProjectTab("summary");updateProjectSummary();updateProjectLifecycleUI(project);updateEditorAdminUI(project);
+    const f=$("#project-form"),el=f.elements;state.currentProject=project.id?project:null;const savedTab=(project.id?localStorage.getItem(projectTabKey(project.id)):null)||"summary";f.reset();el.id.value=project.id||"";el.source_prospect_id.value=project.source_prospect_id||"";el.name.value=project.name||"";fillClientSelect();el.user_id.value=project.user_id||"";el.project_stage.value=project.project_stage||"Invitación";el.status.value=project.status||"Pendiente de activar cuenta";el.address_type.value=project.address_type||"gratis";el.domain.value=project.domain||"";el.hosting_type.value=project.hosting_type||"cloudflare";el.site_visibility.value=project.site_visibility||"hidden";el.site_url.value=project.site_url||"";el.preview_url.value=project.preview_url||"";el.total_price.value=project.total_price??750;el.deposit_amount.value=project.deposit_amount??375;el.balance_amount.value=project.balance_amount??375;el.payment_method.value=project.payment_method||"Transferencia";el.deposit_paid.checked=Boolean(project.deposit_paid);el.balance_paid.checked=Boolean(project.balance_paid);el.client_note.value=project.client_note||"";$("#project-modal-title").textContent=project.id?project.name:"Nuevo proyecto";setLine("#project-form-status","");setLine("#project-editor-line","");const inv=inviteUrl(project);$("#project-invite-box").hidden=!project.id||Boolean(project.user_id);$("#project-invite-url").textContent=inv||"Guarda el proyecto para generar una invitación.";$("#update-title").value="";$("#update-status").value="";$("#update-description").value="";setProjectTab(savedTab);updateProjectSummary();updateProjectLifecycleUI(project);updateEditorAdminUI(project);
   }
 
   async function downloadAdminFile(fileId,fileName){try{const r=await fetch(`/api/project-file?id=${encodeURIComponent(fileId)}`,{headers:{Authorization:`Bearer ${state.session.access_token}`}});if(!r.ok)throw new Error();const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=fileName||"archivo";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch{toast("No pudimos descargar el archivo.");}}
