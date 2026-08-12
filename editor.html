@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="theme-color" content="#102a24">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="portal.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <title>Editor de sitio | Excepcional Build</title>
+</head>
+<body data-portal-page="editor">
+<header class="portal-header">
+  <div class="portal-shell portal-nav">
+    <a class="portal-brand" href="panel.html" aria-label="Excepcional Build, inicio"><span class="portal-mark">EB</span><span>EXCEPCIONAL BUILD</span></a>
+    <nav class="desktop-nav" aria-label="Navegacion"><a href="panel.html">Mis paginas</a><a href="perfil.html">Mi cuenta</a></nav>
+  </div>
+</header>
+<main class="portal-main">
+  <div class="portal-shell portal-shell-project">
+    <a class="back-link" id="editor-back-link" href="panel.html">Volver al proyecto</a>
+    <section class="editor-workspace">
+      <div class="editor-workspace-top">
+        <div>
+          <p class="eyebrow">Editor autogestionable</p>
+          <h1 id="editor-project-title">Editor de tu sitio</h1>
+          <p id="editor-project-copy">Haz cambios basicos sin esperar soporte.</p>
+        </div>
+        <span class="editor-badge active" id="editor-access-badge">Activo</span>
+      </div>
+      <div class="editor-layout">
+        <section class="editor-panel">
+          <div class="editor-toolbar" role="tablist" aria-label="Secciones del editor">
+            <button class="active" type="button" data-editor-section="content">Textos</button>
+            <button type="button" data-editor-section="media">Imagenes</button>
+            <button type="button" data-editor-section="promo">Promos</button>
+            <button type="button" data-editor-section="contact">Contacto</button>
+          </div>
+          <form class="portal-form editor-form" id="editor-demo-form">
+            <section data-editor-panel="content">
+              <label><span>Titulo principal</span><input name="headline" placeholder="Ej. Abarrotes Lupita"></label>
+              <label><span>Descripcion corta</span><textarea name="description" rows="4" placeholder="Cuenta en pocas palabras que ofrece tu negocio."></textarea></label>
+              <label><span>Productos o servicios destacados</span><textarea name="items" rows="4" placeholder="Ej. Recargas, refrescos, abarrotes, servicio a domicilio."></textarea></label>
+            </section>
+            <section data-editor-panel="media" hidden>
+              <div class="editor-upload-box"><strong>Imagen principal</strong><span>Despues aqui podra cambiar fotos, logo o videos del sitio.</span><button class="button button-light" type="button">Elegir archivo</button></div>
+              <div class="editor-upload-box"><strong>Galeria</strong><span>Espacio para subir varias imagenes del negocio.</span><button class="button button-light" type="button">Agregar imagenes</button></div>
+            </section>
+            <section data-editor-panel="promo" hidden>
+              <label><span>Promocion activa</span><input name="promo_title" placeholder="Ej. Oferta de fin de semana"></label>
+              <label><span>Detalle de promocion</span><textarea name="promo_text" rows="3" placeholder="Ej. 2x1 en aguas frescas este sabado."></textarea></label>
+              <label class="toggle-line"><input name="promo_enabled" type="checkbox"> <span>Mostrar promocion en mi pagina</span></label>
+            </section>
+            <section data-editor-panel="contact" hidden>
+              <label><span>Horario</span><input name="schedule" placeholder="Ej. Lunes a sabado de 8:00 a 20:00"></label>
+              <label><span>WhatsApp publico</span><input name="phone" inputmode="tel" placeholder="Ej. 981 123 4567"></label>
+              <label><span>Ubicacion o direccion</span><input name="address" placeholder="Ej. Centro, Hopelchen"></label>
+            </section>
+            <div class="editor-save-row">
+              <p class="form-status" id="editor-save-status">Diseno listo. Falta conectar el guardado real.</p>
+              <button class="button button-primary" type="button" id="editor-save-demo">Guardar cambios</button>
+            </div>
+          </form>
+        </section>
+        <aside class="editor-preview">
+          <div class="editor-preview-browser">
+            <span></span><span></span><span></span>
+          </div>
+          <div class="editor-preview-page">
+            <small>Vista previa</small>
+            <h2 id="editor-preview-title">Tu negocio</h2>
+            <p id="editor-preview-description">Aqui se vera el texto principal del sitio.</p>
+            <div class="editor-preview-media"></div>
+            <div class="editor-preview-actions"><b>WhatsApp</b><b>Ubicacion</b></div>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </div>
+</main>
+<nav class="mobile-nav" aria-label="Navegacion principal">
+  <a href="panel.html"><span aria-hidden="true">⌂</span><b>Inicio</b></a>
+  <a class="mobile-nav-main" href="https://wa.me/529811332914?text=Hola%2C%20necesito%20ayuda%20con%20mi%20suscripcion%20del%20editor%20de%20mi%20sitio." target="_blank" rel="noopener"><span aria-hidden="true">?</span><b>Ayuda</b></a>
+  <a href="perfil.html"><span aria-hidden="true">○</span><b>Mi cuenta</b></a>
+</nav>
+<script src="supabase-config.js"></script><script src="supabase-client.js"></script><script src="portal.js"></script>
+</body>
+</html>

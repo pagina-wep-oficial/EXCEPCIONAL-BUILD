@@ -143,6 +143,32 @@ img{max-width:100%}
 .editor-project-head p:not(.eyebrow){margin:0;color:var(--muted);font-size:12px;line-height:1.45}
 .editor-active-box{display:grid;gap:8px;padding:13px;border-radius:16px;background:#eff4ee}
 .editor-active-box .button{width:100%}
+.editor-flow-note{display:grid;grid-template-columns:32px 1fr;gap:9px;align-items:center;padding:11px;border-radius:14px;background:#f6f7f3;color:#53625d;font-size:10px;line-height:1.4}
+.editor-flow-note b{display:grid;place-items:center;width:32px;height:32px;border-radius:10px;background:var(--ink);color:var(--lime);font-size:12px}
+.editor-workspace{display:grid;gap:14px}
+.editor-workspace-top{display:grid;gap:12px;padding:18px;border:1px solid var(--line);border-radius:22px;background:#fff;box-shadow:0 8px 26px rgba(16,42,36,.045)}
+.editor-workspace-top h1{margin:0 0 5px;font:800 34px/1.04 "Manrope";letter-spacing:-.04em}
+.editor-workspace-top p:not(.eyebrow){margin:0;color:var(--muted);font-size:12px}
+.editor-layout{display:grid;gap:14px}
+.editor-panel,.editor-preview{border:1px solid var(--line);border-radius:22px;background:#fff;box-shadow:0 8px 26px rgba(16,42,36,.045);overflow:hidden}
+.editor-toolbar{display:flex;gap:6px;overflow:auto;padding:12px;border-bottom:1px solid var(--line);background:#fbfcf8}
+.editor-toolbar button{flex:0 0 auto;min-height:36px;padding:0 12px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--muted);font-size:10px;font-weight:900}
+.editor-toolbar button.active{background:var(--ink);border-color:var(--ink);color:#fff}
+.editor-form{padding:16px}
+.editor-form>[data-editor-panel]{display:grid;gap:14px}
+.editor-upload-box{display:grid;gap:7px;padding:14px;border:1px dashed rgba(16,42,36,.2);border-radius:16px;background:#fbfcf8}
+.editor-upload-box strong{font-size:13px}.editor-upload-box span{color:var(--muted);font-size:10px}.editor-upload-box .button{width:max-content;min-height:40px}
+.toggle-line{display:flex!important;align-items:center;gap:9px!important}.toggle-line input{width:20px!important;min-height:20px!important}
+.editor-save-row{display:grid;gap:9px;margin-top:15px;padding-top:14px;border-top:1px solid var(--line)}
+.editor-preview{padding:14px;background:#f1f4ef}
+.editor-preview-browser{display:flex;gap:5px;padding:10px 12px;border-radius:16px 16px 0 0;background:#102a24}
+.editor-preview-browser span{width:8px;height:8px;border-radius:50%;background:#d8eb82}
+.editor-preview-page{min-height:390px;padding:18px;border-radius:0 0 16px 16px;background:#fff}
+.editor-preview-page small{display:block;margin-bottom:18px;color:var(--muted);font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.08em}
+.editor-preview-page h2{margin:0 0 8px;font:800 30px/1.02 "Manrope";letter-spacing:-.04em}
+.editor-preview-page p{color:#60706a;font-size:12px;line-height:1.5}
+.editor-preview-media{height:150px;margin:18px 0;border-radius:18px;background:linear-gradient(145deg,#edf3ee,#dfe8dc)}
+.editor-preview-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.editor-preview-actions b{display:grid;place-items:center;min-height:42px;border-radius:12px;background:#102a24;color:#fff;font-size:10px}
 
 /* Status */
 .status-badge{display:inline-flex;align-items:center;gap:7px;min-height:28px;padding:0 10px;border-radius:999px;background:#eef1ed;color:#42514c;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.045em}
@@ -262,6 +288,10 @@ dialog::backdrop{background:rgba(8,24,20,.58);backdrop-filter:blur(4px)}
   .editor-support{grid-template-columns:1fr auto;align-items:center}.editor-support .button{width:auto}
   .editor-project-head{grid-template-columns:1fr auto;align-items:start}
   .editor-active-box{grid-template-columns:1fr auto;align-items:center}.editor-active-box .button{width:auto}
+  .editor-workspace-top{grid-template-columns:1fr auto;align-items:start;padding:22px}
+  .editor-layout{grid-template-columns:minmax(0,1fr) 340px;align-items:start}
+  .editor-form{padding:18px}
+  .editor-save-row{grid-template-columns:1fr auto;align-items:center}.editor-save-row .button{width:auto}
   .field-row{grid-template-columns:1fr 1fr}
   .payments-grid{grid-template-columns:repeat(3,1fr)}
   .actions-grid{grid-template-columns:repeat(2,minmax(0,1fr))}

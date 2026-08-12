@@ -493,11 +493,13 @@
         <div class="editor-active-box">
           <a class="button button-primary" href="editor.html?project=${encodeURIComponent(project.id)}">Abrir editor</a>
           <a class="button button-light" href="${editorSupportHref(project,profile)}" target="_blank" rel="noopener">Ayuda con suscripcion</a>
-        </div>`:`
+        </div>
+        <div class="editor-flow-note"><b>OK</b><span>Mientras el acceso este activo, este boton abre la herramienta de edicion de este sitio.</span></div>`:`
         <div class="editor-project-head">
           <div><p class="eyebrow">Editor autogestionable</p><h2>${expired?"Tu acceso al editor expiro":"Controla esta pagina tu mismo"}</h2><p>${expired?"Renueva para volver a editar este sitio por tu cuenta.":"Cambia textos, imagenes, videos, horarios, precios y promociones sin esperar soporte."}</p></div>
           <span class="editor-badge ${expired?"expired":""}">${expired?"Vencido":"Por sitio web"}</span>
         </div>
+        <div class="editor-flow-note"><b>1</b><span>Elige un plan. Cuando el pago se confirme, los planes desaparecen y aqui aparece el boton Abrir editor.</span></div>
         <div class="editor-plan-grid">${planButtons}</div>
         <div class="editor-rules"><p>El acceso dura el periodo pagado. Si vence, tu pagina sigue en linea, pero el editor se pausa.</p><a href="politicas-editor.html">Ver reglas de cancelacion y reembolso</a></div>
         <div class="editor-support"><div><strong>Problemas con tu suscripcion?</strong><span>Cobro, cancelacion, reembolso o activacion se atienden por WhatsApp.</span></div><a class="button button-light" href="${editorSupportHref(project,profile)}" target="_blank" rel="noopener">Ayuda por WhatsApp</a></div>`;
@@ -577,6 +579,46 @@
     });
   }
 
+  async function initEditor() {
+    const {session,profile}=await loadContext(); const id=getParam("project"); if(!id){location.replace("panel.html");return;}
+    const [{data:project,error},{data:brief,error:briefErr}]=await Promise.all([
+      db.from("client_projects").select("*").eq("id",id).single(),
+      db.from("client_project_briefs").select("*").eq("project_id",id).maybeSingle()
+    ]);
+    if(error||briefErr) throw error||briefErr;
+    const access=editorAccessState(project);
+    if(access.status!=="active"){
+      location.replace(`proyecto.html?id=${encodeURIComponent(id)}`);
+      return;
+    }
+    $("#editor-back-link").href=`proyecto.html?id=${encodeURIComponent(id)}`;
+    $("#editor-project-title").textContent=project.name||"Editor de tu sitio";
+    $("#editor-project-copy").textContent=project.domain?`Editando ${project.domain}`:"Haz cambios basicos sin esperar soporte.";
+    $("#editor-access-badge").textContent=access.ends?`Activo hasta ${date(access.ends)}`:"Activo";
+
+    const form=$("#editor-demo-form");
+    if(form){
+      form.headline.value=brief?.business_name||project.name||"";
+      form.description.value=brief?.business_description||"";
+      form.items.value=brief?.products_services||"";
+      form.schedule.value=brief?.schedule_text||"";
+      form.phone.value=brief?.public_phone||profile.phone||"";
+      form.address.value=brief?.address_text||"";
+      const syncPreview=()=>{
+        $("#editor-preview-title").textContent=form.headline.value||project.name||"Tu negocio";
+        $("#editor-preview-description").textContent=form.description.value||"Aqui se vera el texto principal del sitio.";
+      };
+      form.addEventListener("input",syncPreview);
+      syncPreview();
+    }
+    $$("[data-editor-section]").forEach(btn=>btn.addEventListener("click",()=>{
+      const target=btn.dataset.editorSection;
+      $$("[data-editor-section]").forEach(b=>b.classList.toggle("active",b===btn));
+      $$("[data-editor-panel]").forEach(panel=>panel.hidden=panel.dataset.editorPanel!==target);
+    }));
+    $("#editor-save-demo")?.addEventListener("click",()=>setStatus("#editor-save-status","Esta pantalla ya esta lista. Falta conectar el guardado real.","success"));
+  }
+
   async function start(){
     try{
       if(page==="access")await initAccess();
@@ -585,6 +627,7 @@
       else if(page==="profile")await initProfile();
       else if(page==="configure")await initConfigure();
       else if(page==="project")await initProject();
+      else if(page==="editor")await initEditor();
     }catch(error){
       if(["AUTH_REDIRECT","PROFILE_REDIRECT"].includes(error.message))return;
       console.error(error);const msg=friendlyError(error,"No pudimos cargar esta información. Intenta nuevamente.");

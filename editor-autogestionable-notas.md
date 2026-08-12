@@ -12,6 +12,7 @@
 - Si vence el acceso, la pagina sigue en linea y solo se pausa el editor.
 - Cambios especiales, nuevas secciones, sistemas o redisenos se cotizan aparte.
 - Ubicacion en el portal: dentro de cada `proyecto.html`, despues de pagos/acciones y antes de `Avances`.
+- Pantalla base del editor: `editor.html?project={id}`. Actualmente es diseno y vista previa; el guardado real queda pendiente de conectar.
 
 ## Reembolso y cancelacion
 
