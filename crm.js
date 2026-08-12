@@ -23,6 +23,7 @@
   const invitedProjects=()=>state.projects.filter(p=>!p.user_id);
   const isArchivedProject=(project)=>/(cancelado|descontinuado)/i.test(`${project?.project_stage||""} ${project?.status||""}`);
   const archivedKind=(project)=>/descontinuado/i.test(`${project?.project_stage||""} ${project?.status||""}`)?"descontinuado":(/cancelado/i.test(`${project?.project_stage||""} ${project?.status||""}`)?"cancelado":"");
+  const editorState=(project)=>{const raw=String(project?.editor_access_status||"").toLowerCase(),ends=project?.editor_access_ends_at||"";const expired=ends&&new Date(ends).getTime()<Date.now();if(project?.editor_enabled&&!expired)return{status:"active",ends};if(/activo|active/.test(raw)&&!expired)return{status:"active",ends};if(expired||/vencido|expired|cancelado|paused|pausado/.test(raw))return{status:"expired",ends};return{status:"none",ends:""};};
   const projectVisibilityLabel=(value)=>({hidden:"Oculta",preview:"Vista previa",public:"Publicada"}[value]||"Oculta");
   const getParam=(name)=>new URLSearchParams(location.search).get(name);
   function crmReturnHref(view="dashboard",clientId=""){
@@ -372,6 +373,73 @@
     if(copy) copy.textContent=archived?(kind==="descontinuado"?"Este proyecto quedó descontinuado. Puedes reactivarlo o borrarlo permanentemente.":"Este proyecto quedó cancelado. Puedes reactivarlo o borrarlo permanentemente."):"Si el proyecto ya no sigue, puedes cancelarlo o marcarlo como descontinuado sin perder el historial.";
     if(updateBox) updateBox.hidden=archived;
   }
+  function editorAdminError(error){
+    const text=String(error?.message||"");
+    if(/editor_enabled|editor_access_status|editor_access_starts_at|editor_access_ends_at|editor_plan_months|editor_price_mxn|editor_launch_url/i.test(text)) return "Falta configurar los campos del editor en Supabase. Ejecuta editor-autogestionable-manual.sql y vuelve a intentar.";
+    return error?.message||"No pudimos actualizar el editor.";
+  }
+  function updateEditorAdminUI(project){
+    const badge=$("#project-editor-badge"),status=$("#project-editor-status"),dates=$("#project-editor-dates"),url=$("#project-editor-url"),copy=$("#project-editor-copy");
+    if(!badge||!status||!dates||!url||!copy)return;
+    const access=editorState(project);
+    url.value=project?.editor_launch_url||"";
+    if(access.status==="active"){
+      badge.className="badge green";
+      badge.textContent="Activo";
+      status.textContent="Editor activo";
+      dates.textContent=`Activo hasta ${fmtDate(access.ends)}${project?.editor_plan_months?` · ${project.editor_plan_months} mes${project.editor_plan_months===1?"":"es"}`:""}`;
+      copy.textContent="El cliente ya puede entrar a su editor. Si guardas una URL externa, el botón del portal abrirá ese servicio.";
+      return;
+    }
+    if(access.status==="expired"){
+      badge.className="badge red";
+      badge.textContent="Vencido";
+      status.textContent="Acceso vencido";
+      dates.textContent=access.ends?`Venció el ${fmtDate(access.ends)}.`:"El acceso del editor ya no está activo.";
+      copy.textContent="Puedes renovarlo con un plan nuevo o dejarlo vencido para que el cliente vuelva a ver los planes.";
+      return;
+    }
+    badge.className="badge";
+    badge.textContent="No activo";
+    status.textContent="Sin acceso activo";
+    dates.textContent="Todavía no tiene acceso al editor.";
+    copy.textContent="Actívalo por tiempo y decide a qué editor entrará el cliente.";
+  }
+  async function saveEditorLaunchUrl(){
+    const project=state.currentProject,url=String($("#project-editor-url")?.value||"").trim()||null;
+    if(!project?.id)return;
+    setLine("#project-editor-line","Guardando URL del editor…");
+    const {data,error}=await db.from("client_projects").update({editor_launch_url:url,updated_at:new Date().toISOString()}).eq("id",project.id).select().single();
+    if(error){setLine("#project-editor-line",editorAdminError(error),"error");return;}
+    syncProjectState(data);
+    setLine("#project-editor-line","URL del editor guardada.","success");
+    toast("URL del editor guardada.");
+  }
+  async function activateEditorAccess(months,price){
+    const project=state.currentProject;
+    if(!project?.id)return;
+    const now=new Date();
+    const ends=new Date(now);
+    ends.setMonth(ends.getMonth()+Number(months));
+    setLine("#project-editor-line",`Activando editor por ${months} mes${months===1?"":"es"}…`);
+    const payload={editor_enabled:true,editor_access_status:"activo",editor_access_starts_at:now.toISOString(),editor_access_ends_at:ends.toISOString(),editor_plan_months:Number(months),editor_price_mxn:Number(price),updated_at:new Date().toISOString()};
+    const {data,error}=await db.from("client_projects").update(payload).eq("id",project.id).select().single();
+    if(error){setLine("#project-editor-line",editorAdminError(error),"error");return;}
+    syncProjectState(data);
+    setLine("#project-editor-line",`Editor activado por ${months} mes${months===1?"":"es"}.`,"success");
+    toast("Editor activado.");
+  }
+  async function cancelEditorAccess(){
+    const project=state.currentProject;
+    if(!project?.id)return;
+    if(!confirm(`¿Quitar el acceso al editor de ${project.name||"este proyecto"}?`))return;
+    setLine("#project-editor-line","Cancelando acceso al editor…");
+    const {data,error}=await db.from("client_projects").update({editor_enabled:false,editor_access_status:"cancelado",updated_at:new Date().toISOString()}).eq("id",project.id).select().single();
+    if(error){setLine("#project-editor-line",editorAdminError(error),"error");return;}
+    syncProjectState(data);
+    setLine("#project-editor-line","Acceso del editor cancelado.","success");
+    toast("Editor cancelado.");
+  }
 
   function openAgreement(id){const p=prospectById(id);if(!p)return;state.currentProspect=p;const f=$("#agreement-form"),el=f.elements;f.reset();el.prospect_id.value=p.id;el.project_name.value=p.negocio||"Nuevo proyecto";el.total_price.value=750;el.deposit_amount.value=375;el.balance_amount.value=375;el.payment_method.value="Transferencia";el.client_note.value="Tu proyecto ya está preparado. Activa tu cuenta para configurar la dirección de tu página y enviarnos la información del negocio.";setLine("#agreement-status","");$("#agreement-modal").showModal();}
   async function saveAgreement(e){
@@ -420,7 +488,7 @@
   }
 
   function setProjectForm(project={}){
-    const f=$("#project-form"),el=f.elements;state.currentProject=project.id?project:null;f.reset();el.id.value=project.id||"";el.source_prospect_id.value=project.source_prospect_id||"";el.name.value=project.name||"";fillClientSelect();el.user_id.value=project.user_id||"";el.project_stage.value=project.project_stage||"Invitación";el.status.value=project.status||"Pendiente de activar cuenta";el.address_type.value=project.address_type||"gratis";el.domain.value=project.domain||"";el.hosting_type.value=project.hosting_type||"cloudflare";el.site_visibility.value=project.site_visibility||"hidden";el.site_url.value=project.site_url||"";el.preview_url.value=project.preview_url||"";el.total_price.value=project.total_price??750;el.deposit_amount.value=project.deposit_amount??375;el.balance_amount.value=project.balance_amount??375;el.payment_method.value=project.payment_method||"Transferencia";el.deposit_paid.checked=Boolean(project.deposit_paid);el.balance_paid.checked=Boolean(project.balance_paid);el.client_note.value=project.client_note||"";$("#project-modal-title").textContent=project.id?project.name:"Nuevo proyecto";setLine("#project-form-status","");const inv=inviteUrl(project);$("#project-invite-box").hidden=!project.id||Boolean(project.user_id);$("#project-invite-url").textContent=inv||"Guarda el proyecto para generar una invitación.";$("#update-title").value="";$("#update-status").value="";$("#update-description").value="";setProjectTab("summary");updateProjectSummary();updateProjectLifecycleUI(project);
+    const f=$("#project-form"),el=f.elements;state.currentProject=project.id?project:null;f.reset();el.id.value=project.id||"";el.source_prospect_id.value=project.source_prospect_id||"";el.name.value=project.name||"";fillClientSelect();el.user_id.value=project.user_id||"";el.project_stage.value=project.project_stage||"Invitación";el.status.value=project.status||"Pendiente de activar cuenta";el.address_type.value=project.address_type||"gratis";el.domain.value=project.domain||"";el.hosting_type.value=project.hosting_type||"cloudflare";el.site_visibility.value=project.site_visibility||"hidden";el.site_url.value=project.site_url||"";el.preview_url.value=project.preview_url||"";el.total_price.value=project.total_price??750;el.deposit_amount.value=project.deposit_amount??375;el.balance_amount.value=project.balance_amount??375;el.payment_method.value=project.payment_method||"Transferencia";el.deposit_paid.checked=Boolean(project.deposit_paid);el.balance_paid.checked=Boolean(project.balance_paid);el.client_note.value=project.client_note||"";$("#project-modal-title").textContent=project.id?project.name:"Nuevo proyecto";setLine("#project-form-status","");setLine("#project-editor-line","");const inv=inviteUrl(project);$("#project-invite-box").hidden=!project.id||Boolean(project.user_id);$("#project-invite-url").textContent=inv||"Guarda el proyecto para generar una invitación.";$("#update-title").value="";$("#update-status").value="";$("#update-description").value="";setProjectTab("summary");updateProjectSummary();updateProjectLifecycleUI(project);updateEditorAdminUI(project);
   }
 
   async function downloadAdminFile(fileId,fileName){try{const r=await fetch(`/api/project-file?id=${encodeURIComponent(fileId)}`,{headers:{Authorization:`Bearer ${state.session.access_token}`}});if(!r.ok)throw new Error();const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=fileName||"archivo";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch{toast("No pudimos descargar el archivo.");}}
@@ -517,6 +585,9 @@
   $("#agreement-form")?.addEventListener("submit",saveAgreement);$$('[data-close-agreement]').forEach(b=>b.addEventListener("click",()=>$("#agreement-modal").close()));
   $("#project-form")?.addEventListener("submit",saveProject);$$('[data-close-project]').forEach(b=>b.addEventListener("click",()=>$("#project-modal").close()));$("#new-project")?.addEventListener("click",()=>{setProjectForm({project_stage:"Invitación",status:"Pendiente de activar cuenta",site_visibility:"hidden",total_price:750,deposit_amount:375,balance_amount:375,payment_method:"Transferencia"});$("#project-setup-admin-content").innerHTML="<span>Sin configuración.</span>";$("#project-brief-admin-content").innerHTML="<span>Sin información.</span>";$("#project-files-admin").innerHTML="<span>No hay archivos.</span>";$("#project-modal").showModal();});
   $("#copy-project-invite")?.addEventListener("click",()=>state.currentProject&&copyInvite(state.currentProject.id));$("#whatsapp-project-invite")?.addEventListener("click",()=>state.currentProject&&sendInvite(state.currentProject.id));$("#renew-project-invite")?.addEventListener("click",renewInvite);$("#cancel-project-invite")?.addEventListener("click",()=>state.currentProject&&cancelInvite(state.currentProject.id));$("#archive-project-cancel")?.addEventListener("click",()=>archiveProjectState("cancel"));$("#archive-project-discontinue")?.addEventListener("click",()=>archiveProjectState("discontinue"));$("#restore-project")?.addEventListener("click",restoreArchivedProject);$("#delete-project-permanently")?.addEventListener("click",()=>deleteProjectPermanently());$("#add-project-update")?.addEventListener("click",addUpdate);
+  $$("[data-editor-activate]").forEach(b=>b.addEventListener("click",()=>activateEditorAccess(Number(b.dataset.editorActivate),Number(b.dataset.editorPrice))));
+  $("#save-editor-url")?.addEventListener("click",saveEditorLaunchUrl);
+  $("#cancel-editor-access")?.addEventListener("click",cancelEditorAccess);
   $$("[data-project-tab]").forEach(b=>b.addEventListener("click",()=>setProjectTab(b.dataset.projectTab)));
   $$("[data-prospect-stage]").forEach(b=>b.addEventListener("click",()=>setProspectStage(b.dataset.prospectStage)));
   ["user_id","project_stage","site_visibility","total_price"].forEach(name=>$("#project-form")?.elements?.[name]?.addEventListener("input",updateProjectSummary));
