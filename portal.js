@@ -119,6 +119,10 @@
       liveChannel=null;
     }
   }
+  function refreshVisiblePortalPage(){
+    if(document.visibilityState!=="visible") return;
+    if(["panel","project","configure","editor"].includes(page)) location.reload();
+  }
   function startLiveUpdates(name,specs,handler){
     stopLiveUpdates();
     if(!db?.channel||!specs?.length)return;
@@ -675,6 +679,7 @@
       const grid=$("#projects-grid");if(grid)grid.innerHTML=`<div class="empty-card empty-card-wide"><h3>No pudimos cargar tus proyectos</h3><p>${safe(msg)}</p></div>`;
     }
   }
+  document.addEventListener("visibilitychange",refreshVisiblePortalPage);
   window.addEventListener("pagehide",stopLiveUpdates);
   start();
 })();

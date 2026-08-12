@@ -148,6 +148,13 @@
       return;
     }
     await loadAll();
+    const projectModal=$("#project-modal");
+    if(state.currentProject?.id && projectModal?.open){
+      await loadProjectDetails(state.currentProject.id,false);
+    }
+    if(state.currentClient && document.querySelector('[data-view-panel="client-detail"]')?.classList.contains("active")){
+      renderClientDetail();
+    }
   }
   function scheduleCrmRefresh(){
     clearTimeout(crmRefreshTimer);
@@ -645,6 +652,7 @@
   $("#crm-user-form")?.addEventListener("submit",addUser);
   $("#user-rows")?.addEventListener("click",async e=>{const t=e.target;if(t.dataset.toggleUser){const u=state.users.find(x=>String(x.email).toLowerCase()===String(t.dataset.toggleUser).toLowerCase());if(u)await toggleUser(u.email,!u.activo);}if(t.dataset.deleteUser)await removeUser(t.dataset.deleteUser);if(t.dataset.grantUser)await grantUser(t.dataset.grantUser,t.dataset.grantRol);});
   $("#user-rows")?.addEventListener("change",async e=>{const t=e.target;if(t.dataset.userEmail)await changeUserRole(t.dataset.userEmail,t.value);});
+  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")refreshCrmLive().catch(err=>console.error("crm visibility refresh",err));});
   window.addEventListener("pagehide",stopCrmRealtime);
 
   (async()=>{if(!portal.configured){setLine("#crm-login-status","El CRM no está disponible en este momento.","error");return;}const {data:{session}}=await db.auth.getSession();await showSession(session);db.auth.onAuthStateChange((_e,s)=>{showSession(s||null);});})().catch(err=>{console.error(err);setLine("#crm-login-status","No pudimos cargar el CRM.","error");});
