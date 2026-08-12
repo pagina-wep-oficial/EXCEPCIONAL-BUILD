@@ -40,6 +40,7 @@
   }
   function stageIndex(project) {
     const s=stageKey(project);
+    if(/cancelad|descontinuad/.test(s)) return 99;
     if(/publicado|mantenimiento/.test(s)) return 4;
     if(/revisión|revision/.test(s)) return 3;
     if(/producción|produccion|desarrollo/.test(s)) return 2;
@@ -47,6 +48,9 @@
     return 0;
   }
   function nextStepText(project) {
+    const archived=archivedClientState(project);
+    if(archived==="cancelado") return ["Proyecto cancelado","Contáctanos por WhatsApp si quieres retomarlo."];
+    if(archived==="descontinuado") return ["Proyecto descontinuado","Contáctanos por WhatsApp si quieres retomarlo."];
     const i=stageIndex(project);
     if(i===0) return ["Configura tu página","Elige la dirección y cómo la vamos a publicar."];
     if(i===1) return ["Envíanos la información del negocio","Completa los datos, fotos y archivos que usaremos."];
@@ -55,10 +59,12 @@
     return ["Tu página está publicada","Puedes pedir cambios o mantenimiento cuando lo necesites."];
   }
   function projectPrimaryHref(project) {
+    if(archivedClientState(project)) return `proyecto.html?id=${encodeURIComponent(project.id)}`;
     if(stageIndex(project)===0) return `cotizar.html?project=${encodeURIComponent(project.id)}`;
     return `proyecto.html?id=${encodeURIComponent(project.id)}`;
   }
   function projectPrimaryLabel(project) {
+    if(archivedClientState(project)) return "Ver estado";
     const i=stageIndex(project);
     return ["Configurar ahora","Completar información","Ver avance","Revisar página","Abrir proyecto"][i] || "Abrir proyecto";
   }
