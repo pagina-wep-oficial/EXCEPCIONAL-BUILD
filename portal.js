@@ -105,6 +105,11 @@
     if(expired||/vencido|expired|pausado|paused|cancelado/.test(raw)) return {status:"expired",ends};
     return {status:"none",ends:""};
   }
+  function editorLaunchHref(project) {
+    const external=String(project?.editor_launch_url||"").trim();
+    if(external) return external;
+    return `editor.html?project=${encodeURIComponent(project.id)}`;
+  }
 
   async function captureClaimFromUrl() {
     const id=getParam("claim"), token=getParam("token"), code=getParam("invite");
@@ -491,7 +496,7 @@
           <span class="editor-badge active">Activo${access.ends?` hasta ${date(access.ends)}`:""}</span>
         </div>
         <div class="editor-active-box">
-          <a class="button button-primary" href="editor.html?project=${encodeURIComponent(project.id)}">Abrir editor</a>
+          <a class="button button-primary" href="${safe(editorLaunchHref(project))}" target="_blank" rel="noopener">Abrir editor</a>
           <a class="button button-light" href="${editorSupportHref(project,profile)}" target="_blank" rel="noopener">Ayuda con suscripcion</a>
         </div>
         <div class="editor-flow-note"><b>OK</b><span>Mientras el acceso este activo, este boton abre la herramienta de edicion de este sitio.</span></div>`:`
