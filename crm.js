@@ -24,7 +24,29 @@
   const isArchivedProject=(project)=>/(cancelado|descontinuado)/i.test(`${project?.project_stage||""} ${project?.status||""}`);
   const archivedKind=(project)=>/descontinuado/i.test(`${project?.project_stage||""} ${project?.status||""}`)?"descontinuado":(/cancelado/i.test(`${project?.project_stage||""} ${project?.status||""}`)?"cancelado":"");
   const projectVisibilityLabel=(value)=>({hidden:"Oculta",preview:"Vista previa",public:"Publicada"}[value]||"Oculta");
-  const projectAdminHref=(id)=>`project-admin.html?id=${encodeURIComponent(id)}`;
+  const getParam=(name)=>new URLSearchParams(location.search).get(name);
+  function crmReturnHref(view="dashboard",clientId=""){
+    const params=new URLSearchParams();
+    if(view) params.set("view",view);
+    if(clientId) params.set("client",clientId);
+    const query=params.toString();
+    return `crm-local.html${query?`?${query}`:""}`;
+  }
+  function currentCrmReturnState(){
+    if(crmPage==="project-admin"){
+      return {view:getParam("from")||"dashboard",clientId:getParam("client")||""};
+    }
+    if(state.currentClient && document.querySelector('[data-view-panel="client-detail"]')?.classList.contains("active")){
+      return {view:"client-detail",clientId:state.currentClient};
+    }
+    return {view:localStorage.getItem(CRM_VIEW_KEY)||"dashboard",clientId:""};
+  }
+  function projectAdminHref(id,source=currentCrmReturnState()){
+    const params=new URLSearchParams({id});
+    if(source?.view) params.set("from",source.view);
+    if(source?.clientId) params.set("client",source.clientId);
+    return `project-admin.html?${params.toString()}`;
+  }
   const CRM_VIEW_KEY="eb_crm_view";
   let prospectStage="new";
 
@@ -67,6 +89,11 @@
     $("#view-title").textContent=meta[0];$("#view-subtitle").textContent=meta[1];
   }
   function resolveInitialView(role){
+    const requested=getParam("view");
+    if(requested){
+      if(role!=="administrador"&&!["dashboard","prospects","trash"].includes(requested)) return "dashboard";
+      return requested;
+    }
     const saved=localStorage.getItem(CRM_VIEW_KEY)||"dashboard";
     if(role!=="administrador"&&!["dashboard","prospects","trash"].includes(saved)) return "dashboard";
     return saved;
@@ -84,8 +111,14 @@
       $("#crm-login").hidden=true;$("#crm-app").hidden=false;if($("#admin-email"))$("#admin-email").textContent=session.user.email||"";if($("#admin-name"))$("#admin-name").textContent=session.user.user_metadata?.full_name||session.user.email?.split("@")[0]||"Administrador";if($("#admin-rol"))$("#admin-rol").textContent=esAdmin?"Administrador":"Asesor";
       document.body.classList.remove("crm-booting");
       if(crmPage==="project-admin"){ await loadAll(false); await initProjectAdminPage(); return; }
-      setView(resolveInitialView(rol));
+      const initialView=resolveInitialView(rol);
+      setView(initialView);
       await loadAll();
+      if(initialView==="client-detail"){
+        const clientId=getParam("client");
+        if(clientId&&clientById(clientId)) openClient(clientId);
+        else setView("clients");
+      }
     }
     catch(err){setLine("#crm-login-status","No pudimos comprobar tus permisos.","error");$("#crm-login").hidden=false;$("#crm-app").hidden=true;document.body.classList.remove("crm-booting");}
   }
@@ -307,6 +340,11 @@
   async function initProjectAdminPage(){
     const id=new URLSearchParams(location.search).get("id");
     if(!id){ setLine("#project-form-status","Falta el proyecto a administrar.","error"); return; }
+    const backLink=document.querySelector(".back-link");
+    if(backLink){
+      const target=currentCrmReturnState();
+      backLink.href=crmReturnHref(target.view,target.clientId);
+    }
     await loadProjectDetails(id,false);
   }
   function activeStageForRestore(project){
@@ -375,7 +413,7 @@
     }
     state.projects=state.projects.filter(x=>x.id!==id);
     if(state.currentProject?.id===id) state.currentProject=null;
-    if(crmPage==="project-admin"){ location.assign("crm-local.html"); return; }
+    if(crmPage==="project-admin"){ const target=currentCrmReturnState(); location.assign(crmReturnHref(target.view,target.clientId)); return; }
     renderAll();
     toast("Invitación cancelada. El prospecto volvió a Prospectos.");
   }
@@ -401,7 +439,7 @@
   }
   async function openProject(id){
     if(crmPage==="project-admin"){ await loadProjectDetails(id,false); return; }
-    location.assign(projectAdminHref(id));
+    location.assign(projectAdminHref(id,currentCrmReturnState()));
   }
 
   async function archiveProjectState(mode){
@@ -448,7 +486,7 @@
     state.projects=state.projects.filter(p=>p.id!==project.id);
     if(state.currentProject?.id===project.id) state.currentProject=null;
     renderAll();
-    if(crmPage==="project-admin"){ location.assign("crm-local.html"); return; }
+    if(crmPage==="project-admin"){ const target=currentCrmReturnState(); location.assign(crmReturnHref(target.view,target.clientId)); return; }
     $("#project-modal")?.close();
     toast("Proyecto borrado permanentemente.");
   }
