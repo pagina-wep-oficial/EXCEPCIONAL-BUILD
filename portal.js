@@ -35,7 +35,7 @@
     if(/producción|produccion|desarrollo|constru/.test(s)) return "status-progress";
     if(/revisión|revision|revisar/.test(s)) return "status-review";
     if(/información|informacion|contenido|esperando/.test(s)) return "status-waiting";
-    if(/cancelad|descartad/.test(s)) return "status-cancelled";
+    if(/cancelad|descartad|descontinuad/.test(s)) return "status-cancelled";
     return "";
   }
   function stageIndex(project) {
@@ -219,6 +219,31 @@
     const mine=projects.filter(p=>p.user_id===uid);
     const others=projects.filter(p=>!p.user_id||p.user_id!==uid);
     const grid=$("#projects-grid"), allBlock=$("#all-projects-block"), allGrid=$("#projects-grid-all"), search=$("#projects-search");
+    function initEditorOffer(){
+      const section=$("#editor-offer-section"), select=$("#editor-project-select"), support=$("#editor-support-link");
+      if(!section||!select) return;
+      const editable=mine.filter(p=>!archivedClientState(p));
+      if(!editable.length){ section.hidden=true; return; }
+      section.hidden=false;
+      select.innerHTML=editable.map(p=>`<option value="${safe(p.id)}">${safe(p.name)}${p.domain?` - ${safe(p.domain)}`:""}</option>`).join("");
+      const selectedProject=()=>editable.find(p=>p.id===select.value)||editable[0];
+      const supportHref=()=>`https://wa.me/${WHATSAPP}?text=${encodeURIComponent(`Hola, necesito ayuda con mi suscripcion del editor de mi sitio.\nProyecto: ${selectedProject()?.name||""}\nProyecto ID: ${selectedProject()?.id||""}`)}`;
+      const syncSupport=()=>{ if(support) support.href=supportHref(); };
+      select.addEventListener("change",syncSupport);
+      syncSupport();
+      $$("[data-editor-plan]",section).forEach(btn=>btn.addEventListener("click",()=>{
+        const project=selectedProject();
+        const months=btn.dataset.editorPlan;
+        const price=btn.dataset.editorPrice;
+        const text=[
+          `Hola, soy ${profile.full_name||"cliente"}.`,
+          `Quiero activar el editor autogestionable para mi sitio ${project?.name||""}.`,
+          `Plan: ${months} mes${months==="1"?"":"es"} por $${price} MXN.`,
+          `Proyecto ID: ${project?.id||""}.`
+        ].join("\n");
+        location.assign(`https://wa.me/${WHATSAPP}?text=${encodeURIComponent(text)}`);
+      }));
+    }
     function projectCard(p){
       const [title,copy]=nextStepText(p), url=projectPrimaryHref(p), action=projectPrimaryLabel(p);
       const archived=archivedClientState(p);
@@ -239,6 +264,7 @@
       if(showAll){ allGrid.innerHTML=other.length?other.map(projectCard).join(""):`<div class="empty-card"><div class="empty-icon">…</div><h3>Sin resultados</h3><p>Intenta con otro nombre o cliente.</p></div>`; }
     };
     if(search)search.addEventListener("input",render);
+    initEditorOffer();
     render();
   }
 

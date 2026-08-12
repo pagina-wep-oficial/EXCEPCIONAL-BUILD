@@ -113,6 +113,28 @@ img{max-width:100%}
 .empty-card p{margin-bottom:18px;color:var(--muted);font-size:13px}
 .help-strip{display:flex;align-items:flex-start;flex-direction:column;gap:12px;margin-top:18px;padding:18px;border-radius:20px;background:#ecefe9}
 .help-strip div{display:grid;gap:2px}.help-strip strong{font-size:14px}.help-strip span{color:var(--muted);font-size:12px}.help-strip .button{width:100%}
+.editor-offer{margin:0 0 24px;border:1px solid rgba(16,42,36,.12);border-radius:22px;background:#fff;box-shadow:0 10px 30px rgba(16,42,36,.055);overflow:hidden}
+.editor-offer-head{display:grid;gap:12px;padding:18px;border-bottom:1px solid var(--line);background:#fbfcf8}
+.editor-offer-head h2{margin:0 0 5px;font:800 24px/1.12 "Manrope";letter-spacing:-.03em}
+.editor-offer-head p:not(.eyebrow){margin:0;color:var(--muted);font-size:12px;line-height:1.45}
+.editor-badge{width:max-content;display:inline-flex;align-items:center;min-height:28px;padding:0 10px;border-radius:999px;background:var(--green-soft);color:var(--green);font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.04em}
+.editor-offer-body{display:grid;gap:13px;padding:16px 18px 18px}
+.editor-project-picker{display:grid;gap:7px}
+.editor-project-picker label{color:#3c5049;font-size:11px;font-weight:900}
+.editor-project-picker select{width:100%;min-height:46px;border:1px solid var(--line);border-radius:13px;background:#fff;padding:0 12px;color:var(--ink);outline:none}
+.editor-project-picker select:focus{border-color:var(--ink-2);box-shadow:0 0 0 3px rgba(16,42,36,.08)}
+.editor-plan-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.editor-plan-card{min-height:112px;display:grid;align-content:start;gap:5px;padding:14px;border:1px solid var(--line);border-radius:16px;background:#fff;color:var(--ink);text-align:left}
+.editor-plan-card span{color:var(--muted);font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.05em}
+.editor-plan-card strong{font:800 26px/1 "Manrope";letter-spacing:-.03em}
+.editor-plan-card small{color:var(--muted);font-size:10px;line-height:1.35}
+.editor-plan-card.featured{border-color:rgba(16,42,36,.28);background:#eff4ee}
+.editor-plan-card:active{transform:scale(.985)}
+.editor-rules{padding:12px;border-radius:14px;background:#f6f7f3}
+.editor-rules p{margin:0 0 6px;color:#55645f;font-size:11px;line-height:1.45}
+.editor-rules a{color:var(--ink);font-size:10px;font-weight:900;text-decoration:underline}
+.editor-support{display:grid;gap:10px;padding:13px;border-radius:16px;background:#102a24;color:#fff}
+.editor-support strong{display:block;font-size:13px}.editor-support span{display:block;margin-top:2px;color:#b7c7c1;font-size:10px;line-height:1.45}.editor-support .button{width:100%}
 
 /* Status */
 .status-badge{display:inline-flex;align-items:center;gap:7px;min-height:28px;padding:0 10px;border-radius:999px;background:#eef1ed;color:#42514c;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.045em}
@@ -150,6 +172,10 @@ img{max-width:100%}
 .account-help-card{margin-top:13px;padding:17px 18px;border-radius:18px;background:#edf3ee}
 .account-help-card div{display:grid;gap:3px}.account-help-card strong{font-size:13px}.account-help-card span{color:var(--muted);font-size:11px;line-height:1.45}
 .logout-link{width:100%;min-height:48px;margin-top:14px;border:0;background:transparent;color:#8c4e43;font-weight:800}
+.policy-list{display:grid;gap:10px;margin:2px 0 18px}
+.policy-list article{padding:13px;border:1px solid var(--line);border-radius:15px;background:#fbfcf8}
+.policy-list strong{display:block;margin-bottom:4px;font-size:13px}
+.policy-list p{margin:0;color:var(--muted);font-size:11px;line-height:1.5}
 
 /* Project */
 .project-heading-simple{display:flex;align-items:flex-start;flex-direction:column;gap:14px;margin-bottom:16px}
@@ -222,6 +248,10 @@ dialog::backdrop{background:rgba(8,24,20,.58);backdrop-filter:blur(4px)}
   .simple-section-head{align-items:flex-end;flex-direction:row}.project-filters{width:auto}
   .projects-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.card-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
   .help-strip{align-items:center;justify-content:space-between;flex-direction:row}.help-strip .button{width:auto}
+  .editor-offer-head{grid-template-columns:1fr auto;align-items:start;padding:20px 22px}
+  .editor-offer-body{padding:18px 22px 22px}
+  .editor-plan-grid{grid-template-columns:repeat(4,1fr)}
+  .editor-support{grid-template-columns:1fr auto;align-items:center}.editor-support .button{width:auto}
   .field-row{grid-template-columns:1fr 1fr}
   .payments-grid{grid-template-columns:repeat(3,1fr)}
   .actions-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
