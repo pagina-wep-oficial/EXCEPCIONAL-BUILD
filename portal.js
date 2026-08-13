@@ -719,6 +719,8 @@ db.from("client_requests").select("*").eq("project_id",id).order("created_at",{a
     const baseTimeline=projectBaseTimeline(project);
     $("#project-timeline").innerHTML=baseTimeline.length?baseTimeline.map(item=>`<article class="timeline-item"><h3>${safe(item.title)}</h3><p>${safe(item.description||"")}</p><time>${date(item.dateValue)}</time></article>`).join(""):`<article class="timeline-item"><h3>Proyecto creado</h3><p>Tu proyecto fue registrado correctamente.</p><time>${date(project.created_at)}</time></article>`;
 
+    const ACTIVE_REQUEST_LIMIT=3;
+    const CLOSED_REQUEST_LIMIT=6;
     const activeRequests=requests.filter(r=>requestStateMeta(r.status).group==="active");
     const closedRequests=requests.filter(r=>requestStateMeta(r.status).group==="closed");
     const renderClientRequestCard=(request)=>{
@@ -727,10 +729,65 @@ db.from("client_requests").select("*").eq("project_id",id).order("created_at",{a
       const timeline=requestTimelineSteps(request).map((step,i,arr)=>`<div class="request-step ${step.done?"done":step.active?"active":"pending"}"><i>${step.done?"✓":i+1}</i><span>${safe(step.label)}</span>${i<arr.length-1?`<b></b>`:""}</div>`).join("");
       return `<article class="request-client-card"><div class="request-client-top"><span class="status-badge status-${meta.tone}">${safe(meta.label)}</span><small>${date(request.completed_at||request.updated_at||request.created_at)}</small></div><h3>${safe(requestDisplayTitle(request))}</h3><p>${safe(requestDisplaySummary(request))}</p>${specialState}<div class="request-mini-timeline">${timeline}</div><div class="request-client-meta"><b>${safe(requestLabels[request.request_type]?.title||"Solicitud")}</b><span>${safe(project.name||"Proyecto")}</span></div></article>`;
     };
-    const activeBox=$("#project-requests-active"),closedBox=$("#project-requests-closed"),history=$("#project-requests-history");
-    if(activeBox)activeBox.innerHTML=activeRequests.length?activeRequests.map(renderClientRequestCard).join(""):`<div class="empty-inline">No tienes solicitudes activas.</div>`;
-    if(closedBox)closedBox.innerHTML=closedRequests.length?closedRequests.map(renderClientRequestCard).join(""):`<div class="empty-inline">Todavía no hay solicitudes cerradas.</div>`;
-    if(history)history.hidden=!closedRequests.length;
+    const wireRequestToggle=(toggle,extraBox,extraCount,label)=>{
+      if(!toggle||!extraBox||extraCount<=0)return;
+      toggle.hidden=false;
+      toggle.dataset.expanded="0";
+      toggle.textContent=`Ver ${extraCount} más`;
+      extraBox.hidden=true;
+      toggle.onclick=()=>{
+        const expanded=toggle.dataset.expanded==="1";
+        extraBox.hidden=expanded;
+        toggle.dataset.expanded=expanded?"0":"1";
+        toggle.textContent=expanded?`Ver ${extraCount} más`:`Mostrar menos ${label}`;
+      };
+    };
+
+    const activeBox=$("#project-requests-active");
+    const activeMoreBox=$("#project-requests-active-more");
+    const activeToggle=$("#project-requests-active-toggle");
+    const activeCount=$("#project-requests-active-count");
+
+    const closedBox=$("#project-requests-closed");
+    const closedMoreBox=$("#project-requests-closed-more");
+    const closedToggle=$("#project-requests-closed-toggle");
+    const history=$("#project-requests-history");
+    const historySummary=$("#project-requests-history-summary");
+
+    const activeVisible=activeRequests.slice(0,ACTIVE_REQUEST_LIMIT);
+    const activeExtra=activeRequests.slice(ACTIVE_REQUEST_LIMIT);
+    const closedVisible=closedRequests.slice(0,CLOSED_REQUEST_LIMIT);
+    const closedExtra=closedRequests.slice(CLOSED_REQUEST_LIMIT);
+
+    if(activeCount)activeCount.textContent=activeRequests.length?`${activeRequests.length} activa${activeRequests.length===1?"":"s"}`:"Sin solicitudes activas";
+
+    if(activeBox)activeBox.innerHTML=activeRequests.length?activeVisible.map(renderClientRequestCard).join(""):`<div class="empty-inline">No tienes solicitudes activas.</div>`;
+    if(activeMoreBox){
+      activeMoreBox.innerHTML=activeExtra.map(renderClientRequestCard).join("");
+      activeMoreBox.hidden=!activeExtra.length;
+    }
+    if(activeToggle){
+      activeToggle.hidden=!activeExtra.length;
+      activeToggle.onclick=null;
+    }
+    wireRequestToggle(activeToggle,activeMoreBox,activeExtra.length,"solicitudes");
+
+    if(closedBox)closedBox.innerHTML=closedRequests.length?closedVisible.map(renderClientRequestCard).join(""):`<div class="empty-inline">Todavía no hay solicitudes cerradas.</div>`;
+    if(closedMoreBox){
+      closedMoreBox.innerHTML=closedExtra.map(renderClientRequestCard).join("");
+      closedMoreBox.hidden=!closedExtra.length;
+    }
+    if(closedToggle){
+      closedToggle.hidden=!closedExtra.length;
+      closedToggle.onclick=null;
+    }
+    wireRequestToggle(closedToggle,closedMoreBox,closedExtra.length,"del historial");
+
+    if(history){
+      history.hidden=!closedRequests.length;
+      if(!closedRequests.length)history.removeAttribute("open");
+    }
+    if(historySummary)historySummary.textContent=closedRequests.length?`Ver historial de solicitudes (${closedRequests.length})`:"Ver historial de solicitudes";
 
     const dialog=$("#request-dialog"), reqForm=$("#request-form");
     $$('[data-request-type]').forEach(btn=>btn.addEventListener("click",()=>{const type=btn.dataset.requestType;reqForm.request_type.value=type;$("#request-title").textContent=requestLabels[type].title;reqForm.message.value="";setStatus("#request-status","");dialog.showModal();}));

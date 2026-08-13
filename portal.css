@@ -240,6 +240,11 @@ img{max-width:100%}
 .request-client-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
 .request-client-meta b{font-size:11px}
 .request-client-meta span{color:var(--muted);font-size:10px}
+.request-section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:2px 0 12px}
+.request-section-head h3{margin:0;font:800 13px/1 "Manrope";letter-spacing:.02em;text-transform:uppercase;color:var(--ink)}
+.request-section-head small{color:var(--muted);font-size:11px;font-weight:700}
+.request-client-list-hidden{margin-top:12px}
+.request-more-button{margin-top:12px;width:100%}
 .request-history{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
 .request-history summary{cursor:pointer;font-size:12px;font-weight:800;color:var(--ink)}
 .request-client-list-history{margin-top:12px}
