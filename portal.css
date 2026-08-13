@@ -219,6 +219,19 @@ img{max-width:100%}
 .availability-box strong{display:block;margin-bottom:3px;font:800 16px "Manrope"}
 .availability-box span{display:block;color:var(--muted);font-size:12px;line-height:1.5}
 .availability-box .button{width:100%}
+.request-client-list{display:grid;gap:12px}
+.request-client-card{padding:16px;border:1px solid var(--line);border-radius:18px;background:#fbfcf8}
+.request-client-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.request-client-top small{color:var(--muted);font-size:10px}
+.request-client-card h3{margin:0 0 6px;font:800 18px/1.15 "Manrope";letter-spacing:-.02em}
+.request-client-card p{margin:0;color:var(--muted);font-size:12px;line-height:1.5}
+.request-client-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.request-client-meta b{font-size:11px}
+.request-client-meta span{color:var(--muted);font-size:10px}
+.request-history{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.request-history summary{cursor:pointer;font-size:12px;font-weight:800;color:var(--ink)}
+.request-client-list-history{margin-top:12px}
+.empty-inline{padding:15px;border:1px dashed rgba(16,42,36,.18);border-radius:16px;background:#fff;color:var(--muted);font-size:12px;text-align:center}
 .availability-box.preview{border-color:rgba(49,94,201,.14);background:var(--blue-soft)}
 .availability-box.public{border-color:rgba(31,122,90,.14);background:var(--green-soft)}
 .availability-box.hidden-site{background:#f2f2ed}

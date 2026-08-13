@@ -469,13 +469,41 @@
   }
 
   const requestLabels={
-    cambio:["Solicitar un cambio","Dinos qué quieres corregir antes de publicar."],
-    mantenimiento:["Solicitar mantenimiento","Revisar un problema o algo que dejó de funcionar."],
-    actualizar:["Actualizar mi página","Cambiar textos, fotos, horarios, productos o precios."],
-    dominio:["Quiero un dominio propio","Cambiar el enlace gratuito por una dirección profesional."],
-    hosting:["Necesito funciones especiales","Agregar sistema, usuarios, base de datos u otras funciones."],
-    mejorar:["Mejorar mi proyecto","Agregar nuevas secciones o funciones."]
+    cambio:{title:"Solicitar un cambio",help:"Dinos qué quieres corregir antes de publicar.",publicTitle:"Cambio solicitado"},
+    mantenimiento:{title:"Solicitar mantenimiento",help:"Revisar un problema o algo que dejó de funcionar.",publicTitle:"Mantenimiento solicitado"},
+    actualizar:{title:"Actualizar mi página",help:"Cambiar textos, fotos, horarios, productos o precios.",publicTitle:"Actualización solicitada"},
+    dominio:{title:"Quiero un dominio propio",help:"Cambiar el enlace gratuito por una dirección profesional.",publicTitle:"Dominio solicitado"},
+    hosting:{title:"Necesito funciones especiales",help:"Agregar sistema, usuarios, base de datos u otras funciones.",publicTitle:"Funciones especiales solicitadas"},
+    mejorar:{title:"Mejorar mi proyecto",help:"Agregar nuevas secciones o funciones.",publicTitle:"Mejora solicitada"}
   };
+  function requestStateMeta(value=""){
+    const key=String(value||"").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+    const states={
+      nueva:{label:"Recibida",tone:"waiting",group:"active"},
+      revisada:{label:"Revisada",tone:"waiting",group:"active"},
+      aceptada:{label:"Aceptada",tone:"progress",group:"active"},
+      "en proceso":{label:"En proceso",tone:"progress",group:"active"},
+      en_proceso:{label:"En proceso",tone:"progress",group:"active"},
+      "en revision":{label:"En revisión",tone:"review",group:"active"},
+      "en revisión":{label:"En revisión",tone:"review",group:"active"},
+      en_revision:{label:"En revisión",tone:"review",group:"active"},
+      completada:{label:"Completada",tone:"live",group:"closed"},
+      resuelta:{label:"Completada",tone:"live",group:"closed"},
+      cerrada:{label:"Completada",tone:"live",group:"closed"},
+      pospuesta:{label:"Pospuesta",tone:"waiting",group:"active"},
+      rechazada:{label:"Rechazada",tone:"cancelled",group:"closed"},
+      archivada:{label:"Archivada",tone:"cancelled",group:"closed"}
+    };
+    return states[key]||{label:value||"Recibida",tone:"waiting",group:"active"};
+  }
+  function requestDisplayTitle(request){
+    const clean=String(request?.admin_title||request?.client_title||"").trim();
+    if(clean) return clean;
+    return requestLabels[request?.request_type]?.publicTitle||"Solicitud";
+  }
+  function requestDisplaySummary(request){
+    return String(request?.admin_summary||request?.message||"").trim()||"Recibimos tu solicitud y la revisaremos contigo.";
+  }
 
   async function initProject() {
     const {session,profile}=await loadContext(); const id=getParam("id"); if(!id){location.replace("panel.html");return;}
@@ -607,18 +635,40 @@
     if(actionsCard&&!actionsCard.hidden && !archivedState){
       const types=pos===3?["cambio"]:["actualizar","mantenimiento","mejorar"];
       if(pos===4&&project.address_type==="gratis")types.push("dominio"); if(pos===4&&project.hosting_type==="cloudflare")types.push("hosting");
-      $("#project-actions").innerHTML=types.map(t=>`<button class="action-card" type="button" data-request-type="${t}"><b>${requestLabels[t][0]}</b><span>${requestLabels[t][1]}</span></button>`).join("");
+      $("#project-actions").innerHTML=types.map(t=>`<button class="action-card" type="button" data-request-type="${t}"><b>${requestLabels[t].title}</b><span>${requestLabels[t].help}</span></button>`).join("");
     }
 
     $("#project-timeline").innerHTML=updates.length?updates.map(u=>`<article class="timeline-item"><h3>${safe(u.title)}</h3><p>${safe(u.description||"")}</p><time>${date(u.created_at)}</time></article>`).join(""):`<article class="timeline-item"><h3>Proyecto creado</h3><p>Aquí aparecerán los avances que registremos.</p><time>${date(project.created_at)}</time></article>`;
 
+    const activeRequests=requests.filter(r=>requestStateMeta(r.status).group==="active");
+    const closedRequests=requests.filter(r=>requestStateMeta(r.status).group==="closed");
+    const renderClientRequestCard=(request)=>{const meta=requestStateMeta(request.status);return `<article class="request-client-card"><div class="request-client-top"><span class="status-badge status-${meta.tone}">${safe(meta.label)}</span><small>${date(request.completed_at||request.updated_at||request.created_at)}</small></div><h3>${safe(requestDisplayTitle(request))}</h3><p>${safe(requestDisplaySummary(request))}</p><div class="request-client-meta"><b>${safe(requestLabels[request.request_type]?.title||"Solicitud")}</b><span>${safe(project.name||"Proyecto")}</span></div></article>`;};
+    const activeBox=$("#project-requests-active"),closedBox=$("#project-requests-closed"),history=$("#project-requests-history");
+    if(activeBox)activeBox.innerHTML=activeRequests.length?activeRequests.map(renderClientRequestCard).join(""):`<div class="empty-inline">No tienes solicitudes activas.</div>`;
+    if(closedBox)closedBox.innerHTML=closedRequests.length?closedRequests.map(renderClientRequestCard).join(""):`<div class="empty-inline">Todavía no hay solicitudes cerradas.</div>`;
+    if(history)history.hidden=!closedRequests.length;
+
     const dialog=$("#request-dialog"), reqForm=$("#request-form");
-    $$('[data-request-type]').forEach(btn=>btn.addEventListener("click",()=>{const type=btn.dataset.requestType;reqForm.request_type.value=type;$("#request-title").textContent=requestLabels[type][0];reqForm.message.value="";setStatus("#request-status","");dialog.showModal();}));
+    $$('[data-request-type]').forEach(btn=>btn.addEventListener("click",()=>{const type=btn.dataset.requestType;reqForm.request_type.value=type;$("#request-title").textContent=requestLabels[type].title;reqForm.message.value="";setStatus("#request-status","");dialog.showModal();}));
     $$('[data-dialog-close]').forEach(btn=>btn.addEventListener("click",()=>dialog.close()));
     reqForm.addEventListener("submit",async e=>{
       e.preventDefault();const fd=new FormData(reqForm),type=String(fd.get("request_type")),message=String(fd.get("message")||"").trim();if(!message){setStatus("#request-status","Cuéntanos qué quieres cambiar.","error");return;}
       const b=reqForm.querySelector('button[type="submit"]');b.disabled=true;setStatus("#request-status","Enviando…");
-      try{const {error}=await db.from("client_requests").insert({project_id:id,user_id:session.user.id,request_type:type,message,status:"Nueva"});if(error)throw error;const text=[`Hola, soy ${profile.full_name}.`,`Proyecto: ${project.name}`,`Quiero: ${requestLabels[type][0]}`,`Detalles: ${message}`].join("\n");location.assign(`https://wa.me/${WHATSAPP}?text=${encodeURIComponent(text)}`);}catch(err){setStatus("#request-status",friendlyError(err,"No pudimos enviar la solicitud."),"error");b.disabled=false;}
+      try{
+        const payload={
+          project_id:id,
+          user_id:session.user.id,
+          request_type:type,
+          message:message,
+          status:"Nueva",
+          admin_title:requestLabels[type].publicTitle,
+          admin_summary:message
+        };
+        const {error}=await db.from("client_requests").insert(payload);
+        if(error)throw error;
+        const text=[`Hola, soy ${profile.full_name}.`,`Proyecto: ${project.name}`,`Quiero: ${requestLabels[type].title}`,`Detalles: ${message}`].join("\n");
+        location.assign(`https://wa.me/${WHATSAPP}?text=${encodeURIComponent(text)}`);
+      }catch(err){setStatus("#request-status",friendlyError(err,"No pudimos enviar la solicitud."),"error");b.disabled=false;}
     });
   }
 
