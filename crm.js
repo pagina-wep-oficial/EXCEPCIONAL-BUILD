@@ -39,10 +39,11 @@
     if(crmPage==="project-admin"){
       return {view:getParam("from")||"dashboard",clientId:getParam("client")||""};
     }
+    const saved=readCrmUiState();
     if(state.currentClient && document.querySelector('[data-view-panel="client-detail"]')?.classList.contains("active")){
       return {view:"client-detail",clientId:state.currentClient};
     }
-    return {view:localStorage.getItem(CRM_VIEW_KEY)||"dashboard",clientId:""};
+    return {view:saved.view||localStorage.getItem(CRM_VIEW_KEY)||"dashboard",clientId:saved.clientId||""};
   }
   function projectAdminHref(id,source=currentCrmReturnState()){
     const params=new URLSearchParams({id});
@@ -51,8 +52,72 @@
     return `project-admin.html?${params.toString()}`;
   }
   const CRM_VIEW_KEY="eb_crm_view";
+  const CRM_UI_KEY="eb_crm_ui";
   const projectTabKey=(id)=>`eb_project_tab_${id||"new"}`;
   let prospectStage="new";
+
+  function readCrmUiState(){
+    try{return JSON.parse(localStorage.getItem(CRM_UI_KEY)||"{}")||{};}
+    catch{return {};}
+  }
+  function getSavedCrmUi(role){
+    const saved=readCrmUiState();
+    const requestedView=getParam("view");
+    const requestedClient=getParam("client");
+    const fallbackView=localStorage.getItem(CRM_VIEW_KEY)||"dashboard";
+    const rawView=requestedView||saved.view||fallbackView||"dashboard";
+    const allowed=role==="administrador"
+      ?["dashboard","prospects","invited","clients","client-detail","projects","requests","users","trash"]
+      :["dashboard","prospects","trash"];
+    return {
+      view:allowed.includes(rawView)?rawView:"dashboard",
+      clientId:requestedClient||saved.clientId||"",
+      prospectStage:saved.prospectStage||"new",
+      prospectSearch:saved.prospectSearch||"",
+      prospectFilter:saved.prospectFilter||"",
+      trashSearch:saved.trashSearch||"",
+      clientSearch:saved.clientSearch||"",
+      projectSearch:saved.projectSearch||"",
+      projectStageFilter:saved.projectStageFilter||"",
+      requestSearch:saved.requestSearch||"",
+      requestFilter:saved.requestFilter||""
+    };
+  }
+  function applyCrmUi(saved){
+    if($("#prospect-search"))$("#prospect-search").value=saved.prospectSearch||"";
+    if($("#prospect-filter"))$("#prospect-filter").value=saved.prospectFilter||"";
+    if($("#trash-search"))$("#trash-search").value=saved.trashSearch||"";
+    if($("#client-search"))$("#client-search").value=saved.clientSearch||"";
+    if($("#project-search"))$("#project-search").value=saved.projectSearch||"";
+    if($("#project-stage-filter"))$("#project-stage-filter").value=saved.projectStageFilter||"";
+    if($("#request-search"))$("#request-search").value=saved.requestSearch||"";
+    if($("#request-filter"))$("#request-filter").value=saved.requestFilter||"";
+    prospectStage=saved.prospectStage||"new";
+    setProspectStage(prospectStage,false);
+  }
+  function rememberCrmUiState(overrides={}){
+    if(crmPage==="project-admin")return;
+    const activeDetail=document.querySelector('[data-view-panel="client-detail"]')?.classList.contains("active");
+    const activeNav=$$(".crm-nav [data-view]").find(b=>b.classList.contains("active"))?.dataset.view||"dashboard";
+    const view=overrides.view||(activeDetail&&state.currentClient?"client-detail":activeNav);
+    const next={
+      view,
+      clientId:view==="client-detail"?(overrides.clientId??state.currentClient??""):(overrides.clientId??""),
+      prospectStage:overrides.prospectStage??prospectStage,
+      prospectSearch:overrides.prospectSearch??($("#prospect-search")?.value||""),
+      prospectFilter:overrides.prospectFilter??($("#prospect-filter")?.value||""),
+      trashSearch:overrides.trashSearch??($("#trash-search")?.value||""),
+      clientSearch:overrides.clientSearch??($("#client-search")?.value||""),
+      projectSearch:overrides.projectSearch??($("#project-search")?.value||""),
+      projectStageFilter:overrides.projectStageFilter??($("#project-stage-filter")?.value||""),
+      requestSearch:overrides.requestSearch??($("#request-search")?.value||""),
+      requestFilter:overrides.requestFilter??($("#request-filter")?.value||"")
+    };
+    try{
+      localStorage.setItem(CRM_UI_KEY,JSON.stringify(next));
+      if(view!=="client-detail")localStorage.setItem(CRM_VIEW_KEY,view);
+    }catch{}
+  }
 
   function statusClass(value=""){
     const s=String(value).toLowerCase();
@@ -80,10 +145,11 @@
   }
   function inviteMessage(project){const p=prospectById(project.source_prospect_id),name=p?.nombre||"";return `Hola${name?` ${name}`:""}. Tu proyecto con Excepcional Build ya está preparado.\n\nActiva tu cuenta aquí para continuar con la configuración de tu página y enviarnos la información del negocio:\n${inviteUrl(project)}`;}
 
-  function setView(name){
+  function setView(name,persist=true){
     if(crmPage!=="project-admin") localStorage.setItem(CRM_VIEW_KEY,name==="client-detail"?"clients":name);
     $$(".crm-nav [data-view]").forEach(b=>b.classList.toggle("active",b.dataset.view===name||(name==="client-detail"&&b.dataset.view==="clients")));
     $$('[data-view-panel]').forEach(p=>p.classList.toggle("active",p.dataset.viewPanel===name));
+    if(persist)rememberCrmUiState({view:name,clientId:name==="client-detail"?(state.currentClient||""):""});
     if(name==="client-detail"){
       $("#view-title").textContent="Cliente";
       $("#view-subtitle").textContent="Vista dedicada para administrar solo a este cliente.";
@@ -93,14 +159,7 @@
     $("#view-title").textContent=meta[0];$("#view-subtitle").textContent=meta[1];
   }
   function resolveInitialView(role){
-    const requested=getParam("view");
-    if(requested){
-      if(role!=="administrador"&&!["dashboard","prospects","trash"].includes(requested)) return "dashboard";
-      return requested;
-    }
-    const saved=localStorage.getItem(CRM_VIEW_KEY)||"dashboard";
-    if(role!=="administrador"&&!["dashboard","prospects","trash"].includes(saved)) return "dashboard";
-    return saved;
+    return getSavedCrmUi(role).view;
   }
   async function checkAdmin(){const {data,error}=await db.rpc("mi_rol_crm");if(error)throw error;return data==="administrador"?data:"asesor";}
   async function showSession(session){
@@ -116,14 +175,23 @@
       $("#crm-login").hidden=true;$("#crm-app").hidden=false;if($("#admin-email"))$("#admin-email").textContent=session.user.email||"";if($("#admin-name"))$("#admin-name").textContent=session.user.user_metadata?.full_name||session.user.email?.split("@")[0]||"Administrador";if($("#admin-rol"))$("#admin-rol").textContent=esAdmin?"Administrador":"Asesor";
       document.body.classList.remove("crm-booting");
       if(crmPage==="project-admin"){ await loadAll(false); await initProjectAdminPage(); return; }
-      const initialView=resolveInitialView(rol);
-      setView(initialView);
-      await loadAll();
-      if(initialView==="client-detail"){
-        const clientId=getParam("client");
-        if(clientId&&clientById(clientId)) openClient(clientId);
-        else setView("clients");
+      const savedUi=getSavedCrmUi(rol);
+      setView(savedUi.view,false);
+      await loadAll(false);
+      applyCrmUi(savedUi);
+      renderAll();
+      if(state.rol==="administrador")await loadUsers();
+      if(savedUi.view==="client-detail"){
+        if(savedUi.clientId&&clientById(savedUi.clientId)) openClient(savedUi.clientId,false);
+        else{
+          state.currentClient=null;
+          setView("clients",false);
+          rememberCrmUiState({view:"clients",clientId:""});
+        }
+      }else{
+        rememberCrmUiState({view:savedUi.view,clientId:""});
       }
+      return;
     }
     catch(err){setLine("#crm-login-status","No pudimos comprobar tus permisos.","error");$("#crm-login").hidden=false;$("#crm-app").hidden=true;document.body.classList.remove("crm-booting");}
   }
@@ -338,11 +406,12 @@
     projectsBox.innerHTML=(activeProjects.length||archivedProjects.length)?`${activeProjects.length?`<section class="client-detail-section"><div class="client-detail-section-head"><strong>Proyectos activos</strong><span>${activeProjects.length}</span></div>${activeProjects.map(project=>`<article class="client-detail-project"><div><strong>${esc(project.name||"Proyecto")}</strong><span>${esc(project.project_stage||"Configuración")} · ${esc(project.status||"Sin estado")}</span><span>${esc(project.domain||project.site_url||"Dirección por definir")}</span></div><div class="row-actions"><button class="tiny-btn green" data-open-project="${project.id}">Administrar</button></div></article>`).join("")}</section>`:""}${archivedProjects.length?`<section class="client-detail-section archived"><div class="client-detail-section-head"><strong>Historial: cancelados o descontinuados</strong><span>${archivedProjects.length}</span></div>${archivedProjects.map(project=>`<article class="client-detail-project archived"><div><strong>${esc(project.name||"Proyecto")}</strong><span>${esc(project.project_stage||"Cancelado")} · ${esc(project.status||"Sin estado")}</span><span>${esc(project.domain||project.site_url||"Dirección por definir")}</span></div><div class="row-actions"><button class="tiny-btn green" data-open-project="${project.id}">Administrar</button><button class="tiny-btn" data-restore-project="${project.id}">Reactivar</button><button class="tiny-btn danger" data-delete-project="${project.id}">Borrar</button></div></article>`).join("")}</section>`:""}`:`<div class="empty">Este cliente aún no tiene proyectos.</div>`;
   }
 
-  function openClient(id){
+  function openClient(id,persist=true){
     if(!clientById(id))return;
     state.currentClient=id;
     renderClientDetail();
-    setView("client-detail");
+    setView("client-detail",persist);
+    if(persist)rememberCrmUiState({view:"client-detail",clientId:id});
   }
 
   function renderProjects(){
@@ -583,10 +652,11 @@
     $$("[data-project-tab]").forEach(btn=>btn.classList.toggle("active",btn.dataset.projectTab===name));
     $$("[data-project-panel]").forEach(panel=>panel.classList.toggle("active",panel.dataset.projectPanel===name));
   }
-  function setProspectStage(name="new"){
+  function setProspectStage(name="new",persist=true){
     prospectStage=name;
     $$("[data-prospect-stage]").forEach(btn=>btn.classList.toggle("active",btn.dataset.prospectStage===name));
     $$("[data-prospect-panel]").forEach(panel=>panel.classList.toggle("active",panel.dataset.prospectPanel===name));
+    if(persist)rememberCrmUiState({prospectStage:name});
   }
   async function initProjectAdminPage(){
     const id=new URLSearchParams(location.search).get("id");
@@ -829,7 +899,12 @@
   function exportProspects(){if(!state.prospects.length){toast("No hay prospectos para exportar.");return;}const fields=["negocio","nombre","municipio","telefono","origen","estado","necesidad","proxima_accion","notas"],headers=fields.map(x=>x.toUpperCase()),csv=[headers,...state.prospects.map(p=>fields.map(f=>p[f]??""))].map(row=>row.map(v=>`"${String(v).replaceAll('"','""')}"`).join(",")).join("\n"),blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=`excepcional-build-prospectos-${localDate()}.csv`;a.click();URL.revokeObjectURL(url);}
 
   $$(".crm-nav [data-view]").forEach(b=>b.addEventListener("click",()=>setView(b.dataset.view)));
-  $("#refresh-all")?.addEventListener("click",()=>crmPage==="project-admin"?(loadAll(false).then(initProjectAdminPage)):loadAll());$("#crm-logout")?.addEventListener("click",async()=>{await db.auth.signOut();location.reload();});
+  $("#refresh-all")?.addEventListener("click",()=>{
+    rememberCrmUiState();
+    if(crmPage==="project-admin"){loadAll(false).then(initProjectAdminPage);return;}
+    loadAll();
+  });
+  $("#crm-logout")?.addEventListener("click",async()=>{await db.auth.signOut();location.reload();});
   $("#crm-google-login")?.addEventListener("click",async()=>{
     const button=$("#crm-google-login");
     const target=crmPage==="project-admin"?`project-admin.html${location.search}`:"crm-local.html";
@@ -856,7 +931,15 @@
   $$("[data-prospect-stage]").forEach(b=>b.addEventListener("click",()=>setProspectStage(b.dataset.prospectStage)));
   ["user_id","project_stage","site_visibility","total_price"].forEach(name=>$("#project-form")?.elements?.[name]?.addEventListener("input",updateProjectSummary));
   ["user_id","project_stage","site_visibility"].forEach(name=>$("#project-form")?.elements?.[name]?.addEventListener("change",updateProjectSummary));
-  $("#prospect-search")?.addEventListener("input",renderProspects);$("#prospect-filter")?.addEventListener("change",renderProspects);$("#trash-search")?.addEventListener("input",renderTrash);$("#empty-trash")?.addEventListener("click",emptyTrash);$("#client-search")?.addEventListener("input",renderClients);$("#project-search")?.addEventListener("input",renderProjects);$("#project-stage-filter")?.addEventListener("change",renderProjects);$("#request-search")?.addEventListener("input",renderRequests);$("#request-filter")?.addEventListener("change",renderRequests);
+  $("#prospect-search")?.addEventListener("input",e=>{rememberCrmUiState({prospectSearch:e.currentTarget.value});renderProspects();});
+  $("#prospect-filter")?.addEventListener("change",e=>{rememberCrmUiState({prospectFilter:e.currentTarget.value});renderProspects();});
+  $("#trash-search")?.addEventListener("input",e=>{rememberCrmUiState({trashSearch:e.currentTarget.value});renderTrash();});
+  $("#empty-trash")?.addEventListener("click",emptyTrash);
+  $("#client-search")?.addEventListener("input",e=>{rememberCrmUiState({clientSearch:e.currentTarget.value});renderClients();});
+  $("#project-search")?.addEventListener("input",e=>{rememberCrmUiState({projectSearch:e.currentTarget.value});renderProjects();});
+  $("#project-stage-filter")?.addEventListener("change",e=>{rememberCrmUiState({projectStageFilter:e.currentTarget.value});renderProjects();});
+  $("#request-search")?.addEventListener("input",e=>{rememberCrmUiState({requestSearch:e.currentTarget.value});renderRequests();});
+  $("#request-filter")?.addEventListener("change",e=>{rememberCrmUiState({requestFilter:e.currentTarget.value});renderRequests();});
   $("#prospect-rows")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.acceptProspect)openAgreement(t.dataset.acceptProspect);if(t.dataset.editProspect)editProspect(t.dataset.editProspect);if(t.dataset.openProject)openProject(t.dataset.openProject);if(t.dataset.trashProspect)trashProspect(t.dataset.trashProspect);});
   $("#accepted-rows")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.copyInvite)copyInvite(t.dataset.copyInvite);if(t.dataset.openProject)openProject(t.dataset.openProject);});
   $("#client-project-groups")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.openProject)openProject(t.dataset.openProject);if(t.dataset.openClient)openClient(t.dataset.openClient);});
