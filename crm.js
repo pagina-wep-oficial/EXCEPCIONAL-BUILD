@@ -184,12 +184,12 @@
       renderAll();
       if(state.rol==="administrador")await loadUsers();
       if(savedUi.view==="client-detail"){
-        if(savedUi.clientId&&clientById(savedUi.clientId)) openClient(savedUi.clientId,false);
-        else{
-          state.currentClient=null;
-          setView("clients",false);
-          rememberCrmUiState({view:"clients",clientId:""});
-        }
+        // Nunca restaurar el detalle de cliente al volver/recargar: Chrome puede
+        // descartar y recargar la pestaña en segundo plano, y el usuario aparecería
+        // dentro del detalle de un cliente sin saber cómo llegó. Se restaura la lista.
+        state.currentClient=null;
+        setView("clients",false);
+        rememberCrmUiState({view:"clients",clientId:""});
       }else{
         rememberCrmUiState({view:savedUi.view,clientId:""});
       }
