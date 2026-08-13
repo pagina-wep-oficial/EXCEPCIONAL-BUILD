@@ -393,6 +393,56 @@
   function requestVisibleSummary(request){
     return String(request?.admin_summary||request?.message||"").trim()||"Sin detalles.";
   }
+  function requestNormalizedStatus(value="Nueva"){
+    const label=requestStateMeta(value).label;
+    if(label==="Completada") return "Completada";
+    if(label==="En revisión") return "En revisión";
+    if(label==="En proceso") return "En proceso";
+    if(label==="Aceptada") return "Aceptada";
+    if(label==="Revisada") return "Revisada";
+    if(label==="Pospuesta") return "Pospuesta";
+    if(label==="Rechazada") return "Rechazada";
+    if(label==="Archivada") return "Archivada";
+    return "Nueva";
+  }
+  function openRequestEditor(id){
+    const request=state.requests.find(r=>String(r.id)===String(id));
+    if(!request)return;
+    const form=$("#request-edit-form");
+    form.reset();
+    form.elements.id.value=request.id||"";
+    form.elements.request_type.value=request.request_type||"cambio";
+    form.elements.admin_title.value=requestVisibleTitle(request);
+    form.elements.admin_summary.value=String(request?.admin_summary||request?.message||"").trim();
+    form.elements.status.value=requestNormalizedStatus(request.status);
+    form.elements.message_original.value=String(request?.message||"").trim();
+    setLine("#request-edit-status","");
+    $("#request-modal").showModal();
+  }
+  async function saveRequestEditor(e){
+    e.preventDefault();
+    const form=e.currentTarget,fd=new FormData(form),id=String(fd.get("id")||"");
+    const status=requestNormalizedStatus(String(fd.get("status")||"Nueva"));
+    const payload={
+      request_type:String(fd.get("request_type")||"cambio"),
+      admin_title:String(fd.get("admin_title")||"").trim(),
+      admin_summary:String(fd.get("admin_summary")||"").trim()||null,
+      status,
+      updated_at:new Date().toISOString()
+    };
+    if(status==="Completada") payload.completed_at=new Date().toISOString();
+    if(status!=="Completada") payload.completed_at=null;
+    setLine("#request-edit-status","Guardando…");
+    const {data,error}=await db.from("client_requests").update(payload).eq("id",id).select().single();
+    if(error){setLine("#request-edit-status",error.message||"No pudimos guardar la solicitud.","error");return;}
+    const idx=state.requests.findIndex(r=>String(r.id)===String(id));
+    if(idx>=0) state.requests[idx]=data;
+    renderDashboard();
+    renderRequests();
+    setLine("#request-edit-status","Solicitud guardada.","success");
+    $("#request-modal").close();
+    toast("Solicitud actualizada.");
+  }
   function renderRequests(){
     const q=$("#request-search")?.value.toLowerCase().trim()||"",filter=$("#request-filter")?.value||"";
     const visible=state.requests.filter(r=>{
@@ -403,7 +453,7 @@
     visible.forEach(r=>groups[requestStateMeta(r.status).group].push(r));
     const renderCard=(r)=>{
       const p=projectById(r.project_id),c=clientById(r.user_id||p?.user_id),meta=requestStateMeta(r.status);
-      return `<article class="request-card"><div class="request-card-top"><span class="badge ${meta.tone}">${esc(meta.label)}</span><small>${fmtDate(r.completed_at||r.updated_at||r.created_at)}</small></div><strong>${esc(requestVisibleTitle(r))}</strong><span class="sub">${esc(c?.full_name||"Cliente")} · ${esc(p?.name||"Proyecto")}</span><p class="request-card-message">${esc(requestVisibleSummary(r))}</p><div class="request-card-meta"><b>${esc(requestTypeTitle(r.request_type))}</b><button class="tiny-btn" data-open-project="${r.project_id}">Abrir proyecto</button></div><div class="request-card-actions"><select class="control request-status" data-request-status="${r.id}"><option${requestStateMeta(r.status).label==="Nueva"?" selected":""}>Nueva</option><option${requestStateMeta(r.status).label==="Revisada"?" selected":""}>Revisada</option><option${requestStateMeta(r.status).label==="Aceptada"?" selected":""}>Aceptada</option><option${requestStateMeta(r.status).label==="En proceso"?" selected":""}>En proceso</option><option${requestStateMeta(r.status).label==="En revisión"?" selected":""}>En revisión</option><option${requestStateMeta(r.status).label==="Pospuesta"?" selected":""}>Pospuesta</option><option${requestStateMeta(r.status).label==="Completada"?" selected":""}>Completada</option><option${requestStateMeta(r.status).label==="Rechazada"?" selected":""}>Rechazada</option><option${requestStateMeta(r.status).label==="Archivada"?" selected":""}>Archivada</option></select></div></article>`;
+      return `<article class="request-card"><div class="request-card-top"><span class="badge ${meta.tone}">${esc(meta.label)}</span><small>${fmtDate(r.completed_at||r.updated_at||r.created_at)}</small></div><strong>${esc(requestVisibleTitle(r))}</strong><span class="sub">${esc(c?.full_name||"Cliente")} · ${esc(p?.name||"Proyecto")}</span><p class="request-card-message">${esc(requestVisibleSummary(r))}</p><div class="request-card-meta"><b>${esc(requestTypeTitle(r.request_type))}</b><div class="row-actions"><button class="tiny-btn" data-edit-request="${r.id}">Editar</button><button class="tiny-btn" data-open-project="${r.project_id}">Abrir proyecto</button></div></div><div class="request-card-actions"><select class="control request-status" data-request-status="${r.id}"><option${requestStateMeta(r.status).label==="Nueva"?" selected":""}>Nueva</option><option${requestStateMeta(r.status).label==="Revisada"?" selected":""}>Revisada</option><option${requestStateMeta(r.status).label==="Aceptada"?" selected":""}>Aceptada</option><option${requestStateMeta(r.status).label==="En proceso"?" selected":""}>En proceso</option><option${requestStateMeta(r.status).label==="En revisión"?" selected":""}>En revisión</option><option${requestStateMeta(r.status).label==="Pospuesta"?" selected":""}>Pospuesta</option><option${requestStateMeta(r.status).label==="Completada"?" selected":""}>Completada</option><option${requestStateMeta(r.status).label==="Rechazada"?" selected":""}>Rechazada</option><option${requestStateMeta(r.status).label==="Archivada"?" selected":""}>Archivada</option></select></div></article>`;
     };
     $("#request-col-new").innerHTML=groups.new.length?groups.new.map(renderCard).join(""):`<div class="empty-inline">Sin solicitudes nuevas.</div>`;
     $("#request-col-work").innerHTML=groups.work.length?groups.work.map(renderCard).join(""):`<div class="empty-inline">Sin trabajo en curso.</div>`;
@@ -681,6 +731,7 @@
   $("#crm-google-login")?.addEventListener("click",async()=>{const button=$("#crm-google-login");const target=crmPage==="project-admin"?`project-admin.html${location.search}`:"crm-local.html";button.disabled=true;setLine("#crm-login-status","Abriendo Google…");localStorage.setItem(portal.authNextKey,target);const redirectTo=crmPage==="project-admin"?portal.callbackUrl():`${portal.callbackUrl()}?next=crm-local.html`;const {error}=await db.auth.signInWithOAuth({provider:"google",options:{redirectTo,scopes:"openid email profile"}});if(error){localStorage.removeItem(portal.authNextKey);setLine("#crm-login-status","No pudimos abrir Google. Intenta nuevamente.","error");button.disabled=false;}});
   $("#prospect-form")?.addEventListener("submit",saveProspect);$("#cancel-prospect")?.addEventListener("click",()=>{$("#prospect-form").reset();$("#prospect-form").elements.id.value="";$("#cancel-prospect").hidden=true;setLine("#prospect-status","")});$("#export-prospects")?.addEventListener("click",exportProspects);
   $("#agreement-form")?.addEventListener("submit",saveAgreement);$$('[data-close-agreement]').forEach(b=>b.addEventListener("click",()=>$("#agreement-modal").close()));
+  $("#request-edit-form")?.addEventListener("submit",saveRequestEditor);$$('[data-close-request]').forEach(b=>b.addEventListener("click",()=>$("#request-modal").close()));
   $("#project-form")?.addEventListener("submit",saveProject);$$('[data-close-project]').forEach(b=>b.addEventListener("click",()=>$("#project-modal").close()));$("#new-project")?.addEventListener("click",()=>{setProjectForm({project_stage:"Invitación",status:"Pendiente de activar cuenta",site_visibility:"hidden",total_price:750,deposit_amount:375,balance_amount:375,payment_method:"Transferencia"});$("#project-setup-admin-content").innerHTML="<span>Sin configuración.</span>";$("#project-brief-admin-content").innerHTML="<span>Sin información.</span>";$("#project-files-admin").innerHTML="<span>No hay archivos.</span>";$("#project-modal").showModal();});
   $("#copy-project-invite")?.addEventListener("click",()=>state.currentProject&&copyInvite(state.currentProject.id));$("#whatsapp-project-invite")?.addEventListener("click",()=>state.currentProject&&sendInvite(state.currentProject.id));$("#renew-project-invite")?.addEventListener("click",renewInvite);$("#cancel-project-invite")?.addEventListener("click",()=>state.currentProject&&cancelInvite(state.currentProject.id));$("#archive-project-cancel")?.addEventListener("click",()=>archiveProjectState("cancel"));$("#archive-project-discontinue")?.addEventListener("click",()=>archiveProjectState("discontinue"));$("#restore-project")?.addEventListener("click",restoreArchivedProject);$("#delete-project-permanently")?.addEventListener("click",()=>deleteProjectPermanently());$("#add-project-update")?.addEventListener("click",addUpdate);
   $$("[data-editor-activate]").forEach(b=>b.addEventListener("click",()=>activateEditorAccess(Number(b.dataset.editorActivate),Number(b.dataset.editorPrice))));
@@ -702,7 +753,8 @@
   $("#client-detail-actions")?.addEventListener("click",e=>{if(e.target.dataset.openClients)setView("clients");});
   $("#client-detail-back")?.addEventListener("click",()=>setView("clients"));
   $("#client-detail-new-project")?.addEventListener("click",()=>{const client=clientById(state.currentClient);if(!client)return;setProjectForm({user_id:client.id,project_stage:"Invitación",status:"Pendiente de activar cuenta",site_visibility:"hidden",total_price:750,deposit_amount:375,balance_amount:375,payment_method:"Transferencia"});$("#project-setup-admin-content").innerHTML="<span>Sin configuración.</span>";$("#project-brief-admin-content").innerHTML="<span>Sin información.</span>";$("#project-files-admin").innerHTML="<span>No hay archivos.</span>";$("#project-modal").showModal();});
-  $("#request-board")?.addEventListener("change",async e=>{const id=e.target.dataset.requestStatus;if(!id)return;const {error}=await db.from("client_requests").update({status:e.target.value}).eq("id",id);if(error){toast("No pudimos actualizar la solicitud.");return;}const r=state.requests.find(x=>x.id===id);if(r)r.status=e.target.value;renderDashboard();renderRequests();toast("Solicitud actualizada.");});
+  $("#request-board")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.openProject)openProject(t.dataset.openProject);if(t.dataset.editRequest)openRequestEditor(t.dataset.editRequest);});
+  $("#request-board")?.addEventListener("change",async e=>{const id=e.target.dataset.requestStatus;if(!id)return;const status=requestNormalizedStatus(e.target.value);const payload={status,updated_at:new Date().toISOString()};if(status==="Completada")payload.completed_at=new Date().toISOString();if(status!=="Completada")payload.completed_at=null;const {data,error}=await db.from("client_requests").update(payload).eq("id",id).select().single();if(error){toast("No pudimos actualizar la solicitud.");return;}const r=state.requests.find(x=>String(x.id)===String(id));if(r)Object.assign(r,data);renderDashboard();renderRequests();toast("Solicitud actualizada.");});
   $("#dashboard-next-actions")?.addEventListener("click",e=>{if(e.target.dataset.copyInvite)copyInvite(e.target.dataset.copyInvite);});
   $("#crm-user-form")?.addEventListener("submit",addUser);
   $("#user-rows")?.addEventListener("click",async e=>{const t=e.target;if(t.dataset.toggleUser){const u=state.users.find(x=>String(x.email).toLowerCase()===String(t.dataset.toggleUser).toLowerCase());if(u)await toggleUser(u.email,!u.activo);}if(t.dataset.deleteUser)await removeUser(t.dataset.deleteUser);if(t.dataset.grantUser)await grantUser(t.dataset.grantUser,t.dataset.grantRol);});
