@@ -572,6 +572,17 @@ function nextStepText(project) {
   function requestDisplaySummary(request){
     return String(request?.admin_summary||request?.message||"").trim()||"Recibimos tu solicitud y la revisaremos contigo.";
   }
+  function requestTimelineSteps(request){
+    const current=requestStateMeta(request?.status).label;
+    const steps=["Recibida","Aceptada","En proceso","En revisión","Completada"];
+    const index=steps.indexOf(current);
+    return steps.map((label,i)=>{
+      const done=index>-1&&i<index;
+      const active=index===i;
+      const pending=index===-1||i>index;
+      return {label,done,active,pending};
+    });
+  }
 
   async function initProject() {
     const {session,profile}=await loadContext(); const id=getParam("id"); if(!id){location.replace("panel.html");return;}
@@ -710,7 +721,12 @@ db.from("client_requests").select("*").eq("project_id",id).order("created_at",{a
 
     const activeRequests=requests.filter(r=>requestStateMeta(r.status).group==="active");
     const closedRequests=requests.filter(r=>requestStateMeta(r.status).group==="closed");
-    const renderClientRequestCard=(request)=>{const meta=requestStateMeta(request.status);return `<article class="request-client-card"><div class="request-client-top"><span class="status-badge status-${meta.tone}">${safe(meta.label)}</span><small>${date(request.completed_at||request.updated_at||request.created_at)}</small></div><h3>${safe(requestDisplayTitle(request))}</h3><p>${safe(requestDisplaySummary(request))}</p><div class="request-client-meta"><b>${safe(requestLabels[request.request_type]?.title||"Solicitud")}</b><span>${safe(project.name||"Proyecto")}</span></div></article>`;};
+    const renderClientRequestCard=(request)=>{
+      const meta=requestStateMeta(request.status);
+      const specialState=/^(Pospuesta|Rechazada)$/i.test(meta.label)?`<div class="request-special-state ${meta.tone}">${safe(meta.label)}</div>`:"";
+      const timeline=requestTimelineSteps(request).map((step,i,arr)=>`<div class="request-step ${step.done?"done":step.active?"active":"pending"}"><i>${step.done?"✓":i+1}</i><span>${safe(step.label)}</span>${i<arr.length-1?`<b></b>`:""}</div>`).join("");
+      return `<article class="request-client-card"><div class="request-client-top"><span class="status-badge status-${meta.tone}">${safe(meta.label)}</span><small>${date(request.completed_at||request.updated_at||request.created_at)}</small></div><h3>${safe(requestDisplayTitle(request))}</h3><p>${safe(requestDisplaySummary(request))}</p>${specialState}<div class="request-mini-timeline">${timeline}</div><div class="request-client-meta"><b>${safe(requestLabels[request.request_type]?.title||"Solicitud")}</b><span>${safe(project.name||"Proyecto")}</span></div></article>`;
+    };
     const activeBox=$("#project-requests-active"),closedBox=$("#project-requests-closed"),history=$("#project-requests-history");
     if(activeBox)activeBox.innerHTML=activeRequests.length?activeRequests.map(renderClientRequestCard).join(""):`<div class="empty-inline">No tienes solicitudes activas.</div>`;
     if(closedBox)closedBox.innerHTML=closedRequests.length?closedRequests.map(renderClientRequestCard).join(""):`<div class="empty-inline">Todavía no hay solicitudes cerradas.</div>`;
