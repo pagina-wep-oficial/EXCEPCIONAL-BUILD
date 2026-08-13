@@ -9,6 +9,8 @@
   const state={session:null,rol:null,prospects:[],trash:[],clients:[],projects:[],requests:[],users:[],currentProject:null,currentProspect:null,currentClient:null};
   let crmRealtimeChannel=null;
   let crmRefreshTimer=0;
+  let crmLiveBusy=false;
+  let crmLiveQueued=false;
 
   const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const esc=(v="")=>String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
@@ -206,31 +208,101 @@
     const all=results[0].data||[];state.prospects=all.filter(p=>!p.borrado_en);state.trash=all.filter(p=>p.borrado_en);state.clients=results[1].data||[];state.projects=results[2].data||[];state.requests=results[3].data||[];
     if(render){renderAll();if(state.rol==="administrador")await loadUsers();}
   }
-  async function refreshCrmLive(){
+  function patchCollection(list,row,event,key="id"){
+    const oldId=row?.old?.[key];
+    const newRow=row?.new||null;
+    const newId=newRow?.[key];
+    if(event==="DELETE"){
+      return list.filter(item=>String(item?.[key])!==String(oldId));
+    }
+    const next=[...list];
+    const idx=next.findIndex(item=>String(item?.[key])===String(newId));
+    if(idx>=0) next[idx]=newRow;
+    else next.unshift(newRow);
+    return next;
+  }
+  function applyCrmRealtimePatch(table,payload){
+    const event=payload?.eventType||payload?.event||"*";
+    if(table==="prospectos"){
+      const merged=[...state.prospects,...state.trash];
+      const patched=patchCollection(merged,payload,event,"id");
+      state.prospects=patched.filter(p=>!p?.borrado_en);
+      state.trash=patched.filter(p=>p?.borrado_en);
+      renderAll();
+      return true;
+    }
+    if(table==="client_profiles"){
+      state.clients=patchCollection(state.clients,payload,event,"id");
+      renderAll();
+      return true;
+    }
+    if(table==="client_projects"){
+      state.projects=patchCollection(state.projects,payload,event,"id");
+      if(state.currentProject?.id){
+        const fresh=state.projects.find(p=>String(p.id)===String(state.currentProject.id));
+        if(fresh) state.currentProject=fresh;
+      }
+      renderAll();
+      if(state.currentClient && document.querySelector('[data-view-panel="client-detail"]')?.classList.contains("active")){
+        renderClientDetail();
+      }
+      return true;
+    }
+    if(table==="client_requests"){
+      state.requests=patchCollection(state.requests,payload,event,"id");
+      renderDashboard();
+      renderRequests();
+      return true;
+    }
+    return false;
+  }
+  async function refreshCrmLive(force=false){
     if(!state.session)return;
-    if(crmPage==="project-admin"){
-      await loadAll(false);
-      const currentId=state.currentProject?.id||getParam("id");
-      if(currentId) await loadProjectDetails(currentId,false);
-      else await initProjectAdminPage();
-      if(state.rol==="administrador") await loadUsers();
+    if(crmLiveBusy){
+      crmLiveQueued=true;
       return;
     }
-    await loadAll();
-    const projectModal=$("#project-modal");
-    if(state.currentProject?.id && projectModal?.open){
-      await loadProjectDetails(state.currentProject.id,false);
-    }
-    if(state.currentClient && document.querySelector('[data-view-panel="client-detail"]')?.classList.contains("active")){
-      renderClientDetail();
+    crmLiveBusy=true;
+    try{
+      if(force||crmPage==="project-admin"){
+        if(crmPage==="project-admin"){
+          await loadAll(false);
+          const currentId=state.currentProject?.id||getParam("id");
+          if(currentId) await loadProjectDetails(currentId,false);
+          else await initProjectAdminPage();
+          if(state.rol==="administrador") await loadUsers();
+          return;
+        }
+        await loadAll();
+        const projectModal=$("#project-modal");
+        if(state.currentProject?.id && projectModal?.open){
+          await loadProjectDetails(state.currentProject.id,false);
+        }
+        if(state.currentClient && document.querySelector('[data-view-panel="client-detail"]')?.classList.contains("active")){
+          renderClientDetail();
+        }
+        return;
+      }
+      renderAll();
+      if(state.currentClient && document.querySelector('[data-view-panel="client-detail"]')?.classList.contains("active")){
+        renderClientDetail();
+      }
+    }finally{
+      crmLiveBusy=false;
+      if(crmLiveQueued){
+        crmLiveQueued=false;
+        refreshCrmLive(true).catch(err=>console.error("crm live refresh",err));
+      }
     }
   }
-  function scheduleCrmRefresh(){
+  function scheduleCrmRefresh(force=false){
     clearTimeout(crmRefreshTimer);
-    crmRefreshTimer=setTimeout(()=>refreshCrmLive().catch(err=>console.error("crm live refresh",err)),250);
+    crmRefreshTimer=setTimeout(()=>refreshCrmLive(force).catch(err=>console.error("crm live refresh",err)),force?120:90);
   }
   function stopCrmRealtime(){
     clearTimeout(crmRefreshTimer);
+    crmLiveBusy=false;
+    crmLiveQueued=false;
     if(crmRealtimeChannel){
       db.removeChannel(crmRealtimeChannel);
       crmRealtimeChannel=null;
@@ -240,8 +312,14 @@
     stopCrmRealtime();
     if(!state.session||!db?.channel)return;
     const channel=db.channel(`crm-live-${crmPage}`);
-    ["prospectos","client_profiles","client_projects","client_requests","client_updates","client_project_setup","client_project_briefs","client_project_files","app_admins"].forEach(table=>{
-      channel.on("postgres_changes",{event:"*",schema:"public",table},()=>scheduleCrmRefresh());
+    ["prospectos","client_profiles","client_projects","client_requests"].forEach(table=>{
+      channel.on("postgres_changes",{event:"*",schema:"public",table},payload=>{
+        const handled=applyCrmRealtimePatch(table,payload);
+        if(!handled)scheduleCrmRefresh(true);
+      });
+    });
+    ["client_updates","client_project_setup","client_project_briefs","client_project_files","app_admins"].forEach(table=>{
+      channel.on("postgres_changes",{event:"*",schema:"public",table},()=>scheduleCrmRefresh(true));
     });
     crmRealtimeChannel=channel;
     channel.subscribe();
@@ -901,8 +979,7 @@
   $$(".crm-nav [data-view]").forEach(b=>b.addEventListener("click",()=>setView(b.dataset.view)));
   $("#refresh-all")?.addEventListener("click",()=>{
     rememberCrmUiState();
-    if(crmPage==="project-admin"){loadAll(false).then(initProjectAdminPage);return;}
-    loadAll();
+    refreshCrmLive(true).catch(err=>console.error("crm manual refresh",err));
   });
   $("#crm-logout")?.addEventListener("click",async()=>{await db.auth.signOut();location.reload();});
   $("#crm-google-login")?.addEventListener("click",async()=>{
