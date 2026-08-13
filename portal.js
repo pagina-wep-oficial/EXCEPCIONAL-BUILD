@@ -9,6 +9,8 @@
   const CONSULTAR_ENDPOINT = "https://scaebulgcuvqpucondws.supabase.co/functions/v1/consultar-dominio";
   let liveChannel = null;
   let liveRefreshTimer = 0;
+  let liveRefreshBusy = false;
+  let liveRefreshQueued = false;
 
   const $ = (s, r=document) => r.querySelector(s);
   const $$ = (s, r=document) => [...r.querySelectorAll(s)];
@@ -176,6 +178,8 @@ function nextStepText(project) {
   }
   function stopLiveUpdates(){
     clearTimeout(liveRefreshTimer);
+    liveRefreshBusy=false;
+    liveRefreshQueued=false;
     if(liveChannel){
       db.removeChannel(liveChannel);
       liveChannel=null;
@@ -185,6 +189,22 @@ function nextStepText(project) {
     if(document.visibilityState!=="visible") return;
     if(["panel","project","configure","editor"].includes(page)) location.reload();
   }
+  async function runLiveHandler(handler,payload,spec){
+    if(liveRefreshBusy){
+      liveRefreshQueued=true;
+      return;
+    }
+    liveRefreshBusy=true;
+    try{
+      await handler(payload,spec);
+    }finally{
+      liveRefreshBusy=false;
+      if(liveRefreshQueued){
+        liveRefreshQueued=false;
+        refreshVisiblePortalPage();
+      }
+    }
+  }
   function startLiveUpdates(name,specs,handler){
     stopLiveUpdates();
     if(!db?.channel||!specs?.length)return;
@@ -192,9 +212,9 @@ function nextStepText(project) {
     specs.forEach(spec=>{
       const config={event:"*",schema:"public",table:spec.table};
       if(spec.filter) config.filter=spec.filter;
-      channel.on("postgres_changes",config,()=>{
+      channel.on("postgres_changes",config,(payload)=>{
         clearTimeout(liveRefreshTimer);
-        liveRefreshTimer=setTimeout(()=>handler().catch(err=>console.error("portal live refresh",err)),250);
+        liveRefreshTimer=setTimeout(()=>runLiveHandler(handler,payload,spec).catch(err=>console.error("portal live refresh",err)),120);
       });
     });
     liveChannel=channel;
@@ -375,7 +395,40 @@ function nextStepText(project) {
       search.addEventListener("input",render);
     }
     await refreshPanel();
-    startLiveUpdates(`portal-panel-${uid}`,[{table:"client_projects"},{table:"client_profiles"}],refreshPanel);
+    startLiveUpdates(`portal-panel-${uid}`,[{table:"client_projects"},{table:"client_profiles"}],async(payload,spec)=>{
+      const event=payload?.eventType||payload?.event||"*";
+      if(spec.table==="client_profiles"){
+        const row=payload?.new||null;
+        const oldId=payload?.old?.id;
+        if(event==="DELETE"){
+          ownerById.delete(oldId);
+        }else if(row?.id){
+          ownerById.set(row.id,row.full_name||row.email||"Cliente");
+        }
+        render();
+        return;
+      }
+      if(spec.table==="client_projects"){
+        const row=payload?.new||null;
+        const oldId=payload?.old?.id;
+        const all=[...mine,...others];
+        let next=event==="DELETE"
+          ?all.filter(p=>String(p.id)!==String(oldId))
+          :(()=>{
+              const copy=[...all];
+              const idx=copy.findIndex(p=>String(p.id)===String(row?.id));
+              if(idx>=0) copy[idx]=row;
+              else if(row) copy.unshift(row);
+              return copy;
+            })();
+        next=next.sort((a,b)=>new Date(b.created_at||0).getTime()-new Date(a.created_at||0).getTime());
+        mine=next.filter(p=>p.user_id===uid);
+        others=next.filter(p=>!p.user_id||p.user_id!==uid);
+        render();
+        return;
+      }
+      await refreshPanel();
+    });
   }
 
   async function initProfile() {
@@ -596,7 +649,24 @@ db.from("client_requests").select("*").eq("project_id",id).order("created_at",{a
     ]);
     for(const r of results) if(r.error) throw r.error;
     let requests=results[0].data||[], brief=results[1].data, files=results[2].data||[];
-    startLiveUpdates(`portal-project-${id}`,[{table:"client_projects",filter:`id=eq.${id}`},{table:"client_requests",filter:`project_id=eq.${id}`}],async()=>location.reload());
+    startLiveUpdates(`portal-project-${id}`,[{table:"client_projects",filter:`id=eq.${id}`},{table:"client_requests",filter:`project_id=eq.${id}`}],async(payload,spec)=>{
+      if(spec.table==="client_requests"){
+        const event=payload?.eventType||payload?.event||"*";
+        const row=payload?.new||null;
+        const oldId=payload?.old?.id;
+        if(event==="DELETE"){
+          requests=requests.filter(r=>String(r.id)!==String(oldId));
+        }else if(row){
+          const idx=requests.findIndex(r=>String(r.id)===String(row.id));
+          if(idx>=0) requests[idx]=row;
+          else requests.unshift(row);
+        }
+        requests=requests.sort((a,b)=>new Date(b.created_at||0).getTime()-new Date(a.created_at||0).getTime());
+        renderProjectRequests();
+        return;
+      }
+      location.reload();
+    });
     document.title=`${project.name} | Excepcional Build`; $("#project-title").textContent=project.name; $("#project-subtitle").innerHTML=`<span class="status-badge ${statusClass(project.status||project.project_stage)}">${safe(project.status||project.project_stage)}</span>`; $("#project-top-actions").innerHTML=siteAction(project);
     const labels=["Configurar","Enviar información","Construcción","Revisión","Publicada"], pos=stageIndex(project);
     $("#project-stage-track").innerHTML=labels.map((label,i)=>`<div class="stage-step ${i<pos?"done":i===pos?"current":""}"><i>${i<pos?"✓":i+1}</i><span>${safe(label)}</span><small>${i===pos?"Ahora":""}</small></div>`).join("");
@@ -721,8 +791,6 @@ db.from("client_requests").select("*").eq("project_id",id).order("created_at",{a
 
     const ACTIVE_REQUEST_LIMIT=3;
     const CLOSED_REQUEST_LIMIT=6;
-    const activeRequests=requests.filter(r=>requestStateMeta(r.status).group==="active");
-    const closedRequests=requests.filter(r=>requestStateMeta(r.status).group==="closed");
     const renderClientRequestCard=(request)=>{
       const meta=requestStateMeta(request.status);
       const specialState=/^(Pospuesta|Rechazada)$/i.test(meta.label)?`<div class="request-special-state ${meta.tone}">${safe(meta.label)}</div>`:"";
@@ -742,52 +810,57 @@ db.from("client_requests").select("*").eq("project_id",id).order("created_at",{a
         toggle.textContent=expanded?`Ver ${extraCount} más`:`Mostrar menos ${label}`;
       };
     };
+    const renderProjectRequests=()=>{
+      const activeRequests=requests.filter(r=>requestStateMeta(r.status).group==="active");
+      const closedRequests=requests.filter(r=>requestStateMeta(r.status).group==="closed");
 
-    const activeBox=$("#project-requests-active");
-    const activeMoreBox=$("#project-requests-active-more");
-    const activeToggle=$("#project-requests-active-toggle");
-    const activeCount=$("#project-requests-active-count");
+      const activeBox=$("#project-requests-active");
+      const activeMoreBox=$("#project-requests-active-more");
+      const activeToggle=$("#project-requests-active-toggle");
+      const activeCount=$("#project-requests-active-count");
 
-    const closedBox=$("#project-requests-closed");
-    const closedMoreBox=$("#project-requests-closed-more");
-    const closedToggle=$("#project-requests-closed-toggle");
-    const history=$("#project-requests-history");
-    const historySummary=$("#project-requests-history-summary");
+      const closedBox=$("#project-requests-closed");
+      const closedMoreBox=$("#project-requests-closed-more");
+      const closedToggle=$("#project-requests-closed-toggle");
+      const history=$("#project-requests-history");
+      const historySummary=$("#project-requests-history-summary");
 
-    const activeVisible=activeRequests.slice(0,ACTIVE_REQUEST_LIMIT);
-    const activeExtra=activeRequests.slice(ACTIVE_REQUEST_LIMIT);
-    const closedVisible=closedRequests.slice(0,CLOSED_REQUEST_LIMIT);
-    const closedExtra=closedRequests.slice(CLOSED_REQUEST_LIMIT);
+      const activeVisible=activeRequests.slice(0,ACTIVE_REQUEST_LIMIT);
+      const activeExtra=activeRequests.slice(ACTIVE_REQUEST_LIMIT);
+      const closedVisible=closedRequests.slice(0,CLOSED_REQUEST_LIMIT);
+      const closedExtra=closedRequests.slice(CLOSED_REQUEST_LIMIT);
 
-    if(activeCount)activeCount.textContent=activeRequests.length?`${activeRequests.length} activa${activeRequests.length===1?"":"s"}`:"Sin solicitudes activas";
+      if(activeCount)activeCount.textContent=activeRequests.length?`${activeRequests.length} activa${activeRequests.length===1?"":"s"}`:"Sin solicitudes activas";
 
-    if(activeBox)activeBox.innerHTML=activeRequests.length?activeVisible.map(renderClientRequestCard).join(""):`<div class="empty-inline">No tienes solicitudes activas.</div>`;
-    if(activeMoreBox){
-      activeMoreBox.innerHTML=activeExtra.map(renderClientRequestCard).join("");
-      activeMoreBox.hidden=!activeExtra.length;
-    }
-    if(activeToggle){
-      activeToggle.hidden=!activeExtra.length;
-      activeToggle.onclick=null;
-    }
-    wireRequestToggle(activeToggle,activeMoreBox,activeExtra.length,"solicitudes");
+      if(activeBox)activeBox.innerHTML=activeRequests.length?activeVisible.map(renderClientRequestCard).join(""):`<div class="empty-inline">No tienes solicitudes activas.</div>`;
+      if(activeMoreBox){
+        activeMoreBox.innerHTML=activeExtra.map(renderClientRequestCard).join("");
+        activeMoreBox.hidden=!activeExtra.length;
+      }
+      if(activeToggle){
+        activeToggle.hidden=!activeExtra.length;
+        activeToggle.onclick=null;
+      }
+      wireRequestToggle(activeToggle,activeMoreBox,activeExtra.length,"solicitudes");
 
-    if(closedBox)closedBox.innerHTML=closedRequests.length?closedVisible.map(renderClientRequestCard).join(""):`<div class="empty-inline">Todavía no hay solicitudes cerradas.</div>`;
-    if(closedMoreBox){
-      closedMoreBox.innerHTML=closedExtra.map(renderClientRequestCard).join("");
-      closedMoreBox.hidden=!closedExtra.length;
-    }
-    if(closedToggle){
-      closedToggle.hidden=!closedExtra.length;
-      closedToggle.onclick=null;
-    }
-    wireRequestToggle(closedToggle,closedMoreBox,closedExtra.length,"del historial");
+      if(closedBox)closedBox.innerHTML=closedRequests.length?closedVisible.map(renderClientRequestCard).join(""):`<div class="empty-inline">Todavía no hay solicitudes cerradas.</div>`;
+      if(closedMoreBox){
+        closedMoreBox.innerHTML=closedExtra.map(renderClientRequestCard).join("");
+        closedMoreBox.hidden=!closedExtra.length;
+      }
+      if(closedToggle){
+        closedToggle.hidden=!closedExtra.length;
+        closedToggle.onclick=null;
+      }
+      wireRequestToggle(closedToggle,closedMoreBox,closedExtra.length,"del historial");
 
-    if(history){
-      history.hidden=!closedRequests.length;
-      if(!closedRequests.length)history.removeAttribute("open");
-    }
-    if(historySummary)historySummary.textContent=closedRequests.length?`Ver historial de solicitudes (${closedRequests.length})`:"Ver historial de solicitudes";
+      if(history){
+        history.hidden=!closedRequests.length;
+        if(!closedRequests.length)history.removeAttribute("open");
+      }
+      if(historySummary)historySummary.textContent=closedRequests.length?`Ver historial de solicitudes (${closedRequests.length})`:"Ver historial de solicitudes";
+    };
+    renderProjectRequests();
 
     const dialog=$("#request-dialog"), reqForm=$("#request-form");
     $$('[data-request-type]').forEach(btn=>btn.addEventListener("click",()=>{const type=btn.dataset.requestType;reqForm.request_type.value=type;$("#request-title").textContent=requestLabels[type].title;reqForm.message.value="";setStatus("#request-status","");dialog.showModal();}));
