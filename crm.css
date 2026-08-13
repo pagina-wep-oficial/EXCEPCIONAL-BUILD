@@ -13,12 +13,17 @@
 .request-card-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
 .request-card-top small{color:var(--muted);font-size:9px}
 .request-card strong{display:block;font-size:12px;line-height:1.35}
+.request-card-owner{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.request-card-owner span{display:block;padding:8px 9px;border-radius:10px;background:#fff}
+.request-card-owner b{display:block;margin-bottom:3px;color:var(--muted);font-size:8px;text-transform:uppercase;letter-spacing:.05em}
+.request-card-owner span{font-size:10px;line-height:1.35}
 .request-card-message{margin:8px 0 0;color:#53625d;font-size:10px;line-height:1.45}
 .request-card-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}
 .request-card-meta b{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
 .request-card-actions{margin-top:10px}
 .request-card-actions .control{min-width:0}
 .empty-inline{padding:14px;border:1px dashed var(--line);border-radius:11px;background:#fff;color:var(--muted);font-size:10px;text-align:center}
+@media(max-width:760px){.request-card-owner{grid-template-columns:1fr}}
 .modal{width:min(760px,calc(100% - 28px));padding:0;border:0;border-radius:22px;background:#fff;box-shadow:0 35px 100px rgba(5,20,16,.3)}.modal::backdrop{background:rgba(8,24,20,.58);backdrop-filter:blur(4px)}.modal-body{padding:22px}.modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px}.modal-head h2{margin:0;font:800 24px "Manrope"}.close{width:36px;height:36px;border:1px solid var(--line);border-radius:50%;background:#fff;font-size:18px}.project-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px}.project-form-grid .wide{grid-column:1/-1}.checks{display:flex;gap:18px;padding:8px 0}.checks label{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:800}.checks input{width:auto}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}.invite-box{margin-top:14px;padding:12px;border-radius:11px;background:#edf3ee}.invite-box strong{display:block;margin-bottom:4px;font-size:11px}.invite-box p{margin:0 0 8px;color:var(--muted);font-size:10px;word-break:break-all}.update-box{margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}.update-box h3{font-size:14px}.update-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}.update-fields textarea{grid-column:1/-1}.toast{position:fixed;right:18px;bottom:18px;z-index:100;max-width:360px;padding:13px 15px;border-radius:11px;background:var(--ink);color:#fff;box-shadow:var(--shadow);font-size:11px;opacity:0;transform:translateY(10px);pointer-events:none;transition:.18s}.toast.show{opacity:1;transform:none}.notice{padding:12px;border-radius:10px;background:#fff7df;color:#655525;font-size:10px;line-height:1.45}
 .project-lifecycle-box{margin-top:16px;padding:13px;border:1px solid var(--line);border-radius:11px;background:#fff7f4}.project-lifecycle-box strong{display:block;margin-bottom:4px;font-size:11px}.project-lifecycle-box p{margin:0 0 10px;color:var(--muted);font-size:10px;line-height:1.45}
 .editor-admin-box{margin-top:16px;padding:13px;border:1px solid var(--line);border-radius:11px;background:#f8faf6}
