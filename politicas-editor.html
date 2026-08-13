@@ -56,6 +56,15 @@
       link.href = "proyecto.html?id=" + encodeURIComponent(id);
       link.textContent = "Volver al proyecto";
     }
+    // Movil: el atras del sistema (hardware) debe volver al proyecto de origen,
+    // jamas sacar de la app. Se crea una entrada propia en el historial y se
+    // redirige al proyecto cuando el usuario la retrocede.
+    if (id && window.matchMedia("(max-width:768px)").matches) {
+      history.pushState({ from: "politicas-editor" }, "");
+      window.addEventListener("popstate", function () {
+        location.replace("proyecto.html?id=" + encodeURIComponent(id));
+      });
+    }
   })();
 </script>
 </body>

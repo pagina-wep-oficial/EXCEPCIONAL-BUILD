@@ -720,7 +720,7 @@ db.from("client_requests").select("*").eq("project_id",id).order("created_at",{a
         </div>
         <div class="editor-flow-note"><b>1</b><span>Elige un plan. Cuando el pago se confirme, los planes desaparecen y aqui aparece el boton Abrir editor.</span></div>
         <div class="editor-plan-grid">${planButtons}</div>
-        <div class="editor-rules"><p>El acceso dura el periodo pagado. Si vence, tu pagina sigue en linea, pero el editor se pausa.</p><a href="politicas-editor.html?id=${encodeURIComponent(id)}"${window.matchMedia("(max-width:768px)").matches?' target="_blank" rel="noopener"':""}>Ver reglas de cancelacion y reembolso</a></div>
+        <div class="editor-rules"><p>El acceso dura el periodo pagado. Si vence, tu pagina sigue en linea, pero el editor se pausa.</p><a href="politicas-editor.html?id=${encodeURIComponent(id)}">Ver reglas de cancelacion y reembolso</a></div>
         <div class="editor-support"><div><strong>Problemas con tu suscripcion?</strong><span>Cobro, cancelacion, reembolso o activacion se atienden por WhatsApp.</span></div><a class="button button-light" href="${editorSupportHref(project,profile)}" target="_blank" rel="noopener">Ayuda por WhatsApp</a></div>`;
     } else if(editorCard){
       editorCard.hidden=true;
