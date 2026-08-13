@@ -393,6 +393,31 @@
   function requestVisibleSummary(request){
     return String(request?.admin_summary||request?.message||"").trim()||"Sin detalles.";
   }
+  function requestTimelineMeta(request){
+    const status=requestNormalizedStatus(request?.status||"Nueva");
+    const title=requestVisibleTitle(request);
+    const summary=requestVisibleSummary(request);
+    if(status==="Aceptada") return {title:`${title} aceptada`,description:`Aceptamos tu solicitud. ${summary}`,status:"Aceptada"};
+    if(status==="En proceso") return {title:`${title} en proceso`,description:`Ya estamos trabajando en esta solicitud. ${summary}`,status:"En proceso"};
+    if(status==="En revisión") return {title:`${title} en revisión`,description:`Terminamos este cambio y está listo para revisión. ${summary}`,status:"En revisión"};
+    if(status==="Completada") return {title:`${title} completada`,description:`Esta solicitud quedó completada. ${summary}`,status:"Completada"};
+    if(status==="Pospuesta") return {title:`${title} pospuesta`,description:`Esta solicitud quedó pospuesta por ahora. ${summary}`,status:"Pospuesta"};
+    if(status==="Rechazada") return {title:`${title} rechazada`,description:`Esta solicitud no fue aprobada. ${summary}`,status:"Rechazada"};
+    return null;
+  }
+  async function registerRequestUpdate(request){
+    const meta=requestTimelineMeta(request);
+    if(!meta||!request?.project_id)return;
+    const payload={
+      project_id:request.project_id,
+      user_id:request.user_id||null,
+      title:meta.title,
+      description:meta.description,
+      status:meta.status
+    };
+    const {error}=await db.from("client_updates").insert(payload);
+    if(error) throw error;
+  }
   function requestNormalizedStatus(value="Nueva"){
     const label=requestStateMeta(value).label;
     if(label==="Completada") return "Completada";
@@ -422,6 +447,8 @@
   async function saveRequestEditor(e){
     e.preventDefault();
     const form=e.currentTarget,fd=new FormData(form),id=String(fd.get("id")||"");
+    const current=state.requests.find(r=>String(r.id)===String(id));
+    const previousStatus=requestNormalizedStatus(current?.status||"Nueva");
     const status=requestNormalizedStatus(String(fd.get("status")||"Nueva"));
     const payload={
       request_type:String(fd.get("request_type")||"cambio"),
@@ -435,6 +462,9 @@
     setLine("#request-edit-status","Guardando…");
     const {data,error}=await db.from("client_requests").update(payload).eq("id",id).select().single();
     if(error){setLine("#request-edit-status",error.message||"No pudimos guardar la solicitud.","error");return;}
+    if(previousStatus!==status){
+      try{await registerRequestUpdate(data);}catch(updateError){setLine("#request-edit-status",updateError.message||"La solicitud se guardó, pero no pudimos registrar el avance.","error");}
+    }
     const idx=state.requests.findIndex(r=>String(r.id)===String(id));
     if(idx>=0) state.requests[idx]=data;
     renderDashboard();
@@ -762,7 +792,7 @@
   $("#client-detail-back")?.addEventListener("click",()=>setView("clients"));
   $("#client-detail-new-project")?.addEventListener("click",()=>{const client=clientById(state.currentClient);if(!client)return;setProjectForm({user_id:client.id,project_stage:"Invitación",status:"Pendiente de activar cuenta",site_visibility:"hidden",total_price:750,deposit_amount:375,balance_amount:375,payment_method:"Transferencia"});$("#project-setup-admin-content").innerHTML="<span>Sin configuración.</span>";$("#project-brief-admin-content").innerHTML="<span>Sin información.</span>";$("#project-files-admin").innerHTML="<span>No hay archivos.</span>";$("#project-modal").showModal();});
   $("#request-board")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.openProject)openProject(t.dataset.openProject);if(t.dataset.editRequest)openRequestEditor(t.dataset.editRequest);if(t.dataset.openClient)openClient(t.dataset.openClient);});
-  $("#request-board")?.addEventListener("change",async e=>{const id=e.target.dataset.requestStatus;if(!id)return;const status=requestNormalizedStatus(e.target.value);const payload={status,updated_at:new Date().toISOString()};if(status==="Completada")payload.completed_at=new Date().toISOString();if(status!=="Completada")payload.completed_at=null;const {data,error}=await db.from("client_requests").update(payload).eq("id",id).select().single();if(error){toast("No pudimos actualizar la solicitud.");return;}const r=state.requests.find(x=>String(x.id)===String(id));if(r)Object.assign(r,data);renderDashboard();renderRequests();toast("Solicitud actualizada.");});
+  $("#request-board")?.addEventListener("change",async e=>{const id=e.target.dataset.requestStatus;if(!id)return;const current=state.requests.find(x=>String(x.id)===String(id));const previousStatus=requestNormalizedStatus(current?.status||"Nueva");const status=requestNormalizedStatus(e.target.value);const payload={status,updated_at:new Date().toISOString()};if(status==="Completada")payload.completed_at=new Date().toISOString();if(status!=="Completada")payload.completed_at=null;const {data,error}=await db.from("client_requests").update(payload).eq("id",id).select().single();if(error){toast("No pudimos actualizar la solicitud.");return;}if(previousStatus!==status){try{await registerRequestUpdate(data);}catch(_){toast("La solicitud cambió, pero no pudimos registrar el avance.");}}const r=state.requests.find(x=>String(x.id)===String(id));if(r)Object.assign(r,data);renderDashboard();renderRequests();toast("Solicitud actualizada.");});
   $("#dashboard-next-actions")?.addEventListener("click",e=>{if(e.target.dataset.copyInvite)copyInvite(e.target.dataset.copyInvite);});
   $("#crm-user-form")?.addEventListener("submit",addUser);
   $("#user-rows")?.addEventListener("click",async e=>{const t=e.target;if(t.dataset.toggleUser){const u=state.users.find(x=>String(x.email).toLowerCase()===String(t.dataset.toggleUser).toLowerCase());if(u)await toggleUser(u.email,!u.activo);}if(t.dataset.deleteUser)await removeUser(t.dataset.deleteUser);if(t.dataset.grantUser)await grantUser(t.dataset.grantUser,t.dataset.grantRol);});
