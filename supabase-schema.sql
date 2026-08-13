@@ -1,6 +1,7 @@
 -- Excepcional Build: portal de clientes
 -- Ejecuta este archivo completo en Supabase > SQL Editor.
 -- No elimina tus tablas actuales. Usa nombres client_* para no chocar con tu CRM.
+-- Sincronizado con producción hasta 2026-08-13: solicitudes editables, completed_at y editor autogestionable.
 
 create extension if not exists pgcrypto;
 
@@ -28,6 +29,13 @@ create table if not exists public.client_projects (
   domain text,
   hosting_type text not null default 'cloudflare',
   quote_ref text,
+  editor_enabled boolean not null default false,
+  editor_access_status text,
+  editor_access_starts_at timestamptz,
+  editor_access_ends_at timestamptz,
+  editor_plan_months integer,
+  editor_price_mxn numeric(12,2),
+  editor_launch_url text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -57,6 +65,9 @@ create table if not exists public.client_requests (
   request_type text not null,
   message text not null,
   status text not null default 'Nueva',
+  admin_title text,
+  admin_summary text,
+  completed_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -212,7 +223,14 @@ alter table if exists public.client_projects
   add column if not exists balance_paid boolean not null default false,
   add column if not exists claim_token uuid default gen_random_uuid(),
   add column if not exists claimed_at timestamptz,
-  add column if not exists published_at timestamptz;
+  add column if not exists published_at timestamptz,
+  add column if not exists editor_enabled boolean not null default false,
+  add column if not exists editor_access_status text,
+  add column if not exists editor_access_starts_at timestamptz,
+  add column if not exists editor_access_ends_at timestamptz,
+  add column if not exists editor_plan_months integer,
+  add column if not exists editor_price_mxn numeric(12,2),
+  add column if not exists editor_launch_url text;
 
 -- Normalizamos valores de visibilidad existentes.
 update public.client_projects
@@ -467,6 +485,12 @@ alter table if exists public.client_projects
   add column if not exists setup_completed_at timestamptz,
   add column if not exists brief_submitted_at timestamptz,
   add column if not exists review_ready_at timestamptz;
+
+-- 1.5) Campos administrativos visibles para solicitudes del cliente.
+alter table if exists public.client_requests
+  add column if not exists admin_title text,
+  add column if not exists admin_summary text,
+  add column if not exists completed_at timestamptz;
 
 -- 2) Configuración elegida por el cliente después de aceptar.
 create table if not exists public.client_project_setup (
