@@ -357,10 +357,62 @@
     });
   }
 
+  function requestStateMeta(value=""){
+    const raw=String(value||"").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+    const map={
+      nueva:{label:"Nueva",group:"new",tone:"yellow"},
+      revisada:{label:"Revisada",group:"new",tone:"yellow"},
+      aceptada:{label:"Aceptada",group:"work",tone:"blue"},
+      "en proceso":{label:"En proceso",group:"work",tone:"blue"},
+      en_proceso:{label:"En proceso",group:"work",tone:"blue"},
+      "en revision":{label:"En revisión",group:"work",tone:"orange"},
+      "en revisión":{label:"En revisión",group:"work",tone:"orange"},
+      en_revision:{label:"En revisión",group:"work",tone:"orange"},
+      pospuesta:{label:"Pospuesta",group:"work",tone:"yellow"},
+      completada:{label:"Completada",group:"closed",tone:"green"},
+      resuelta:{label:"Completada",group:"closed",tone:"green"},
+      cerrada:{label:"Completada",group:"closed",tone:"green"},
+      rechazada:{label:"Rechazada",group:"closed",tone:"red"},
+      archivada:{label:"Archivada",group:"closed",tone:"red"}
+    };
+    return map[raw]||{label:value||"Nueva",group:"new",tone:"yellow"};
+  }
+  function requestTypeTitle(value=""){
+    return ({
+      cambio:"Cambio",
+      mantenimiento:"Mantenimiento",
+      actualizar:"Actualización",
+      dominio:"Dominio",
+      hosting:"Funciones especiales",
+      mejorar:"Mejora"
+    })[String(value||"").toLowerCase()]||value||"Solicitud";
+  }
+  function requestVisibleTitle(request){
+    return String(request?.admin_title||request?.client_title||request?.public_title||"").trim()||requestTypeTitle(request?.request_type);
+  }
+  function requestVisibleSummary(request){
+    return String(request?.admin_summary||request?.message||"").trim()||"Sin detalles.";
+  }
   function renderRequests(){
     const q=$("#request-search")?.value.toLowerCase().trim()||"",filter=$("#request-filter")?.value||"";
-    const visible=state.requests.filter(r=>{const p=projectById(r.project_id),c=clientById(r.user_id||p?.user_id);return(!filter||r.status===filter)&&`${r.message} ${r.request_type} ${p?.name||""} ${c?.full_name||""}`.toLowerCase().includes(q)});
-    $("#request-rows").innerHTML=visible.map(r=>{const p=projectById(r.project_id),c=clientById(r.user_id||p?.user_id);return `<tr><td><strong>${esc(p?.name||"Proyecto")}</strong></td><td>${esc(c?.full_name||"Cliente")}</td><td><span class="badge orange">${esc(r.request_type)}</span></td><td class="request-message">${esc(r.message)}</td><td><select class="control request-status" data-request-status="${r.id}"><option${r.status==="Nueva"?" selected":""}>Nueva</option><option${r.status==="En revisión"?" selected":""}>En revisión</option><option${r.status==="En proceso"?" selected":""}>En proceso</option><option${r.status==="Resuelta"?" selected":""}>Resuelta</option><option${r.status==="Cerrada"?" selected":""}>Cerrada</option></select></td><td>${fmtDate(r.created_at)}</td></tr>`}).join("");$("#request-empty").hidden=visible.length>0;
+    const visible=state.requests.filter(r=>{
+      const p=projectById(r.project_id),c=clientById(r.user_id||p?.user_id),status=requestStateMeta(r.status).label;
+      return (!filter||status===filter)&&`${r.message||""} ${r.request_type||""} ${r.admin_title||""} ${r.admin_summary||""} ${p?.name||""} ${c?.full_name||""}`.toLowerCase().includes(q);
+    });
+    const groups={new:[],work:[],closed:[]};
+    visible.forEach(r=>groups[requestStateMeta(r.status).group].push(r));
+    const renderCard=(r)=>{
+      const p=projectById(r.project_id),c=clientById(r.user_id||p?.user_id),meta=requestStateMeta(r.status);
+      return `<article class="request-card"><div class="request-card-top"><span class="badge ${meta.tone}">${esc(meta.label)}</span><small>${fmtDate(r.completed_at||r.updated_at||r.created_at)}</small></div><strong>${esc(requestVisibleTitle(r))}</strong><span class="sub">${esc(c?.full_name||"Cliente")} · ${esc(p?.name||"Proyecto")}</span><p class="request-card-message">${esc(requestVisibleSummary(r))}</p><div class="request-card-meta"><b>${esc(requestTypeTitle(r.request_type))}</b><button class="tiny-btn" data-open-project="${r.project_id}">Abrir proyecto</button></div><div class="request-card-actions"><select class="control request-status" data-request-status="${r.id}"><option${requestStateMeta(r.status).label==="Nueva"?" selected":""}>Nueva</option><option${requestStateMeta(r.status).label==="Revisada"?" selected":""}>Revisada</option><option${requestStateMeta(r.status).label==="Aceptada"?" selected":""}>Aceptada</option><option${requestStateMeta(r.status).label==="En proceso"?" selected":""}>En proceso</option><option${requestStateMeta(r.status).label==="En revisión"?" selected":""}>En revisión</option><option${requestStateMeta(r.status).label==="Pospuesta"?" selected":""}>Pospuesta</option><option${requestStateMeta(r.status).label==="Completada"?" selected":""}>Completada</option><option${requestStateMeta(r.status).label==="Rechazada"?" selected":""}>Rechazada</option><option${requestStateMeta(r.status).label==="Archivada"?" selected":""}>Archivada</option></select></div></article>`;
+    };
+    $("#request-col-new").innerHTML=groups.new.length?groups.new.map(renderCard).join(""):`<div class="empty-inline">Sin solicitudes nuevas.</div>`;
+    $("#request-col-work").innerHTML=groups.work.length?groups.work.map(renderCard).join(""):`<div class="empty-inline">Sin trabajo en curso.</div>`;
+    $("#request-col-closed").innerHTML=groups.closed.length?groups.closed.map(renderCard).join(""):`<div class="empty-inline">Sin solicitudes cerradas.</div>`;
+    $("#request-count-new").textContent=groups.new.length;
+    $("#request-count-work").textContent=groups.work.length;
+    $("#request-count-closed").textContent=groups.closed.length;
+    $("#request-empty").hidden=visible.length>0;
+    $("#request-board").hidden=!visible.length;
   }
 
   function fillClientSelect(){const select=$("#project-form [name=user_id]");if(!select)return;const current=select.value;select.innerHTML=`<option value="">Sin cuenta todavía</option>`+state.clients.map(c=>`<option value="${c.id}">${esc(c.full_name||c.email)} · ${esc(c.email||"")}</option>`).join("");select.value=current;}
@@ -650,7 +702,7 @@
   $("#client-detail-actions")?.addEventListener("click",e=>{if(e.target.dataset.openClients)setView("clients");});
   $("#client-detail-back")?.addEventListener("click",()=>setView("clients"));
   $("#client-detail-new-project")?.addEventListener("click",()=>{const client=clientById(state.currentClient);if(!client)return;setProjectForm({user_id:client.id,project_stage:"Invitación",status:"Pendiente de activar cuenta",site_visibility:"hidden",total_price:750,deposit_amount:375,balance_amount:375,payment_method:"Transferencia"});$("#project-setup-admin-content").innerHTML="<span>Sin configuración.</span>";$("#project-brief-admin-content").innerHTML="<span>Sin información.</span>";$("#project-files-admin").innerHTML="<span>No hay archivos.</span>";$("#project-modal").showModal();});
-  $("#request-rows")?.addEventListener("change",async e=>{const id=e.target.dataset.requestStatus;if(!id)return;const {error}=await db.from("client_requests").update({status:e.target.value}).eq("id",id);if(error){toast("No pudimos actualizar la solicitud.");return;}const r=state.requests.find(x=>x.id===id);if(r)r.status=e.target.value;renderDashboard();toast("Solicitud actualizada.");});
+  $("#request-board")?.addEventListener("change",async e=>{const id=e.target.dataset.requestStatus;if(!id)return;const {error}=await db.from("client_requests").update({status:e.target.value}).eq("id",id);if(error){toast("No pudimos actualizar la solicitud.");return;}const r=state.requests.find(x=>x.id===id);if(r)r.status=e.target.value;renderDashboard();renderRequests();toast("Solicitud actualizada.");});
   $("#dashboard-next-actions")?.addEventListener("click",e=>{if(e.target.dataset.copyInvite)copyInvite(e.target.dataset.copyInvite);});
   $("#crm-user-form")?.addEventListener("submit",addUser);
   $("#user-rows")?.addEventListener("click",async e=>{const t=e.target;if(t.dataset.toggleUser){const u=state.users.find(x=>String(x.email).toLowerCase()===String(t.dataset.toggleUser).toLowerCase());if(u)await toggleUser(u.email,!u.activo);}if(t.dataset.deleteUser)await removeUser(t.dataset.deleteUser);if(t.dataset.grantUser)await grantUser(t.dataset.grantUser,t.dataset.grantRol);});
