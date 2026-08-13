@@ -20,7 +20,7 @@
 </header>
 <main class="portal-main">
   <div class="portal-shell portal-shell-form">
-    <a class="back-link" href="panel.html">Volver a mis paginas</a>
+    <a class="back-link" id="back-link" href="panel.html">Volver a mis paginas</a>
     <section class="content-card">
       <div class="card-heading">
         <div>
@@ -47,5 +47,16 @@
   <a class="mobile-nav-main" href="https://wa.me/529811332914?text=Hola%2C%20necesito%20ayuda%20con%20mi%20suscripcion%20del%20editor%20de%20mi%20sitio." target="_blank" rel="noopener"><span aria-hidden="true">?</span><b>Ayuda</b></a>
   <a href="perfil.html"><span aria-hidden="true">○</span><b>Mi cuenta</b></a>
 </nav>
+<script>
+  // Si llegaron desde un proyecto, el boton vuelve a ESE proyecto (no al panel).
+  (function () {
+    var id = new URLSearchParams(location.search).get("id");
+    var link = document.getElementById("back-link");
+    if (id && link) {
+      link.href = "proyecto.html?id=" + encodeURIComponent(id);
+      link.textContent = "Volver al proyecto";
+    }
+  })();
+</script>
 </body>
 </html>
