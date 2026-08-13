@@ -201,8 +201,10 @@
   async function finishAccess(session) {
     const claim=pendingClaim();
     if(claim){ const id=await claimPendingProject(); location.replace(`proyecto.html?id=${encodeURIComponent(id)}`); return; }
-    const next=portal.normalizeNext(localStorage.getItem(portal.authNextKey),"panel.html");
-    localStorage.removeItem(portal.authNextKey); location.replace(next||"panel.html");
+    const rawNext=localStorage.getItem(portal.authNextKey);
+    const next=portal.normalizeNext(rawNext,"panel.html");
+    localStorage.removeItem(portal.authNextKey);
+    location.replace(next||"panel.html");
   }
 
   async function initAccess() {
@@ -243,7 +245,10 @@
     if(!portal.configured) return;
     const status=$("#callback-status");
     try{
-      const nextParam=getParam("next")||localStorage.getItem(portal.authNextKey);
+      const storedNext=localStorage.getItem(portal.authNextKey);
+      const nextParam=getParam("next")||storedNext;
+      const normalizedNext=portal.normalizeNext(nextParam,"panel.html");
+      const isCrmTarget=/^(crm-local\.html|project-admin\.html(\?|$))/i.test(normalizedNext);
       const code=getParam("code");
       if(code){
         status.textContent="Confirmando tu acceso…";
@@ -252,15 +257,16 @@
       }
       let session=await getSession();
       if(!session) throw new Error("No pudimos confirmar el acceso.");
-      if(nextParam==="crm-local.html"){
+      if(isCrmTarget){
         localStorage.removeItem(portal.authNextKey);
         status.textContent="Listo. Abriendo el CRM…";
-        location.replace("crm-local.html");
+        location.replace(normalizedNext);
         return;
       }
       const profile=await getProfile(session.user);
       if(!profile.onboarding_completed){ location.replace("acceso.html?complete=1"); return; }
-      status.textContent="Listo. Abriendo tu proyecto…"; await finishAccess(session);
+      status.textContent="Listo. Abriendo tu proyecto…";
+      await finishAccess(session);
     }catch(err){ status.textContent=friendlyError(err,"No pudimos completar el acceso. Vuelve a intentarlo."); }
   }
 

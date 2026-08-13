@@ -766,7 +766,20 @@
 
   $$(".crm-nav [data-view]").forEach(b=>b.addEventListener("click",()=>setView(b.dataset.view)));
   $("#refresh-all")?.addEventListener("click",()=>crmPage==="project-admin"?(loadAll(false).then(initProjectAdminPage)):loadAll());$("#crm-logout")?.addEventListener("click",async()=>{await db.auth.signOut();location.reload();});
-  $("#crm-google-login")?.addEventListener("click",async()=>{const button=$("#crm-google-login");const target=crmPage==="project-admin"?`project-admin.html${location.search}`:"crm-local.html";button.disabled=true;setLine("#crm-login-status","Abriendo Google…");localStorage.setItem(portal.authNextKey,target);const redirectTo=crmPage==="project-admin"?portal.callbackUrl():`${portal.callbackUrl()}?next=crm-local.html`;const {error}=await db.auth.signInWithOAuth({provider:"google",options:{redirectTo,scopes:"openid email profile"}});if(error){localStorage.removeItem(portal.authNextKey);setLine("#crm-login-status","No pudimos abrir Google. Intenta nuevamente.","error");button.disabled=false;}});
+  $("#crm-google-login")?.addEventListener("click",async()=>{
+    const button=$("#crm-google-login");
+    const target=crmPage==="project-admin"?`project-admin.html${location.search}`:"crm-local.html";
+    button.disabled=true;
+    setLine("#crm-login-status","Abriendo Google…");
+    localStorage.setItem(portal.authNextKey,target);
+    const redirectTo=`${portal.callbackUrl()}?next=${encodeURIComponent(target)}`;
+    const {error}=await db.auth.signInWithOAuth({provider:"google",options:{redirectTo,scopes:"openid email profile"}});
+    if(error){
+      localStorage.removeItem(portal.authNextKey);
+      setLine("#crm-login-status","No pudimos abrir Google. Intenta nuevamente.","error");
+      button.disabled=false;
+    }
+  });
   $("#prospect-form")?.addEventListener("submit",saveProspect);$("#cancel-prospect")?.addEventListener("click",()=>{$("#prospect-form").reset();$("#prospect-form").elements.id.value="";$("#cancel-prospect").hidden=true;setLine("#prospect-status","")});$("#export-prospects")?.addEventListener("click",exportProspects);
   $("#agreement-form")?.addEventListener("submit",saveAgreement);$$('[data-close-agreement]').forEach(b=>b.addEventListener("click",()=>$("#agreement-modal").close()));
   $("#request-edit-form")?.addEventListener("submit",saveRequestEditor);$$('[data-close-request]').forEach(b=>b.addEventListener("click",()=>$("#request-modal").close()));
