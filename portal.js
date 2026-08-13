@@ -49,7 +49,7 @@
     if(/información|informacion|contenido/.test(s)) return 1;
     return 0;
   }
-  function nextStepText(project) {
+function nextStepText(project) {
     const archived=archivedClientState(project);
     if(archived==="cancelado") return ["Proyecto cancelado","Contáctanos por WhatsApp si quieres retomarlo."];
     if(archived==="descontinuado") return ["Proyecto descontinuado","Contáctanos por WhatsApp si quieres retomarlo."];
@@ -59,6 +59,68 @@
     if(i===2) return ["Estamos construyendo tu página","Por ahora no necesitas hacer nada."];
     if(i===3) return ["Revisa tu página","Mira la vista previa y dinos si quieres cambiar algo."];
     return ["Tu página está publicada","Puedes pedir cambios o mantenimiento cuando lo necesites."];
+  }
+  function projectBaseTimeline(project) {
+    const archived=archivedClientState(project);
+    if(archived==="cancelado"){
+      return [
+        {title:"Proyecto creado",description:"Tu proyecto fue registrado correctamente.",dateValue:project.created_at},
+        {title:"Proyecto cancelado",description:"Este proyecto fue cancelado y ya no sigue en proceso.",dateValue:project.updated_at||project.created_at}
+      ];
+    }
+    if(archived==="descontinuado"){
+      return [
+        {title:"Proyecto creado",description:"Tu proyecto fue registrado correctamente.",dateValue:project.created_at},
+        {title:"Proyecto descontinuado",description:"Este proyecto se pausó y quedó fuera de seguimiento por ahora.",dateValue:project.updated_at||project.created_at}
+      ];
+    }
+    const items=[
+      {title:"Proyecto creado",description:"Tu proyecto fue registrado correctamente.",dateValue:project.created_at}
+    ];
+    const stage=stageIndex(project);
+    if(stage>=0){
+      items.push({
+        title:"Configuración recibida",
+        description:"Ya registraste la dirección y la forma en que quieres publicar tu página.",
+        dateValue:project.created_at
+      });
+    }
+    if(stage>=1){
+      items.push({
+        title:"Información recibida",
+        description:"Ya recibimos la información base de tu negocio para trabajar en la página.",
+        dateValue:project.updated_at||project.created_at
+      });
+    }
+    if(stage>=2){
+      items.push({
+        title:"Estamos construyendo tu página",
+        description:"Tu proyecto ya entró en producción.",
+        dateValue:project.updated_at||project.created_at
+      });
+    }
+    if(stage>=3){
+      items.push({
+        title:"Tu página está en revisión",
+        description:"Ya puedes revisar la versión actual antes de publicarla.",
+        dateValue:project.review_ready_at||project.updated_at||project.created_at
+      });
+    }
+    if(stage>=4){
+      items.push({
+        title:"Tu página fue publicada",
+        description:"Tu proyecto ya está activo y disponible.",
+        dateValue:project.published_at||project.updated_at||project.created_at
+      });
+    }
+    if(/mantenimiento/i.test(String(project?.project_stage||""))){
+      items.push({
+        title:"Tu página está en mantenimiento",
+        description:"El proyecto sigue activo y puede recibir ajustes o mejoras.",
+        dateValue:project.updated_at||project.published_at||project.created_at
+      });
+    }
+    return items;
   }
   function projectPrimaryHref(project) {
     if(archivedClientState(project)) return `proyecto.html?id=${encodeURIComponent(project.id)}`;
@@ -517,14 +579,13 @@
     const loadProject=async()=>{const {data,error}=await db.from("client_projects").select("*").eq("id",id).single();if(error)throw error;project=data;};
     await loadProject();
     const results=await Promise.all([
-      db.from("client_requests").select("*").eq("project_id",id).order("created_at",{ascending:false}),
-      db.from("client_updates").select("*").eq("project_id",id).order("created_at",{ascending:false}),
+db.from("client_requests").select("*").eq("project_id",id).order("created_at",{ascending:false}),
       db.from("client_project_briefs").select("*").eq("project_id",id).maybeSingle(),
       db.from("client_project_files").select("*").eq("project_id",id).order("created_at",{ascending:false})
     ]);
     for(const r of results) if(r.error) throw r.error;
-    let requests=results[0].data||[], updates=results[1].data||[], brief=results[2].data, files=results[3].data||[];
-    startLiveUpdates(`portal-project-${id}`,[{table:"client_projects",filter:`id=eq.${id}`},{table:"client_requests",filter:`project_id=eq.${id}`},{table:"client_updates",filter:`project_id=eq.${id}`}],async()=>location.reload());
+    let requests=results[0].data||[], brief=results[1].data, files=results[2].data||[];
+    startLiveUpdates(`portal-project-${id}`,[{table:"client_projects",filter:`id=eq.${id}`},{table:"client_requests",filter:`project_id=eq.${id}`}],async()=>location.reload());
     document.title=`${project.name} | Excepcional Build`; $("#project-title").textContent=project.name; $("#project-subtitle").innerHTML=`<span class="status-badge ${statusClass(project.status||project.project_stage)}">${safe(project.status||project.project_stage)}</span>`; $("#project-top-actions").innerHTML=siteAction(project);
     const labels=["Configurar","Enviar información","Construcción","Revisión","Publicada"], pos=stageIndex(project);
     $("#project-stage-track").innerHTML=labels.map((label,i)=>`<div class="stage-step ${i<pos?"done":i===pos?"current":""}"><i>${i<pos?"✓":i+1}</i><span>${safe(label)}</span><small>${i===pos?"Ahora":""}</small></div>`).join("");
@@ -644,7 +705,8 @@
       $("#project-actions").innerHTML=types.map(t=>`<button class="action-card" type="button" data-request-type="${t}"><b>${requestLabels[t].title}</b><span>${requestLabels[t].help}</span></button>`).join("");
     }
 
-    $("#project-timeline").innerHTML=updates.length?updates.map(u=>`<article class="timeline-item"><h3>${safe(u.title)}</h3><p>${safe(u.description||"")}</p><time>${date(u.created_at)}</time></article>`).join(""):`<article class="timeline-item"><h3>Proyecto creado</h3><p>Aquí aparecerán los avances que registremos.</p><time>${date(project.created_at)}</time></article>`;
+    const baseTimeline=projectBaseTimeline(project);
+    $("#project-timeline").innerHTML=baseTimeline.length?baseTimeline.map(item=>`<article class="timeline-item"><h3>${safe(item.title)}</h3><p>${safe(item.description||"")}</p><time>${date(item.dateValue)}</time></article>`).join(""):`<article class="timeline-item"><h3>Proyecto creado</h3><p>Tu proyecto fue registrado correctamente.</p><time>${date(project.created_at)}</time></article>`;
 
     const activeRequests=requests.filter(r=>requestStateMeta(r.status).group==="active");
     const closedRequests=requests.filter(r=>requestStateMeta(r.status).group==="closed");
