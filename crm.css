@@ -8,7 +8,20 @@
 .request-column-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 14px 12px;border-bottom:1px solid var(--line);background:#f8faf6}
 .request-column-head strong{font-size:12px}
 .request-column-head span{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;padding:0 7px;border-radius:999px;background:#edf0ec;color:#52605b;font-size:10px;font-weight:900}
-.request-column-body{display:grid;gap:10px;padding:12px;min-height:120px}
+.request-column-body{display:grid;gap:12px;padding:12px;min-height:120px}
+.request-client-group{border:1px solid var(--line);border-radius:14px;background:#f9fbf7;overflow:hidden}
+.request-client-group-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:12px;border-bottom:1px solid var(--line);background:#fff}
+.request-client-group-head h3{margin:0;font-size:13px;line-height:1.2}
+.request-client-group-head p{margin:4px 0 0;color:var(--muted);font-size:10px}
+.request-client-group-head span{display:inline-flex;align-items:center;justify-content:center;min-height:24px;padding:0 9px;border-radius:999px;background:#edf0ec;color:#52605b;font-size:10px;font-weight:900;white-space:nowrap}
+.request-client-group-body{display:grid;gap:10px;padding:12px}
+.request-project-group{padding:10px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.request-project-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px}
+.request-project-head strong{display:block;font-size:12px;line-height:1.25}
+.request-project-head small{display:block;margin-top:3px;color:var(--muted);font-size:9px}
+.request-project-items{display:grid;gap:10px}
+.request-project-items-hidden{margin-top:10px}
+.request-group-toggle{margin-top:10px;width:100%}
 .request-card{padding:12px;border:1px solid var(--line);border-radius:12px;background:#fbfcf8}
 .request-card-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
 .request-card-top small{color:var(--muted);font-size:9px}
@@ -23,7 +36,11 @@
 .request-card-actions{margin-top:10px}
 .request-card-actions .control{min-width:0}
 .empty-inline{padding:14px;border:1px dashed var(--line);border-radius:11px;background:#fff;color:var(--muted);font-size:10px;text-align:center}
-@media(max-width:760px){.request-card-owner{grid-template-columns:1fr}}
+@media(max-width:760px){
+  .request-card-owner{grid-template-columns:1fr}
+  .request-client-group-head,
+  .request-project-head{grid-template-columns:1fr;display:grid}
+}
 .modal{width:min(760px,calc(100% - 28px));padding:0;border:0;border-radius:22px;background:#fff;box-shadow:0 35px 100px rgba(5,20,16,.3)}.modal::backdrop{background:rgba(8,24,20,.58);backdrop-filter:blur(4px)}.modal-body{padding:22px}.modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px}.modal-head h2{margin:0;font:800 24px "Manrope"}.close{width:36px;height:36px;border:1px solid var(--line);border-radius:50%;background:#fff;font-size:18px}.project-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px}.project-form-grid .wide{grid-column:1/-1}.checks{display:flex;gap:18px;padding:8px 0}.checks label{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:800}.checks input{width:auto}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}.invite-box{margin-top:14px;padding:12px;border-radius:11px;background:#edf3ee}.invite-box strong{display:block;margin-bottom:4px;font-size:11px}.invite-box p{margin:0 0 8px;color:var(--muted);font-size:10px;word-break:break-all}.update-box{margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}.update-box h3{font-size:14px}.update-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}.update-fields textarea{grid-column:1/-1}.toast{position:fixed;right:18px;bottom:18px;z-index:100;max-width:360px;padding:13px 15px;border-radius:11px;background:var(--ink);color:#fff;box-shadow:var(--shadow);font-size:11px;opacity:0;transform:translateY(10px);pointer-events:none;transition:.18s}.toast.show{opacity:1;transform:none}.notice{padding:12px;border-radius:10px;background:#fff7df;color:#655525;font-size:10px;line-height:1.45}
 .project-lifecycle-box{margin-top:16px;padding:13px;border:1px solid var(--line);border-radius:11px;background:#fff7f4}.project-lifecycle-box strong{display:block;margin-bottom:4px;font-size:11px}.project-lifecycle-box p{margin:0 0 10px;color:var(--muted);font-size:10px;line-height:1.45}
 .editor-admin-box{margin-top:16px;padding:13px;border:1px solid var(--line);border-radius:11px;background:#f8faf6}

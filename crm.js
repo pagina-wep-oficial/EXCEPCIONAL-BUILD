@@ -474,6 +474,7 @@
     toast("Solicitud actualizada.");
   }
   function renderRequests(){
+    const REQUEST_GROUP_VISIBLE_LIMIT=4;
     const q=$("#request-search")?.value.toLowerCase().trim()||"",filter=$("#request-filter")?.value||"";
     const visible=state.requests.filter(r=>{
       const p=projectById(r.project_id),c=clientById(r.user_id||p?.user_id),status=requestStateMeta(r.status).label;
@@ -489,13 +490,76 @@
     groups.new.sort(sortByRecent);
     groups.work.sort(sortByRecent);
     groups.closed.sort(sortByRecent);
+
     const renderCard=(r)=>{
       const p=projectById(r.project_id),c=clientById(r.user_id||p?.user_id),meta=requestStateMeta(r.status);
       return `<article class="request-card"><div class="request-card-top"><span class="badge ${meta.tone}">${esc(meta.label)}</span><small>${fmtDate(r.completed_at||r.updated_at||r.created_at)}</small></div><strong>${esc(requestVisibleTitle(r))}</strong><div class="request-card-owner"><span><b>Cliente</b>${esc(c?.full_name||"Cliente")}</span><span><b>Proyecto</b>${esc(p?.name||"Proyecto")}</span></div><p class="request-card-message">${esc(requestVisibleSummary(r))}</p><div class="request-card-meta"><b>${esc(requestTypeTitle(r.request_type))}</b><div class="row-actions"><button class="tiny-btn" data-edit-request="${r.id}">Editar</button>${c?.id?`<button class="tiny-btn" data-open-client="${c.id}">Ver cliente</button>`:""}<button class="tiny-btn" data-open-project="${r.project_id}">Abrir proyecto</button></div></div><div class="request-card-actions"><select class="control request-status" data-request-status="${r.id}"><option${requestStateMeta(r.status).label==="Nueva"?" selected":""}>Nueva</option><option${requestStateMeta(r.status).label==="Revisada"?" selected":""}>Revisada</option><option${requestStateMeta(r.status).label==="Aceptada"?" selected":""}>Aceptada</option><option${requestStateMeta(r.status).label==="En proceso"?" selected":""}>En proceso</option><option${requestStateMeta(r.status).label==="En revisión"?" selected":""}>En revisión</option><option${requestStateMeta(r.status).label==="Pospuesta"?" selected":""}>Pospuesta</option><option${requestStateMeta(r.status).label==="Completada"?" selected":""}>Completada</option><option${requestStateMeta(r.status).label==="Rechazada"?" selected":""}>Rechazada</option><option${requestStateMeta(r.status).label==="Archivada"?" selected":""}>Archivada</option></select></div></article>`;
     };
-    $("#request-col-new").innerHTML=groups.new.length?groups.new.map(renderCard).join(""):`<div class="empty-inline">Sin solicitudes nuevas.</div>`;
-    $("#request-col-work").innerHTML=groups.work.length?groups.work.map(renderCard).join(""):`<div class="empty-inline">Sin trabajo en curso.</div>`;
-    $("#request-col-closed").innerHTML=groups.closed.length?groups.closed.map(renderCard).join(""):`<div class="empty-inline">Sin solicitudes cerradas.</div>`;
+
+    const groupRequestsByClientProject=(items)=>{
+      const map=new Map();
+      items.forEach(r=>{
+        const p=projectById(r.project_id);
+        const c=clientById(r.user_id||p?.user_id);
+        const clientId=c?.id||`guest:${p?.id||r.id}`;
+        const projectId=p?.id||`project:${r.project_id||r.id}`;
+        if(!map.has(clientId)){
+          map.set(clientId,{
+            client:c||null,
+            clientName:c?.full_name||c?.email||"Cliente sin cuenta",
+            clientEmail:c?.email||"",
+            projects:new Map(),
+            recent:new Date(r.completed_at||r.updated_at||r.created_at||0).getTime()
+          });
+        }
+        const clientGroup=map.get(clientId);
+        clientGroup.recent=Math.max(clientGroup.recent,new Date(r.completed_at||r.updated_at||r.created_at||0).getTime());
+        if(!clientGroup.projects.has(projectId)){
+          clientGroup.projects.set(projectId,{
+            project:p||null,
+            projectName:p?.name||"Proyecto",
+            items:[],
+            recent:new Date(r.completed_at||r.updated_at||r.created_at||0).getTime()
+          });
+        }
+        const projectGroup=clientGroup.projects.get(projectId);
+        projectGroup.items.push(r);
+        projectGroup.recent=Math.max(projectGroup.recent,new Date(r.completed_at||r.updated_at||r.created_at||0).getTime());
+      });
+
+      return [...map.values()]
+        .map(clientGroup=>({
+          ...clientGroup,
+          projects:[...clientGroup.projects.values()]
+            .sort((a,b)=>b.recent-a.recent)
+            .map(projectGroup=>({
+              ...projectGroup,
+              items:projectGroup.items.sort(sortByRecent)
+            }))
+        }))
+        .sort((a,b)=>b.recent-a.recent);
+    };
+
+    const renderProjectGroup=(projectGroup,clientGroup,columnKey)=>{
+      const visibleItems=projectGroup.items.slice(0,REQUEST_GROUP_VISIBLE_LIMIT);
+      const hiddenItems=projectGroup.items.slice(REQUEST_GROUP_VISIBLE_LIMIT);
+      const hiddenId=`request-hidden-${columnKey}-${projectGroup.project?.id||Math.random().toString(36).slice(2)}`;
+      const toggleId=`request-toggle-${columnKey}-${projectGroup.project?.id||Math.random().toString(36).slice(2)}`;
+      return `<section class="request-project-group"><div class="request-project-head"><div><strong>${esc(projectGroup.projectName)}</strong><small>${projectGroup.items.length} solicitud${projectGroup.items.length===1?"":"es"}</small></div><div class="row-actions">${clientGroup.client?.id?`<button class="tiny-btn" data-open-client="${clientGroup.client.id}">Ver cliente</button>`:""}${projectGroup.project?.id?`<button class="tiny-btn" data-open-project="${projectGroup.project.id}">Abrir proyecto</button>`:""}</div></div><div class="request-project-items">${visibleItems.map(renderCard).join("")}</div>${hiddenItems.length?`<div class="request-project-items request-project-items-hidden" id="${hiddenId}" hidden>${hiddenItems.map(renderCard).join("")}</div><button class="tiny-btn request-group-toggle" id="${toggleId}" type="button" data-target="${hiddenId}" data-more="${hiddenItems.length}" data-less="0">Ver ${hiddenItems.length} más</button>`:""}</section>`;
+    };
+
+    const renderClientGroup=(clientGroup,columnKey)=>{
+      return `<article class="request-client-group"><div class="request-client-group-head"><div><h3>${esc(clientGroup.clientName)}</h3><p>${esc(clientGroup.clientEmail||"Sin correo visible")}</p></div><span>${clientGroup.projects.length} proyecto${clientGroup.projects.length===1?"":"s"}</span></div><div class="request-client-group-body">${clientGroup.projects.map(projectGroup=>renderProjectGroup(projectGroup,clientGroup,columnKey)).join("")}</div></article>`;
+    };
+
+    const renderColumn=(items,columnKey,emptyText)=>{
+      if(!items.length)return `<div class="empty-inline">${emptyText}</div>`;
+      return groupRequestsByClientProject(items).map(clientGroup=>renderClientGroup(clientGroup,columnKey)).join("");
+    };
+
+    $("#request-col-new").innerHTML=renderColumn(groups.new,"new","Sin solicitudes nuevas.");
+    $("#request-col-work").innerHTML=renderColumn(groups.work,"work","Sin trabajo en curso.");
+    $("#request-col-closed").innerHTML=renderColumn(groups.closed,"closed","Sin solicitudes cerradas.");
     $("#request-count-new").textContent=groups.new.length;
     $("#request-count-work").textContent=groups.work.length;
     $("#request-count-closed").textContent=groups.closed.length;
@@ -804,7 +868,20 @@
   $("#client-detail-actions")?.addEventListener("click",e=>{if(e.target.dataset.openClients)setView("clients");});
   $("#client-detail-back")?.addEventListener("click",()=>setView("clients"));
   $("#client-detail-new-project")?.addEventListener("click",()=>{const client=clientById(state.currentClient);if(!client)return;setProjectForm({user_id:client.id,project_stage:"Invitación",status:"Pendiente de activar cuenta",site_visibility:"hidden",total_price:750,deposit_amount:375,balance_amount:375,payment_method:"Transferencia"});$("#project-setup-admin-content").innerHTML="<span>Sin configuración.</span>";$("#project-brief-admin-content").innerHTML="<span>Sin información.</span>";$("#project-files-admin").innerHTML="<span>No hay archivos.</span>";$("#project-modal").showModal();});
-  $("#request-board")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.openProject)openProject(t.dataset.openProject);if(t.dataset.editRequest)openRequestEditor(t.dataset.editRequest);if(t.dataset.openClient)openClient(t.dataset.openClient);});
+  $("#request-board")?.addEventListener("click",e=>{
+    const t=e.target;
+    if(t.dataset.openProject)openProject(t.dataset.openProject);
+    if(t.dataset.editRequest)openRequestEditor(t.dataset.editRequest);
+    if(t.dataset.openClient)openClient(t.dataset.openClient);
+    if(t.dataset.target){
+      const box=document.getElementById(t.dataset.target);
+      if(!box)return;
+      const expanded=t.dataset.less==="1";
+      box.hidden=expanded;
+      t.dataset.less=expanded?"0":"1";
+      t.textContent=expanded?`Ver ${t.dataset.more} más`:"Mostrar menos";
+    }
+  });
   $("#request-board")?.addEventListener("change",async e=>{const id=e.target.dataset.requestStatus;if(!id)return;const current=state.requests.find(x=>String(x.id)===String(id));const previousStatus=requestNormalizedStatus(current?.status||"Nueva");const status=requestNormalizedStatus(e.target.value);const payload={status,updated_at:new Date().toISOString()};if(status==="Completada")payload.completed_at=new Date().toISOString();if(status!=="Completada")payload.completed_at=null;const {data,error}=await db.from("client_requests").update(payload).eq("id",id).select().single();if(error){toast("No pudimos actualizar la solicitud.");return;}if(previousStatus!==status){try{await registerRequestUpdate(data);}catch(_){toast("La solicitud cambió, pero no pudimos registrar el avance.");}}const r=state.requests.find(x=>String(x.id)===String(id));if(r)Object.assign(r,data);renderDashboard();renderRequests();toast("Solicitud actualizada.");});
   $("#dashboard-next-actions")?.addEventListener("click",e=>{if(e.target.dataset.copyInvite)copyInvite(e.target.dataset.copyInvite);});
   $("#crm-user-form")?.addEventListener("submit",addUser);
