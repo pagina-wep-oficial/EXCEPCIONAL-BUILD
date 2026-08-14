@@ -55,11 +55,12 @@ export async function onRequestGet(context) {
     }
 
     const isHtml = /\.html?$/i.test(assetPath);
+    const isImage = /\.(png|jpe?g|gif|webp|svg|ico|avif|woff2?|ttf|otf)$/i.test(assetPath);
     return new Response(response.body, {
       status: 200,
       headers: {
         "Content-Type": mimeFor(assetPath),
-        "Cache-Control": isHtml ? "public, max-age=120" : "public, max-age=3600"
+        "Cache-Control": isHtml ? "public, max-age=120" : (isImage ? "public, max-age=3600" : "public, max-age=300")
       }
     });
   } catch (error) {
