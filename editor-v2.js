@@ -498,6 +498,28 @@
     });
   }
 
+  function restoreRepoRelativeUrls(doc) {
+    const project = state.project;
+    const repoPath = `${project.site_repo_owner}/${project.site_repo_name}@${project.site_repo_branch || "main"}/`;
+    const marker = "/api/repo-asset/" + repoPath;
+    doc.querySelectorAll("[src],[href]").forEach(node => {
+      ["src", "href"].forEach(attr => {
+        const raw = node.getAttribute(attr);
+        if (!raw || raw.startsWith("data:") || raw.startsWith("#")) return;
+        let url = raw;
+        try {
+          url = new URL(raw, location.href).href;
+        } catch {
+          return;
+        }
+        const idx = url.indexOf(marker);
+        if (idx === -1) return;
+        const rel = url.slice(idx + marker.length);
+        node.setAttribute(attr, rel || "./");
+      });
+    });
+  }
+
   function syncRepoDraftFromFrame() {
     if (state.sourceMode !== "html_repo") return;
     const draft = currentDraft();
@@ -507,6 +529,7 @@
 
     doc.querySelectorAll("base").forEach(base => base.remove());
     cleanEditorRuntimeMarks(doc);
+    restoreRepoRelativeUrls(doc);
     draft.edited_html = `<!doctype html>\n${doc.documentElement.outerHTML}`;
   }
 
@@ -570,7 +593,6 @@
 
   async function publishDraft() {
     if (state.sourceMode === "html_repo") {
-      if (!confirm("¿Quieres publicar estos cambios en GitHub?")) return;
       await saveRepoDraft();
 
       setStatus("Publicando en GitHub...");
