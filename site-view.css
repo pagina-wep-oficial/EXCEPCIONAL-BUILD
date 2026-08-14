@@ -185,6 +185,46 @@
   word-break:break-all;
 }
 
+.site-hero-layout{
+  display:grid;
+  grid-template-columns:1.1fr .9fr;
+  gap:22px;
+  align-items:center;
+}
+
+.site-hero-copy{
+  display:grid;
+  gap:12px;
+}
+
+.site-hero-copy h2,
+.site-hero-copy p{
+  color:inherit;
+}
+
+.site-hero-image{
+  width:100%;
+  min-height:280px;
+  border-radius:24px;
+  object-fit:cover;
+  background:rgba(255,255,255,.08);
+  display:block;
+}
+
+.site-image-real{
+  width:100%;
+  border-radius:20px;
+  object-fit:cover;
+  display:block;
+  background:#edf1eb;
+}
+
+.site-image-caption{
+  margin-top:10px;
+  color:#60706a;
+  font-size:12px;
+}
+
 .site-features-grid{
   display:grid;
   grid-template-columns:repeat(3,1fr);
@@ -208,12 +248,25 @@
 }
 
 .site-gallery-card{
-  padding:14px;
-  border-radius:16px;
+  overflow:hidden;
+  border-radius:18px;
   border:1px solid var(--editor-line,#e2e6df);
+  background:#fff;
 }
 
-.site-gallery-card strong{
+.site-gallery-image{
+  width:100%;
+  aspect-ratio:4/3;
+  object-fit:cover;
+  display:block;
+  background:#edf1eb;
+}
+
+.site-gallery-copy{
+  padding:12px 14px;
+}
+
+.site-gallery-copy strong{
   display:block;
   margin-bottom:6px;
   font-size:13px;
@@ -276,16 +329,16 @@
 
 .site-contact-list{
   display:grid;
-  gap:10px;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:12px;
   margin-top:14px;
 }
 
 .site-contact-row{
-  display:flex;
-  justify-content:space-between;
-  gap:14px;
-  padding:12px 14px;
-  border-radius:14px;
+  display:grid;
+  gap:6px;
+  padding:14px 16px;
+  border-radius:16px;
   background:#f6f8f4;
   font-size:13px;
 }
@@ -307,15 +360,16 @@
 
 .site-hours{
   display:grid;
-  gap:8px;
+  gap:10px;
   margin-top:14px;
 }
 
 .site-hours-row{
-  display:flex;
-  justify-content:space-between;
-  padding:10px 14px;
-  border-radius:12px;
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:12px;
+  padding:12px 14px;
+  border-radius:14px;
   background:#f6f8f4;
   font-size:13px;
   font-weight:700;
@@ -329,6 +383,12 @@
 }
 
 /* ---- responsive ---- */
+
+@media (max-width:760px){
+  .site-hero-layout{
+    grid-template-columns:1fr;
+  }
+}
 
 @media (max-width:640px){
   .site-view-bar{
@@ -349,6 +409,12 @@
     padding:28px 16px;
   }
   .site-features-grid{
+    grid-template-columns:1fr;
+  }
+  .site-contact-list{
+    grid-template-columns:1fr;
+  }
+  .site-hours-row{
     grid-template-columns:1fr;
   }
 }

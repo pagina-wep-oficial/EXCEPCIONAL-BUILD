@@ -136,6 +136,12 @@
     return String(phone || "").replace(/\D/g, "").replace(/^52(?=\d{10}$)/, "");
   }
 
+  function renderImage(url, alt = "", className = "site-image-real") {
+    const src = String(url || "").trim();
+    if (!src) return "";
+    return `<img class="${className}" src="${safe(src)}" alt="${safe(alt || "")}" loading="lazy">`;
+  }
+
   function renderBlock(section) {
     if (section.visible === false) return "";
     const data = section.data || {};
@@ -145,10 +151,16 @@
       if (data.button_text) actions.push({ label: data.button_text, url: data.button_url || "", style: "primary" });
       return `
         <section class="site-section site-hero">
-          <h2>${safe(data.title || "Tu negocio")}</h2>
-          <p>${safe(data.subtitle || "")}</p>
-          ${renderButtons(actions)}
-          ${data.image_url ? `<div class="site-media-box"><strong>Imagen principal</strong><br>${safe(data.image_url)}</div>` : ""}
+          <div class="site-hero-layout">
+            <div class="site-hero-copy">
+              <h2>${safe(data.title || "Tu negocio")}</h2>
+              <p>${safe(data.subtitle || "")}</p>
+              ${renderButtons(actions)}
+            </div>
+            <div>
+              ${renderImage(data.image_url, data.image_alt || data.title || "Imagen principal", "site-hero-image") || `<div class="site-media-box">Agrega una imagen principal para esta portada.</div>`}
+            </div>
+          </div>
         </section>
       `;
     }
@@ -182,8 +194,10 @@
           <div class="site-gallery">
             ${images.length ? images.map(img => `
               <article class="site-gallery-card">
-                <strong>${safe(img.caption || img.alt || "Imagen")}</strong>
-                <div class="site-media-box">${safe(img.url || "Sin URL")}</div>
+                ${renderImage(img.url, img.alt || img.caption || "Imagen de galería", "site-gallery-image") || `<div class="site-media-box">Sin imagen</div>`}
+                <div class="site-gallery-copy">
+                  <strong>${safe(img.caption || img.alt || "Imagen")}</strong>
+                </div>
               </article>
             `).join("") : `<div class="site-media-box">Sin imágenes todavía.</div>`}
           </div>
@@ -191,16 +205,27 @@
       `;
     }
 
-    if (section.type === "video") {
-      const url = String(data.url || "").trim();
-      const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]{6,})/);
+    if (section.type === "image") {
       return `
         <section class="site-section">
           ${data.heading ? `<h2>${safe(data.heading)}</h2>` : ""}
+          ${renderImage(data.image_url, data.image_alt || data.caption || "Imagen", "site-image-real") || `<div class="site-media-box">Sin imagen todavía.</div>`}
+          ${data.caption ? `<div class="site-image-caption">${safe(data.caption)}</div>` : ""}
+        </section>
+      `;
+    }
+
+    if (section.type === "video") {
+      const url = String(data.video_url || data.url || "").trim();
+      const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]{6,})/);
+      return `
+        <section class="site-section">
+          ${(data.title || data.heading) ? `<h2>${safe(data.title || data.heading)}</h2>` : ""}
+          ${data.description ? `<p>${safe(data.description)}</p>` : ""}
           <div class="site-video">
             ${m ? `
               <div class="site-video-frame">
-                <iframe src="https://www.youtube.com/embed/${safe(m[1])}" title="${safe(data.heading || "Video")}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe>
+                <iframe src="https://www.youtube.com/embed/${safe(m[1])}" title="${safe(data.title || data.heading || "Video")}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe>
               </div>
             ` : url ? `<a class="site-video-link" href="${safe(url)}" target="_blank" rel="noopener">Ver video</a>` : `<div class="site-media-box">Sin video todavía.</div>`}
           </div>
@@ -234,7 +259,7 @@
       if (data.maps_url) rows.push({ label: "Ubicación", html: `<a href="${safe(data.maps_url)}" target="_blank" rel="noopener">Ver en el mapa</a>` });
       return `
         <section class="site-section">
-          ${data.heading ? `<h2>${safe(data.heading)}</h2>` : ""}
+          ${data.heading ? `<h2>${safe(data.heading)}</h2>` : `<h2>Contacto</h2>`}
           <div class="site-contact-list">
             ${rows.length ? rows.map(row => `<div class="site-contact-row"><span>${safe(row.label)}</span>${row.html}</div>`).join("") : `<div class="site-media-box">Todavía no has agregado tus datos de contacto.</div>`}
           </div>
@@ -257,12 +282,12 @@
     }
 
     if (section.type === "buttons") {
-      const items = Array.isArray(data.items) ? data.items : [];
+      const items = Array.isArray(data.items) ? data.items.filter(item => String(item?.label || "").trim()) : [];
       return `
         <section class="site-section">
           ${data.heading ? `<h2>${safe(data.heading)}</h2>` : ""}
           <div class="site-actions-row">
-            ${renderButtons(items)}
+            ${items.length ? renderButtons(items) : `<div class="site-media-box">Agrega botones de acción para esta sección.</div>`}
           </div>
         </section>
       `;
