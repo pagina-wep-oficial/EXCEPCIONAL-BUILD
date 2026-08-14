@@ -150,25 +150,52 @@
     return `<img class="${className}" src="${safe(src)}" alt="${safe(alt || "")}" loading="lazy"${attrs ? ` ${attrs}` : ""}>`;
   }
 
+  function currentElements() {
+    return currentVersion()?.content_json?.elements || {};
+  }
+
+  function elementValue(key, fallback = "") {
+    const entry = currentElements()[key];
+    if (!entry) return fallback;
+    return entry.value ?? fallback;
+  }
+
+  function elementJson(key, fallback) {
+    const raw = elementValue(key, "");
+    if (!String(raw || "").trim()) return fallback;
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed ?? fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
   function renderBlock(section) {
     if (section.visible === false) return "";
     const data = section.data || {};
 
     if (section.type === "hero") {
-      const actions = [];
-      if (data.button_text) actions.push({ label: data.button_text, url: data.button_url || "", style: "primary" });
+      const heroTitle = elementValue("hero.title", data.title || "Tu negocio");
+      const heroSubtitle = elementValue("hero.subtitle", data.subtitle || "");
+      const heroImage = elementValue("hero.image", data.image_url || "");
+      const actions = elementJson(
+        "hero.buttons",
+        data.button_text ? [{ label: data.button_text, url: data.button_url || "", style: "primary" }] : []
+      );
+
       return `
         <section class="site-section site-hero" ${editableSection("hero")}>
           <div class="site-hero-layout">
             <div class="site-hero-copy">
-              <h2 ${editableAttrs("text", "hero.title")}>${safe(data.title || "Tu negocio")}</h2>
-              <p ${editableAttrs("text", "hero.subtitle")}>${safe(data.subtitle || "")}</p>
-              ${actions.length ? `<div ${editableAttrs("buttons", "hero.buttons")}>${renderButtons(actions)}</div>` : ""}
+              <h2 ${editableAttrs("text", "hero.title")}>${safe(heroTitle)}</h2>
+              <p ${editableAttrs("text", "hero.subtitle")}>${safe(heroSubtitle)}</p>
+              ${Array.isArray(actions) && actions.length ? `<div ${editableAttrs("buttons", "hero.buttons")}>${renderButtons(actions)}</div>` : ""}
             </div>
             <div>
               ${renderImage(
-                data.image_url,
-                data.image_alt || data.title || "Imagen principal",
+                heroImage,
+                data.image_alt || heroTitle || "Imagen principal",
                 "site-hero-image",
                 editableAttrs("image", "hero.image")
               ) || `<div class="site-media-box">Agrega una imagen principal para esta portada.</div>`}
@@ -179,10 +206,13 @@
     }
 
     if (section.type === "text") {
+      const textHeading = elementValue("text.heading", data.heading || "");
+      const textBody = elementValue("text.body", data.body || "");
+
       return `
         <section class="site-section" ${editableSection("text")}>
-          ${data.heading ? `<h2 ${editableAttrs("text", "text.heading")}>${safe(data.heading)}</h2>` : ""}
-          <p ${editableAttrs("text", "text.body")}>${safe(data.body || "")}</p>
+          ${textHeading ? `<h2 ${editableAttrs("text", "text.heading")}>${safe(textHeading)}</h2>` : ""}
+          <p ${editableAttrs("text", "text.body")}>${safe(textBody)}</p>
         </section>
       `;
     }
@@ -264,16 +294,23 @@
     }
 
     if (section.type === "contact") {
+      const contactHeading = elementValue("contact.heading", data.heading || "");
+      const contactWhatsapp = elementValue("contact.whatsapp", data.whatsapp || "");
+      const contactPhone = elementValue("contact.phone", data.phone || "");
+      const contactEmail = elementValue("contact.email", data.email || "");
+      const contactAddress = elementValue("contact.address", data.address || "");
+      const contactMapsUrl = elementValue("contact.maps_url", data.maps_url || "");
+
       return `
         <section class="site-section" ${editableSection("contact")}>
-          ${data.heading ? `<h2 ${editableAttrs("text", "contact.heading")}>${safe(data.heading)}</h2>` : `<h2>Contacto</h2>`}
+          ${contactHeading ? `<h2 ${editableAttrs("text", "contact.heading")}>${safe(contactHeading)}</h2>` : `<h2>Contacto</h2>`}
           <div class="site-contact-list">
-            ${data.whatsapp ? `<div class="site-contact-row"><span>WhatsApp</span><a ${editableAttrs("text", "contact.whatsapp")} href="https://wa.me/${safe(waNumber(data.whatsapp))}" target="_blank" rel="noopener">${safe(data.whatsapp)}</a></div>` : ""}
-            ${data.phone ? `<div class="site-contact-row"><span>Teléfono</span><a ${editableAttrs("text", "contact.phone")} href="tel:${safe(data.phone)}">${safe(data.phone)}</a></div>` : ""}
-            ${data.email ? `<div class="site-contact-row"><span>Correo</span><a ${editableAttrs("text", "contact.email")} href="mailto:${safe(data.email)}">${safe(data.email)}</a></div>` : ""}
-            ${data.address ? `<div class="site-contact-row"><span>Dirección</span><span ${editableAttrs("text", "contact.address")}>${safe(data.address)}</span></div>` : ""}
-            ${data.maps_url ? `<div class="site-contact-row"><span>Ubicación</span><a ${editableAttrs("link", "contact.maps_url")} href="${safe(data.maps_url)}" target="_blank" rel="noopener">Ver en el mapa</a></div>` : ""}
-            ${!data.whatsapp && !data.phone && !data.email && !data.address && !data.maps_url ? `<div class="site-media-box">Todavía no has agregado tus datos de contacto.</div>` : ""}
+            ${contactWhatsapp ? `<div class="site-contact-row"><span>WhatsApp</span><a ${editableAttrs("text", "contact.whatsapp")} href="https://wa.me/${safe(waNumber(contactWhatsapp))}" target="_blank" rel="noopener">${safe(contactWhatsapp)}</a></div>` : ""}
+            ${contactPhone ? `<div class="site-contact-row"><span>Teléfono</span><a ${editableAttrs("text", "contact.phone")} href="tel:${safe(contactPhone)}">${safe(contactPhone)}</a></div>` : ""}
+            ${contactEmail ? `<div class="site-contact-row"><span>Correo</span><a ${editableAttrs("text", "contact.email")} href="mailto:${safe(contactEmail)}">${safe(contactEmail)}</a></div>` : ""}
+            ${contactAddress ? `<div class="site-contact-row"><span>Dirección</span><span ${editableAttrs("text", "contact.address")}>${safe(contactAddress)}</span></div>` : ""}
+            ${contactMapsUrl ? `<div class="site-contact-row"><span>Ubicación</span><a ${editableAttrs("link", "contact.maps_url")} href="${safe(contactMapsUrl)}" target="_blank" rel="noopener">Ver en el mapa</a></div>` : ""}
+            ${!contactWhatsapp && !contactPhone && !contactEmail && !contactAddress && !contactMapsUrl ? `<div class="site-media-box">Todavía no has agregado tus datos de contacto.</div>` : ""}
           </div>
         </section>
       `;
