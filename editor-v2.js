@@ -213,15 +213,28 @@
     });
   }
 
+  function splitKey(key) {
+    // "block.id.field" (nuevo) o "block.field" (viejo)
+    const parts = String(key || "").split(".");
+    if (parts.length >= 3) return { type: parts[0], id: parts[1], field: parts[2] };
+    if (parts.length === 2) return { type: parts[0], id: "", field: parts[1] };
+    return { type: "", id: "", field: "" };
+  }
+
+  function baseKey(key) {
+    const { type, field } = splitKey(key);
+    return field ? `${type}.${field}` : key;
+  }
+
   function draftSectionValue(key) {
     const draft = currentDraft();
     const sections = draft?.content_json?.sections || [];
-    const dot = key.indexOf(".");
-    if (dot < 0) return "";
+    const { type, id, field } = splitKey(key);
+    if (!type || !field) return "";
 
-    const blockType = key.slice(0, dot);
-    const field = key.slice(dot + 1);
-    const section = sections.find(s => s.type === blockType);
+    const section = id
+      ? sections.find(s => s.type === type && String(s.id) === String(id))
+      : sections.find(s => s.type === type);
     const data = section?.data || {};
 
     if (field === "heading") return data.heading || data.title || "";
@@ -412,7 +425,7 @@
       "menu.items": 'Ejemplo: [{"name":"Pizza grande","price":180,"category":"Pizzas","description":"8 rebanadas"}]'
     };
 
-    return help[key] || "Pega aquí una lista JSON válida.";
+    return help[key] || help[baseKey(key)] || "Pega aquí una lista JSON válida.";
   }
 
   function displayKeyLabel(key) {
@@ -445,7 +458,7 @@
       "menu.items": "Productos del menú"
     };
 
-    return labels[key] || key;
+    return labels[key] || labels[baseKey(key)] || key;
   }
 
   const EDITABLE_SELECTOR = "[data-eb-editable]";
@@ -586,12 +599,13 @@
           try {
             const parsed = JSON.parse(value || "[]");
             if (!Array.isArray(parsed)) throw new Error("JSON_LIST_REQUIRED");
+            const listKey = baseKey(key);
 
-            if (key === "features.items") {
+            if (listKey === "features.items") {
               node.innerHTML = parsed.length
                 ? parsed.map(item => `<div>${safe(typeof item === "string" ? item : (item?.text || item?.label || ""))}</div>`).join("")
                 : `<div>Agrega tus ventajas aquí.</div>`;
-            } else if (key === "gallery.images") {
+            } else if (listKey === "gallery.images") {
               node.innerHTML = parsed.length
                 ? parsed.map(img => `
                     <article class="site-gallery-card">
@@ -602,7 +616,7 @@
                     </article>
                   `).join("")
                 : `<div class="site-media-box">Sin imágenes todavía.</div>`;
-            } else if (key === "testimonials.items") {
+            } else if (listKey === "testimonials.items") {
               node.innerHTML = parsed.length
                 ? parsed.map(item => `
                     <article class="site-testimonial">
@@ -611,11 +625,11 @@
                     </article>
                   `).join("")
                 : `<div class="site-media-box">Sin testimonios todavía.</div>`;
-            } else if (key === "hours.items") {
+            } else if (listKey === "hours.items") {
               node.innerHTML = parsed.length
                 ? parsed.map(item => `<div class="site-hours-row"><span>${safe(item?.days || item?.day || "")}</span><span>${safe(item?.hours || item?.hour || "")}</span></div>`).join("")
                 : `<div class="site-media-box">Sin horarios todavía.</div>`;
-            } else if (key === "menu.items") {
+            } else if (listKey === "menu.items") {
               node.innerHTML = parsed.length
                 ? parsed.map(item => `
                     <article class="site-menu-card" data-menu-item data-category="${safe(item?.category || "")}">

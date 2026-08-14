@@ -171,9 +171,20 @@
     }
   }
 
-  function renderBlock(section) {
+  function renderBlock(section, index = 0) {
     if (section.visible === false) return "";
     const data = section.data || {};
+    // Clave por instancia: permite editar secciones del mismo tipo sin pisarse.
+    // Mantiene el formato viejo (sin id) como fallback de lectura.
+    const inst = section.id || `sec${index}`;
+    const ik = (type, field) => `${type}.${inst}.${field}`;
+    const elementValueInst = (type, field, fallback) => elementValue(ik(type, field), elementValue(`${type}.${field}`, fallback));
+    const elementJsonInst = (type, field, fallback) => {
+      const raw = elementValue(ik(type, field), elementValue(`${type}.${field}`, ""));
+      if (!String(raw || "").trim()) return fallback;
+      try { return JSON.parse(raw) ?? fallback; } catch { return fallback; }
+    };
+    const editableInst = (edType, type, field) => editableAttrs(edType, ik(type, field));
 
     if (section.type === "hero") {
       const heroTitle = elementValue("hero.title", data.title || "Tu negocio");
@@ -218,12 +229,12 @@
     }
 
     if (section.type === "features") {
-      const featureHeading = elementValue("features.heading", data.heading || "");
-      const items = elementJson("features.items", Array.isArray(data.items) ? data.items : []);
+      const featureHeading = elementValueInst("features", "heading", data.heading || "");
+      const items = elementJsonInst("features", "items", Array.isArray(data.items) ? data.items : []);
       return `
         <section class="site-section" ${editableSection("features")}>
-          ${featureHeading ? `<h2 ${editableAttrs("text", "features.heading")}>${safe(featureHeading)}</h2>` : ""}
-          <div class="site-features-grid" ${editableAttrs("json", "features.items")}>
+          ${featureHeading ? `<h2 ${editableInst("text", "features", "heading")}>${safe(featureHeading)}</h2>` : ""}
+          <div class="site-features-grid" ${editableInst("json", "features", "items")}>
             ${Array.isArray(items) && items.length ? items.map(item => `<div>${safe(typeof item === "string" ? item : (item?.text || item?.label || ""))}</div>`).join("") : `<div>Agrega tus ventajas aquí.</div>`}
           </div>
         </section>
@@ -357,8 +368,8 @@
     }
 
     if (section.type === "menu") {
-      const heading = elementValue("menu.heading", data.heading || "Nuestro menú");
-      const items = elementJson("menu.items", Array.isArray(data.items) ? data.items : []);
+      const heading = elementValueInst("menu", "heading", data.heading || "Nuestro menú");
+      const items = elementJsonInst("menu", "items", Array.isArray(data.items) ? data.items : []);
       const categories = Array.isArray(data.categories) && data.categories.length
         ? data.categories
         : Array.from(new Set((Array.isArray(items) ? items : []).map(item => item.category).filter(Boolean)));
@@ -366,14 +377,14 @@
 
       return `
         <section class="site-section site-menu" ${editableSection("menu")}>
-          <h2 ${editableAttrs("text", "menu.heading")}>${safe(heading)}</h2>
+          <h2 ${editableInst("text", "menu", "heading")}>${safe(heading)}</h2>
           ${showTabs ? `
             <div class="site-menu-tabs" data-menu-tabs>
               <button class="site-menu-tab active" type="button" data-menu-cat="all">Todo</button>
               ${categories.map(cat => `<button class="site-menu-tab" type="button" data-menu-cat="${safe(cat)}">${safe(cat)}</button>`).join("")}
             </div>
           ` : ""}
-          <div class="site-menu-grid" ${editableAttrs("json", "menu.items")}>
+          <div class="site-menu-grid" ${editableInst("json", "menu", "items")}>
             ${Array.isArray(items) && items.length ? items.map(item => `
               <article class="site-menu-card" data-menu-item data-category="${safe(item.category || "")}">
                 ${item.image ? `<div class="site-menu-card-media">${renderImage(item.image, item.name || "Producto", "site-menu-card-img")}</div>` : ""}
@@ -421,7 +432,7 @@
 
     const content = $("#site-view-content");
     content.innerHTML = sections.length
-      ? sections.map(section => renderBlock(section)).join("")
+      ? sections.map((section, index) => renderBlock(section, index)).join("")
       : `<section class="site-section"><p>Esta página todavía no tiene contenido publicado.</p></section>`;
 
     // Filtro por categorías del menú (si hay tabs)
