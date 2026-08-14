@@ -136,10 +136,18 @@
     return String(phone || "").replace(/\D/g, "").replace(/^52(?=\d{10}$)/, "");
   }
 
-  function renderImage(url, alt = "", className = "site-image-real") {
+  function editableAttrs(type, key, extra = "") {
+    return `data-eb-editable="${safe(type)}" data-eb-key="${safe(key)}"${extra ? ` ${extra}` : ""}`;
+  }
+
+  function editableSection(name) {
+    return `data-eb-section="${safe(name)}"`;
+  }
+
+  function renderImage(url, alt = "", className = "site-image-real", attrs = "") {
     const src = String(url || "").trim();
     if (!src) return "";
-    return `<img class="${className}" src="${safe(src)}" alt="${safe(alt || "")}" loading="lazy">`;
+    return `<img class="${className}" src="${safe(src)}" alt="${safe(alt || "")}" loading="lazy"${attrs ? ` ${attrs}` : ""}>`;
   }
 
   function renderBlock(section) {
@@ -150,15 +158,20 @@
       const actions = [];
       if (data.button_text) actions.push({ label: data.button_text, url: data.button_url || "", style: "primary" });
       return `
-        <section class="site-section site-hero">
+        <section class="site-section site-hero" ${editableSection("hero")}>
           <div class="site-hero-layout">
             <div class="site-hero-copy">
-              <h2>${safe(data.title || "Tu negocio")}</h2>
-              <p>${safe(data.subtitle || "")}</p>
-              ${renderButtons(actions)}
+              <h2 ${editableAttrs("text", "hero.title")}>${safe(data.title || "Tu negocio")}</h2>
+              <p ${editableAttrs("text", "hero.subtitle")}>${safe(data.subtitle || "")}</p>
+              ${actions.length ? `<div ${editableAttrs("buttons", "hero.buttons")}>${renderButtons(actions)}</div>` : ""}
             </div>
             <div>
-              ${renderImage(data.image_url, data.image_alt || data.title || "Imagen principal", "site-hero-image") || `<div class="site-media-box">Agrega una imagen principal para esta portada.</div>`}
+              ${renderImage(
+                data.image_url,
+                data.image_alt || data.title || "Imagen principal",
+                "site-hero-image",
+                editableAttrs("image", "hero.image")
+              ) || `<div class="site-media-box">Agrega una imagen principal para esta portada.</div>`}
             </div>
           </div>
         </section>
@@ -167,9 +180,9 @@
 
     if (section.type === "text") {
       return `
-        <section class="site-section">
-          ${data.heading ? `<h2>${safe(data.heading)}</h2>` : ""}
-          <p>${safe(data.body || "")}</p>
+        <section class="site-section" ${editableSection("text")}>
+          ${data.heading ? `<h2 ${editableAttrs("text", "text.heading")}>${safe(data.heading)}</h2>` : ""}
+          <p ${editableAttrs("text", "text.body")}>${safe(data.body || "")}</p>
         </section>
       `;
     }
@@ -251,17 +264,16 @@
     }
 
     if (section.type === "contact") {
-      const rows = [];
-      if (data.whatsapp) rows.push({ label: "WhatsApp", html: `<a href="https://wa.me/${safe(waNumber(data.whatsapp))}" target="_blank" rel="noopener">${safe(data.whatsapp)}</a>` });
-      if (data.phone) rows.push({ label: "Teléfono", html: `<a href="tel:${safe(data.phone)}">${safe(data.phone)}</a>` });
-      if (data.email) rows.push({ label: "Correo", html: `<a href="mailto:${safe(data.email)}">${safe(data.email)}</a>` });
-      if (data.address) rows.push({ label: "Dirección", html: `<span>${safe(data.address)}</span>` });
-      if (data.maps_url) rows.push({ label: "Ubicación", html: `<a href="${safe(data.maps_url)}" target="_blank" rel="noopener">Ver en el mapa</a>` });
       return `
-        <section class="site-section">
-          ${data.heading ? `<h2>${safe(data.heading)}</h2>` : `<h2>Contacto</h2>`}
+        <section class="site-section" ${editableSection("contact")}>
+          ${data.heading ? `<h2 ${editableAttrs("text", "contact.heading")}>${safe(data.heading)}</h2>` : `<h2>Contacto</h2>`}
           <div class="site-contact-list">
-            ${rows.length ? rows.map(row => `<div class="site-contact-row"><span>${safe(row.label)}</span>${row.html}</div>`).join("") : `<div class="site-media-box">Todavía no has agregado tus datos de contacto.</div>`}
+            ${data.whatsapp ? `<div class="site-contact-row"><span>WhatsApp</span><a ${editableAttrs("text", "contact.whatsapp")} href="https://wa.me/${safe(waNumber(data.whatsapp))}" target="_blank" rel="noopener">${safe(data.whatsapp)}</a></div>` : ""}
+            ${data.phone ? `<div class="site-contact-row"><span>Teléfono</span><a ${editableAttrs("text", "contact.phone")} href="tel:${safe(data.phone)}">${safe(data.phone)}</a></div>` : ""}
+            ${data.email ? `<div class="site-contact-row"><span>Correo</span><a ${editableAttrs("text", "contact.email")} href="mailto:${safe(data.email)}">${safe(data.email)}</a></div>` : ""}
+            ${data.address ? `<div class="site-contact-row"><span>Dirección</span><span ${editableAttrs("text", "contact.address")}>${safe(data.address)}</span></div>` : ""}
+            ${data.maps_url ? `<div class="site-contact-row"><span>Ubicación</span><a ${editableAttrs("link", "contact.maps_url")} href="${safe(data.maps_url)}" target="_blank" rel="noopener">Ver en el mapa</a></div>` : ""}
+            ${!data.whatsapp && !data.phone && !data.email && !data.address && !data.maps_url ? `<div class="site-media-box">Todavía no has agregado tus datos de contacto.</div>` : ""}
           </div>
         </section>
       `;
