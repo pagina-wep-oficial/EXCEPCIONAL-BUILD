@@ -219,12 +219,12 @@
 
     if (section.type === "features") {
       const featureHeading = elementValue("features.heading", data.heading || "");
-      const items = Array.isArray(data.items) ? data.items : [];
+      const items = elementJson("features.items", Array.isArray(data.items) ? data.items : []);
       return `
         <section class="site-section" ${editableSection("features")}>
           ${featureHeading ? `<h2 ${editableAttrs("text", "features.heading")}>${safe(featureHeading)}</h2>` : ""}
-          <div class="site-features-grid">
-            ${items.length ? items.map(item => `<div>${safe(item)}</div>`).join("") : `<div>Agrega tus ventajas aquí.</div>`}
+          <div class="site-features-grid" ${editableAttrs("json", "features.items")}>
+            ${Array.isArray(items) && items.length ? items.map(item => `<div>${safe(typeof item === "string" ? item : (item?.text || item?.label || ""))}</div>`).join("") : `<div>Agrega tus ventajas aquí.</div>`}
           </div>
         </section>
       `;
@@ -232,12 +232,12 @@
 
     if (section.type === "gallery") {
       const galleryHeading = elementValue("gallery.heading", data.heading || "");
-      const images = Array.isArray(data.images) ? data.images : [];
+      const images = elementJson("gallery.images", Array.isArray(data.images) ? data.images : []);
       return `
         <section class="site-section" ${editableSection("gallery")}>
           ${galleryHeading ? `<h2 ${editableAttrs("text", "gallery.heading")}>${safe(galleryHeading)}</h2>` : ""}
-          <div class="site-gallery">
-            ${images.length ? images.map(img => `
+          <div class="site-gallery" ${editableAttrs("json", "gallery.images")}>
+            ${Array.isArray(images) && images.length ? images.map(img => `
               <article class="site-gallery-card">
                 ${renderImage(img.url, img.alt || img.caption || "Imagen de galería", "site-gallery-image") || `<div class="site-media-box">Sin imagen</div>`}
                 <div class="site-gallery-copy">
@@ -282,12 +282,12 @@
 
     if (section.type === "testimonials") {
       const testimonialsHeading = elementValue("testimonials.heading", data.heading || "");
-      const items = Array.isArray(data.items) ? data.items : [];
+      const items = elementJson("testimonials.items", Array.isArray(data.items) ? data.items : []);
       return `
         <section class="site-section" ${editableSection("testimonials")}>
           ${testimonialsHeading ? `<h2 ${editableAttrs("text", "testimonials.heading")}>${safe(testimonialsHeading)}</h2>` : ""}
-          <div class="site-testimonials">
-            ${items.length ? items.map(item => `
+          <div class="site-testimonials" ${editableAttrs("json", "testimonials.items")}>
+            ${Array.isArray(items) && items.length ? items.map(item => `
               <article class="site-testimonial">
                 <p>“${safe(item.text || item.body || "")}”</p>
                 <strong>${safe(item.name || item.author || "Cliente")}</strong>
@@ -323,14 +323,17 @@
 
     if (section.type === "hours") {
       const hoursHeading = elementValue("hours.heading", data.heading || "");
-      const items = Array.isArray(data.items) && data.items.length
-        ? data.items
-        : (data.days_text ? [{ days: data.days_text, hours: data.hours_text || "" }] : []);
+      const items = elementJson(
+        "hours.items",
+        Array.isArray(data.items) && data.items.length
+          ? data.items
+          : (data.days_text ? [{ days: data.days_text, hours: data.hours_text || "" }] : [])
+      );
       return `
         <section class="site-section" ${editableSection("hours")}>
           ${hoursHeading ? `<h2 ${editableAttrs("text", "hours.heading")}>${safe(hoursHeading)}</h2>` : ""}
-          <div class="site-hours">
-            ${items.length ? items.map(item => `<div class="site-hours-row"><span>${safe(item.days || item.day || "")}</span><span>${safe(item.hours || item.hour || "")}</span></div>`).join("") : `<div class="site-media-box">Sin horarios todavía.</div>`}
+          <div class="site-hours" ${editableAttrs("json", "hours.items")}>
+            ${Array.isArray(items) && items.length ? items.map(item => `<div class="site-hours-row"><span>${safe(item.days || item.day || "")}</span><span>${safe(item.hours || item.hour || "")}</span></div>`).join("") : `<div class="site-media-box">Sin horarios todavía.</div>`}
           </div>
         </section>
       `;
@@ -355,10 +358,10 @@
 
     if (section.type === "menu") {
       const heading = elementValue("menu.heading", data.heading || "Nuestro menú");
-      const items = Array.isArray(data.items) ? data.items : [];
+      const items = elementJson("menu.items", Array.isArray(data.items) ? data.items : []);
       const categories = Array.isArray(data.categories) && data.categories.length
         ? data.categories
-        : Array.from(new Set(items.map(item => item.category).filter(Boolean)));
+        : Array.from(new Set((Array.isArray(items) ? items : []).map(item => item.category).filter(Boolean)));
       const showTabs = categories.length > 1;
 
       return `
@@ -370,8 +373,8 @@
               ${categories.map(cat => `<button class="site-menu-tab" type="button" data-menu-cat="${safe(cat)}">${safe(cat)}</button>`).join("")}
             </div>
           ` : ""}
-          <div class="site-menu-grid">
-            ${items.length ? items.map(item => `
+          <div class="site-menu-grid" ${editableAttrs("json", "menu.items")}>
+            ${Array.isArray(items) && items.length ? items.map(item => `
               <article class="site-menu-card" data-menu-item data-category="${safe(item.category || "")}">
                 ${item.image ? `<div class="site-menu-card-media">${renderImage(item.image, item.name || "Producto", "site-menu-card-img")}</div>` : ""}
                 <div class="site-menu-card-body">

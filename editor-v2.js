@@ -245,10 +245,13 @@
       return items.length ? JSON.stringify(items, null, 2) : "";
     }
 
+    if (field === "images") {
+      const images = Array.isArray(data.images) ? data.images : [];
+      return images.length ? JSON.stringify(images, null, 2) : "";
+    }
+
     if (field === "items") {
-      const items = Array.isArray(data.items)
-        ? data.items.filter(item => item && (String(item?.label || "").trim() || String(item?.text || "").trim() || String(item?.days || "").trim()))
-        : [];
+      const items = Array.isArray(data.items) ? data.items : [];
       return items.length ? JSON.stringify(items, null, 2) : "";
     }
 
@@ -289,6 +292,16 @@
           <span>Botones JSON</span>
           <textarea data-inline-field="value" spellcheck="false">${safe(value)}</textarea>
           <small>Ejemplo: [{"label":"Escríbenos","url":"https://wa.me/521...","style":"primary"}]</small>
+        </label>
+      `;
+    }
+
+    if (type === "json") {
+      return `
+        <label class="editor-field">
+          <span>Contenido JSON</span>
+          <textarea data-inline-field="value" spellcheck="false">${safe(value)}</textarea>
+          <small>${safe(jsonHelpText(state.currentKey))}</small>
         </label>
       `;
     }
@@ -390,6 +403,18 @@
     loadFrame();
   }
 
+  function jsonHelpText(key) {
+    const help = {
+      "features.items": 'Ejemplo: ["Servicio rápido","Atención personalizada","Entrega a domicilio"]',
+      "gallery.images": 'Ejemplo: [{"url":"https://...","caption":"Frente del negocio","alt":"Fachada"}]',
+      "testimonials.items": 'Ejemplo: [{"name":"María","text":"Muy buen servicio"}]',
+      "hours.items": 'Ejemplo: [{"days":"Lunes a viernes","hours":"8:00 AM a 6:00 PM"}]',
+      "menu.items": 'Ejemplo: [{"name":"Pizza grande","price":180,"category":"Pizzas","description":"8 rebanadas"}]'
+    };
+
+    return help[key] || "Pega aquí una lista JSON válida.";
+  }
+
   function displayKeyLabel(key) {
     const labels = {
       "hero.title": "Título principal",
@@ -405,14 +430,19 @@
       "contact.address": "Dirección",
       "contact.maps_url": "Enlace del mapa",
       "features.heading": "Título de ventajas",
+      "features.items": "Lista de ventajas",
       "gallery.heading": "Título de galería",
+      "gallery.images": "Imágenes de galería",
       "video.heading": "Título de video",
       "video.description": "Descripción de video",
       "testimonials.heading": "Título de testimonios",
+      "testimonials.items": "Lista de testimonios",
       "hours.heading": "Título de horarios",
+      "hours.items": "Lista de horarios",
       "buttons.heading": "Título de botones",
       "buttons.items": "Botones de acción",
-      "menu.heading": "Título del menú"
+      "menu.heading": "Título del menú",
+      "menu.items": "Productos del menú"
     };
 
     return labels[key] || key;
@@ -521,12 +551,21 @@
 
         if (type === "text") {
           node.textContent = value;
-        } else if (type === "image" && node.tagName === "IMG") {
+          return;
+        }
+
+        if (type === "image" && node.tagName === "IMG") {
           node.setAttribute("src", value);
-        } else if (type === "link" && node.tagName === "A") {
+          return;
+        }
+
+        if (type === "link" && node.tagName === "A") {
           node.setAttribute("href", value || "#");
           if (!node.textContent.trim()) node.textContent = value || "Enlace";
-        } else if (type === "buttons") {
+          return;
+        }
+
+        if (type === "buttons") {
           try {
             const parsed = JSON.parse(value || "[]");
             if (Array.isArray(parsed)) {
@@ -537,7 +576,70 @@
                 return `<a class="site-btn ${safe(style)}" href="${safe(url)}">${safe(label)}</a>`;
               }).join("");
             }
-          } catch {}
+          } catch {
+            setStatus("El formato JSON de botones no es válido.", "error");
+          }
+          return;
+        }
+
+        if (type === "json") {
+          try {
+            const parsed = JSON.parse(value || "[]");
+            if (!Array.isArray(parsed)) throw new Error("JSON_LIST_REQUIRED");
+
+            if (key === "features.items") {
+              node.innerHTML = parsed.length
+                ? parsed.map(item => `<div>${safe(typeof item === "string" ? item : (item?.text || item?.label || ""))}</div>`).join("")
+                : `<div>Agrega tus ventajas aquí.</div>`;
+            } else if (key === "gallery.images") {
+              node.innerHTML = parsed.length
+                ? parsed.map(img => `
+                    <article class="site-gallery-card">
+                      ${img?.url ? `<img class="site-gallery-image" src="${safe(img.url)}" alt="${safe(img.alt || img.caption || "Imagen de galería")}" loading="lazy">` : `<div class="site-media-box">Sin imagen</div>`}
+                      <div class="site-gallery-copy">
+                        <strong>${safe(img?.caption || img?.alt || "Imagen")}</strong>
+                      </div>
+                    </article>
+                  `).join("")
+                : `<div class="site-media-box">Sin imágenes todavía.</div>`;
+            } else if (key === "testimonials.items") {
+              node.innerHTML = parsed.length
+                ? parsed.map(item => `
+                    <article class="site-testimonial">
+                      <p>“${safe(item?.text || item?.body || "")}”</p>
+                      <strong>${safe(item?.name || item?.author || "Cliente")}</strong>
+                    </article>
+                  `).join("")
+                : `<div class="site-media-box">Sin testimonios todavía.</div>`;
+            } else if (key === "hours.items") {
+              node.innerHTML = parsed.length
+                ? parsed.map(item => `<div class="site-hours-row"><span>${safe(item?.days || item?.day || "")}</span><span>${safe(item?.hours || item?.hour || "")}</span></div>`).join("")
+                : `<div class="site-media-box">Sin horarios todavía.</div>`;
+            } else if (key === "menu.items") {
+              node.innerHTML = parsed.length
+                ? parsed.map(item => `
+                    <article class="site-menu-card" data-menu-item data-category="${safe(item?.category || "")}">
+                      ${item?.image ? `<div class="site-menu-card-media"><img class="site-menu-card-img" src="${safe(item.image)}" alt="${safe(item?.name || "Producto")}" loading="lazy"></div>` : ""}
+                      <div class="site-menu-card-body">
+                        <div class="site-menu-card-head">
+                          <h3>${safe(item?.name || "Producto")}</h3>
+                          <strong class="site-menu-card-price">$${safe(String(item?.price ?? item?.price_from ?? ""))}</strong>
+                        </div>
+                        ${item?.description ? `<p>${safe(item.description)}</p>` : ""}
+                        ${item?.sizes?.length ? `
+                          <div class="site-menu-sizes">
+                            ${item.sizes.map(size => `<span>${safe(size?.label || "")} $${safe(String(size?.price ?? ""))}</span>`).join("")}
+                          </div>
+                        ` : ""}
+                        ${item?.tag ? `<span class="site-menu-tag">${safe(item.tag)}</span>` : ""}
+                      </div>
+                    </article>
+                  `).join("")
+                : `<div class="site-media-box">Todavía no has agregado productos al menú.</div>`;
+            }
+          } catch {
+            setStatus(`El contenido de ${displayKeyLabel(key)} no tiene un JSON válido.`, "error");
+          }
         }
       });
     });
