@@ -489,6 +489,15 @@
     applyDraftToFrame();
   }
 
+  function cleanEditorRuntimeMarks(doc) {
+    doc.querySelectorAll("[data-eb-editable]").forEach(node => {
+      node.style.removeProperty("outline");
+      node.style.removeProperty("outline-offset");
+      node.style.removeProperty("cursor");
+      if (!node.getAttribute("style")) node.removeAttribute("style");
+    });
+  }
+
   function syncRepoDraftFromFrame() {
     if (state.sourceMode !== "html_repo") return;
     const draft = currentDraft();
@@ -497,6 +506,7 @@
     if (!draft || !doc) return;
 
     doc.querySelectorAll("base").forEach(base => base.remove());
+    cleanEditorRuntimeMarks(doc);
     draft.edited_html = `<!doctype html>\n${doc.documentElement.outerHTML}`;
   }
 
