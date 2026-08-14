@@ -494,7 +494,25 @@
     applyDraftToFrame();
   }
 
+  function ensureEditorRuntimeStyles(doc) {
+    if (!doc || doc.getElementById("eb-editor-runtime-style")) return;
+
+    const style = doc.createElement("style");
+    style.id = "eb-editor-runtime-style";
+    style.textContent = `
+      [data-eb-editable] {
+        outline: 2px dashed rgba(183,255,74,.75) !important;
+        outline-offset: 3px !important;
+        cursor: pointer !important;
+      }
+    `;
+
+    (doc.head || doc.documentElement).appendChild(style);
+  }
+
   function cleanEditorRuntimeMarks(doc) {
+    doc.getElementById("eb-editor-runtime-style")?.remove();
+
     doc.querySelectorAll("[data-eb-editable]").forEach(node => {
       node.style.removeProperty("outline");
       node.style.removeProperty("outline-offset");
@@ -537,6 +555,7 @@
     restoreRepoRelativeUrls(doc);
     draft.edited_html = `<!doctype html>\n${doc.documentElement.outerHTML}`;
     ensureFrameBaseInDoc();
+    ensureEditorRuntimeStyles(doc);
   }
 
   function ensureFrameBaseInDoc() {
@@ -804,13 +823,11 @@
 
   function bindEditableNodes(doc) {
     if (!doc || state.mode !== "edit") return;
+    ensureEditorRuntimeStyles(doc);
 
     doc.querySelectorAll(EDITABLE_SELECTOR).forEach(node => {
       if (node.__ebBound) return;
       node.__ebBound = true;
-      node.style.outline = "2px dashed rgba(183,255,74,.75)";
-      node.style.outlineOffset = "3px";
-      node.style.cursor = "pointer";
 
       node.addEventListener("click", evt => {
         evt.preventDefault();
