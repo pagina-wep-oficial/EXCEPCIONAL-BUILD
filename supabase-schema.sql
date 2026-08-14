@@ -36,6 +36,13 @@ create table if not exists public.client_projects (
   editor_plan_months integer,
   editor_price_mxn numeric(12,2),
   editor_launch_url text,
+  site_repo_owner text,
+  site_repo_name text,
+  site_repo_branch text not null default 'main',
+  site_repo_path text not null default '/',
+  site_live_url text,
+  site_publish_provider text not null default 'github_pages',
+  site_editor_mode text not null default 'html_repo',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -230,7 +237,14 @@ alter table if exists public.client_projects
   add column if not exists editor_access_ends_at timestamptz,
   add column if not exists editor_plan_months integer,
   add column if not exists editor_price_mxn numeric(12,2),
-  add column if not exists editor_launch_url text;
+  add column if not exists editor_launch_url text,
+  add column if not exists site_repo_owner text,
+  add column if not exists site_repo_name text,
+  add column if not exists site_repo_branch text not null default 'main',
+  add column if not exists site_repo_path text not null default '/',
+  add column if not exists site_live_url text,
+  add column if not exists site_publish_provider text not null default 'github_pages',
+  add column if not exists site_editor_mode text not null default 'html_repo';
 
 -- Normalizamos valores de visibilidad existentes.
 update public.client_projects

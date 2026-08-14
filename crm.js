@@ -773,7 +773,7 @@
   }
   function editorAdminError(error){
     const text=String(error?.message||"");
-    if(/editor_enabled|editor_access_status|editor_access_starts_at|editor_access_ends_at|editor_plan_months|editor_price_mxn|editor_launch_url/i.test(text)) return "Falta configurar los campos del editor en Supabase. Ejecuta editor-autogestionable-manual.sql y vuelve a intentar.";
+    if(/editor_enabled|editor_access_status|editor_access_starts_at|editor_access_ends_at|editor_plan_months|editor_price_mxn|editor_launch_url|site_repo_owner|site_repo_name|site_repo_branch|site_repo_path|site_live_url|site_publish_provider|site_editor_mode/i.test(text)) return "Falta configurar los campos del editor/repositorio en Supabase. Ejecuta la migración del editor y vuelve a intentar.";
     return error?.message||"No pudimos actualizar el editor.";
   }
   function updateEditorAdminUI(project){
@@ -781,6 +781,14 @@
     if(!badge||!status||!dates||!url||!copy)return;
     const access=editorState(project);
     url.value=project?.editor_launch_url||"";
+    const liveUrl=$("#project-site-live-url"),owner=$("#project-site-repo-owner"),repo=$("#project-site-repo-name"),branch=$("#project-site-repo-branch"),path=$("#project-site-repo-path"),provider=$("#project-site-publish-provider"),mode=$("#project-site-editor-mode");
+    if(liveUrl)liveUrl.value=project?.site_live_url||project?.site_url||"";
+    if(owner)owner.value=project?.site_repo_owner||"";
+    if(repo)repo.value=project?.site_repo_name||"";
+    if(branch)branch.value=project?.site_repo_branch||"main";
+    if(path)path.value=project?.site_repo_path||"/";
+    if(provider)provider.value=project?.site_publish_provider||"github_pages";
+    if(mode)mode.value=project?.site_editor_mode||"html_repo";
     if(access.status==="active"){
       badge.className="badge green";
       badge.textContent="Activo";
@@ -812,6 +820,26 @@
     syncProjectState(data);
     setLine("#project-editor-line","URL del editor guardada.","success");
     toast("URL del editor guardada.");
+  }
+  async function saveEditorRepoConfig(){
+    const project=state.currentProject;
+    if(!project?.id)return;
+    const payload={
+      site_live_url:String($("#project-site-live-url")?.value||"").trim()||null,
+      site_repo_owner:String($("#project-site-repo-owner")?.value||"").trim()||null,
+      site_repo_name:String($("#project-site-repo-name")?.value||"").trim()||null,
+      site_repo_branch:String($("#project-site-repo-branch")?.value||"").trim()||"main",
+      site_repo_path:String($("#project-site-repo-path")?.value||"").trim()||"/",
+      site_publish_provider:String($("#project-site-publish-provider")?.value||"github_pages"),
+      site_editor_mode:String($("#project-site-editor-mode")?.value||"html_repo"),
+      updated_at:new Date().toISOString()
+    };
+    setLine("#project-editor-line","Guardando configuración del repo...");
+    const {data,error}=await db.from("client_projects").update(payload).eq("id",project.id).select().single();
+    if(error){setLine("#project-editor-line",editorAdminError(error),"error");return;}
+    syncProjectState(data);
+    setLine("#project-editor-line","Configuración del repo guardada.","success");
+    toast("Repo del sitio guardado.");
   }
   async function activateEditorAccess(months,price){
     const project=state.currentProject;
@@ -1003,6 +1031,7 @@
   $("#copy-project-invite")?.addEventListener("click",()=>state.currentProject&&copyInvite(state.currentProject.id));$("#whatsapp-project-invite")?.addEventListener("click",()=>state.currentProject&&sendInvite(state.currentProject.id));$("#renew-project-invite")?.addEventListener("click",renewInvite);$("#cancel-project-invite")?.addEventListener("click",()=>state.currentProject&&cancelInvite(state.currentProject.id));$("#archive-project-cancel")?.addEventListener("click",()=>archiveProjectState("cancel"));$("#archive-project-discontinue")?.addEventListener("click",()=>archiveProjectState("discontinue"));$("#restore-project")?.addEventListener("click",restoreArchivedProject);$("#delete-project-permanently")?.addEventListener("click",()=>deleteProjectPermanently());$("#add-project-update")?.addEventListener("click",addUpdate);
   $$("[data-editor-activate]").forEach(b=>b.addEventListener("click",()=>activateEditorAccess(Number(b.dataset.editorActivate),Number(b.dataset.editorPrice))));
   $("#save-editor-url")?.addEventListener("click",saveEditorLaunchUrl);
+  $("#save-editor-repo")?.addEventListener("click",saveEditorRepoConfig);
   $("#cancel-editor-access")?.addEventListener("click",cancelEditorAccess);
   $$("[data-project-tab]").forEach(b=>b.addEventListener("click",()=>setProjectTab(b.dataset.projectTab)));
   $$("[data-prospect-stage]").forEach(b=>b.addEventListener("click",()=>setProspectStage(b.dataset.prospectStage)));
