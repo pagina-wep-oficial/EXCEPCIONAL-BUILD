@@ -492,6 +492,11 @@
   }
 
   async function publishDraft() {
+    if (state.sourceMode === "html_repo") {
+      setStatus("La publicación por GitHub llega en la Tanda 3. Tu borrador está guardado en memoria.");
+      return;
+    }
+
     if (!confirm("¿Quieres publicar estos cambios?")) return;
     setStatus("Publicando cambios...");
 
@@ -509,6 +514,20 @@
   }
 
   async function resetDraft() {
+    if (state.sourceMode === "html_repo") {
+      const draft = currentDraft();
+      if (draft) {
+        draft.edited_html = draft.original_html;
+        draft.elements = {};
+      }
+      state.currentKey = "";
+      state.currentType = "";
+      loadFrame();
+      renderSidebar();
+      setStatus("Borrador restablecido.", "success");
+      return;
+    }
+
     if (!confirm("¿Quieres restablecer el borrador al último publicado?")) return;
     setStatus("Restableciendo borrador...");
 
