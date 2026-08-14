@@ -174,7 +174,7 @@ function nextStepText(project) {
   function editorLaunchHref(project) {
     const external=String(project?.editor_launch_url||"").trim();
     if(external) return external;
-    return `editor.html?project=${encodeURIComponent(project.id)}`;
+    return `editor-v2.html?project=${encodeURIComponent(project.id)}`;
   }
   function stopLiveUpdates(){
     clearTimeout(liveRefreshTimer);

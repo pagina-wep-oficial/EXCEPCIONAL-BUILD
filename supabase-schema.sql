@@ -897,3 +897,154 @@ $$;
 
 revoke all on function public.ensure_project_invite_code(uuid) from public;
 grant execute on function public.ensure_project_invite_code(uuid) to authenticated;
+
+-- ============================================================================
+-- FASE 8/9 - EDITOR MVP v2 (PENDIENTE DE EJECUTAR EN SUPABASE)
+-- ----------------------------------------------------------------------------
+-- Este bloque aun NO se ejecuto en la base. En la Fase 9 se aplicara junto con
+-- la creacion de la tabla client_site_page_versions y de las funciones
+-- client_prepare_site_draft / client_publish_site_changes / client_reset_site_draft.
+--
+-- PENDIENTE: dentro del cuerpo de client_prepare_site_draft, reemplazar el
+-- insert original de la version 'published' por el siguiente (paginas iniciales
+-- con bloques base en lugar de '[]' vacio):
+--
+--   insert into public.client_site_page_versions (
+--     page_id, version_kind, content_json, updated_by
+--   )
+--   values (
+--     v_page.id,
+--     'published',
+--     case
+--       when v_page.slug = 'inicio' then jsonb_build_object(
+--         'page_name', v_page.name,
+--         'slug', v_page.slug,
+--         'sections', jsonb_build_array(
+--           jsonb_build_object(
+--             'id','hero-1',
+--             'type','hero',
+--             'label','Portada principal',
+--             'visible',true,
+--             'data',jsonb_build_object(
+--               'title',coalesce(v_project.name,'Tu negocio'),
+--               'subtitle','Describe aquí lo más importante de tu negocio.',
+--               'button_text','Escríbenos',
+--               'button_url','',
+--               'image_url','',
+--               'image_alt',''
+--             )
+--           ),
+--           jsonb_build_object(
+--             'id','features-1',
+--             'type','features',
+--             'label','Ventajas',
+--             'visible',true,
+--             'data',jsonb_build_object(
+--               'heading','Lo que ofreces',
+--               'items',jsonb_build_array(
+--                 'Servicio 1',
+--                 'Servicio 2',
+--                 'Servicio 3'
+--               )
+--             )
+--           ),
+--           jsonb_build_object(
+--             'id','contact-1',
+--             'type','contact',
+--             'label','Contacto',
+--             'visible',true,
+--             'data',jsonb_build_object(
+--               'phone','',
+--               'whatsapp','',
+--               'email','',
+--               'address','',
+--               'maps_url',''
+--             )
+--           )
+--         )
+--       )
+--       when v_page.slug = 'nosotros' then jsonb_build_object(
+--         'page_name', v_page.name,
+--         'slug', v_page.slug,
+--         'sections', jsonb_build_array(
+--           jsonb_build_object(
+--             'id','text-1',
+--             'type','text',
+--             'label','Quiénes somos',
+--             'visible',true,
+--             'data',jsonb_build_object(
+--               'heading','Quiénes somos',
+--               'body','Cuenta aquí la historia de tu negocio, tu experiencia o tu forma de trabajar.'
+--             )
+--           ),
+--           jsonb_build_object(
+--             'id','gallery-1',
+--             'type','gallery',
+--             'label','Galería',
+--             'visible',true,
+--             'data',jsonb_build_object(
+--               'heading','Conoce nuestro negocio',
+--               'images',jsonb_build_array()
+--             )
+--           ),
+--           jsonb_build_object(
+--             'id','testimonials-1',
+--             'type','testimonials',
+--             'label','Testimonios',
+--             'visible',true,
+--             'data',jsonb_build_object(
+--               'heading','Lo que dicen nuestros clientes',
+--               'items',jsonb_build_array()
+--             )
+--           )
+--         )
+--       )
+--       when v_page.slug = 'contacto' then jsonb_build_object(
+--         'page_name', v_page.name,
+--         'slug', v_page.slug,
+--         'sections', jsonb_build_array(
+--           jsonb_build_object(
+--             'id','contact-1',
+--             'type','contact',
+--             'label','Datos de contacto',
+--             'visible',true,
+--             'data',jsonb_build_object(
+--               'phone','',
+--               'whatsapp','',
+--               'email','',
+--               'address','',
+--               'maps_url',''
+--             )
+--           ),
+--           jsonb_build_object(
+--             'id','hours-1',
+--             'type','hours',
+--             'label','Horarios',
+--             'visible',true,
+--             'data',jsonb_build_object(
+--               'days_text','Lunes a sábado',
+--               'hours_text','8:00 AM a 6:00 PM'
+--             )
+--           ),
+--           jsonb_build_object(
+--             'id','buttons-1',
+--             'type','buttons',
+--             'label','Botones de acción',
+--             'visible',true,
+--             'data',jsonb_build_object(
+--               'items',jsonb_build_array(
+--                 jsonb_build_object('label','Escríbenos','url','','style','primary'),
+--                 jsonb_build_object('label','Ver ubicación','url','','style','secondary')
+--               )
+--             )
+--           )
+--         )
+--       )
+--       else jsonb_build_object(
+--         'page_name', v_page.name,
+--         'slug', v_page.slug,
+--         'sections', '[]'::jsonb
+--       )
+--     end,
+--     v_user
+--   );
