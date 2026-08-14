@@ -338,6 +338,65 @@
     loadFrame();
   }
 
+  const EDITABLE_SELECTOR = "[data-eb-editable]";
+
+  function watchEditableNodes(doc, scheduled = false) {
+    if (!doc || state.mode !== "edit") return;
+    if (scheduled) {
+      applyDraftToFrame();
+      bindEditableNodes(doc);
+      return;
+    }
+    if (doc.__ebWatch) return;
+    doc.__ebWatch = true;
+    const onChanges = () => {
+      if (doc.__ebTimer) return;
+      doc.__ebTimer = setTimeout(() => {
+        doc.__ebTimer = null;
+        applyDraftToFrame();
+        bindEditableNodes(doc);
+      }, 120);
+    };
+    onChanges();
+    new MutationObserver(onChanges).observe(doc.body, {
+      childList: true,
+      subtree: true,
+      characterData: true
+    });
+  }
+
+  function bindEditableNodes(doc) {
+    if (!doc || state.mode !== "edit") return;
+
+    doc.querySelectorAll(EDITABLE_SELECTOR).forEach(node => {
+      if (node.__ebBound) return;
+      node.__ebBound = true;
+      node.style.outline = "2px dashed rgba(183,255,74,.75)";
+      node.style.outlineOffset = "3px";
+      node.style.cursor = "pointer";
+
+      node.addEventListener("click", evt => {
+        evt.preventDefault();
+        evt.stopPropagation();
+
+        state.currentKey = node.getAttribute("data-eb-key") || "";
+        state.currentType = node.getAttribute("data-eb-editable") || "text";
+        renderSidebar();
+      });
+    });
+
+    doc.querySelectorAll("a").forEach(a => {
+      if (a.__ebBound) return;
+      a.__ebBound = true;
+      a.addEventListener("click", evt => {
+        if (state.mode === "edit") {
+          evt.preventDefault();
+          evt.stopPropagation();
+        }
+      });
+    });
+  }
+
   function bindActions() {
     $("#editor-v2-page-tabs").addEventListener("click", e => {
       const btn = e.target.closest("[data-page-id]");
@@ -363,32 +422,7 @@
       if (!doc) return;
 
       applyDraftToFrame();
-
-      if (state.mode !== "edit") return;
-
-      doc.querySelectorAll("[data-eb-editable]").forEach(node => {
-        node.style.outline = "2px dashed rgba(183,255,74,.75)";
-        node.style.outlineOffset = "3px";
-        node.style.cursor = "pointer";
-
-        node.addEventListener("click", evt => {
-          evt.preventDefault();
-          evt.stopPropagation();
-
-          state.currentKey = node.getAttribute("data-eb-key") || "";
-          state.currentType = node.getAttribute("data-eb-editable") || "text";
-          renderSidebar();
-        });
-      });
-
-      doc.querySelectorAll("a").forEach(a => {
-        a.addEventListener("click", evt => {
-          if (state.mode === "edit") {
-            evt.preventDefault();
-            evt.stopPropagation();
-          }
-        });
-      });
+      watchEditableNodes(doc);
     });
   }
 
