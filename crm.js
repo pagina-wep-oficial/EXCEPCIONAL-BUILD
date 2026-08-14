@@ -756,9 +756,7 @@
     if(idx>=0) state.projects[idx]=saved;
     else state.projects.unshift(saved);
     state.currentProject=saved;
-    renderAll();
-    renderClientDetail();
-    setProjectForm(saved);
+    try { renderAll(); renderClientDetail(); setProjectForm(saved); } catch(e) { /* Vistas parciales (project-admin standalone) no tienen todos los nodos; el estado ya quedo sincronizado. */ }
   }
   function updateProjectLifecycleUI(project){
     const archived=isArchivedProject(project);
