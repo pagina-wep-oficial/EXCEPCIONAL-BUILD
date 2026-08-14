@@ -65,6 +65,20 @@ create table if not exists public.client_quotes (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.client_site_repo_drafts (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references public.client_projects(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  page_path text not null,
+  original_html text not null,
+  edited_html text not null,
+  elements jsonb not null default '{}'::jsonb,
+  published_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(project_id, page_path)
+);
+
 create table if not exists public.client_requests (
   id uuid primary key default gen_random_uuid(),
   project_id uuid not null references public.client_projects(id) on delete cascade,
@@ -217,6 +231,24 @@ grant execute on function public.is_app_admin() to authenticated;
 alter table if exists public.client_projects alter column user_id drop not null;
 alter table if exists public.client_quotes alter column user_id drop not null;
 alter table if exists public.client_updates alter column user_id drop not null;
+
+create index if not exists client_site_repo_drafts_project_idx
+  on public.client_site_repo_drafts(project_id);
+
+alter table public.client_site_repo_drafts enable row level security;
+
+drop policy if exists "repo_drafts_owner_select" on public.client_site_repo_drafts;
+create policy "repo_drafts_owner_select"
+on public.client_site_repo_drafts for select
+to authenticated
+using (user_id = auth.uid() or public.is_app_admin());
+
+drop policy if exists "repo_drafts_owner_all" on public.client_site_repo_drafts;
+create policy "repo_drafts_owner_all"
+on public.client_site_repo_drafts for all
+to authenticated
+using (user_id = auth.uid() or public.is_app_admin())
+with check (user_id = auth.uid() or public.is_app_admin());
 
 alter table if exists public.client_projects
   add column if not exists source_prospect_id text,

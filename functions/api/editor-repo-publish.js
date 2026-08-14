@@ -25,6 +25,14 @@ function b64(text) {
   return btoa(binary);
 }
 
+function githubPath(path = "") {
+  return String(path)
+    .split("/")
+    .filter(Boolean)
+    .map(part => encodeURIComponent(part))
+    .join("/");
+}
+
 async function githubJson(url, token, options = {}) {
   const response = await fetch(url, {
     ...options,
@@ -68,10 +76,11 @@ export async function onRequestPost(context) {
       const html = String(page.edited_html || "");
       if (!path || !html) continue;
 
-      const fileUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(branch)}`;
+      const encodedPath = githubPath(path);
+      const fileUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodedPath}?ref=${encodeURIComponent(branch)}`;
       const current = await githubJson(fileUrl, token);
 
-      await githubJson(`https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodeURIComponent(path)}`, token, {
+      await githubJson(`https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodedPath}`, token, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
