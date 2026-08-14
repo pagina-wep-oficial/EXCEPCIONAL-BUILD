@@ -198,7 +198,7 @@
     form.hidden = false;
     empty.hidden = true;
 
-    $("#editor-v2-section-title").textContent = state.currentKey;
+    $("#editor-v2-section-title").textContent = displayKeyLabel(state.currentKey);
 
     const data = currentDraftData();
     const value = data[state.currentKey]?.value ?? draftSectionValue(state.currentKey);
@@ -218,16 +218,40 @@
     const sections = draft?.content_json?.sections || [];
     const dot = key.indexOf(".");
     if (dot < 0) return "";
+
     const blockType = key.slice(0, dot);
     const field = key.slice(dot + 1);
     const section = sections.find(s => s.type === blockType);
     const data = section?.data || {};
+
     if (field === "heading") return data.heading || data.title || "";
+    if (field === "title") return data.title || data.heading || "";
+    if (field === "subtitle") return data.subtitle || "";
     if (field === "description") return data.description || "";
-    if (field === "items") {
-      const items = Array.isArray(data.items) ? data.items.filter(item => String(item?.label || "").trim()) : [];
+
+    if (field === "image") {
+      return data.image_url || data.image || "";
+    }
+
+    if (field === "buttons") {
+      const items = [];
+      if (data.button_text) {
+        items.push({
+          label: data.button_text,
+          url: data.button_url || "",
+          style: "primary"
+        });
+      }
       return items.length ? JSON.stringify(items, null, 2) : "";
     }
+
+    if (field === "items") {
+      const items = Array.isArray(data.items)
+        ? data.items.filter(item => item && (String(item?.label || "").trim() || String(item?.text || "").trim() || String(item?.days || "").trim()))
+        : [];
+      return items.length ? JSON.stringify(items, null, 2) : "";
+    }
+
     return data[field] ?? "";
   }
 
@@ -245,7 +269,7 @@
       return `
         <label class="editor-field">
           <span>URL de imagen</span>
-          <input type="text" data-inline-field="value" value="${safe(value)}">
+          <input type="text" data-inline-field="value" value="${safe(value)}" placeholder="https://...">
         </label>
       `;
     }
@@ -254,7 +278,7 @@
       return `
         <label class="editor-field">
           <span>URL o enlace</span>
-          <input type="text" data-inline-field="value" value="${safe(value)}">
+          <input type="text" data-inline-field="value" value="${safe(value)}" placeholder="https://...">
         </label>
       `;
     }
@@ -263,7 +287,8 @@
       return `
         <label class="editor-field">
           <span>Botones JSON</span>
-          <textarea data-inline-field="value">${safe(value)}</textarea>
+          <textarea data-inline-field="value" spellcheck="false">${safe(value)}</textarea>
+          <small>Ejemplo: [{"label":"Escríbenos","url":"https://wa.me/521...","style":"primary"}]</small>
         </label>
       `;
     }
@@ -288,6 +313,8 @@
       value: rawValue
     };
 
+    const stateEl = $("#editor-v2-current-state");
+    if (stateEl) stateEl.textContent = "Tienes cambios en esta página. Guarda borrador o publícalos cuando termines.";
     applyDraftToFrame();
   }
 
@@ -352,8 +379,43 @@
     state.currentKey = "";
     state.currentType = "";
     $("#editor-v2-preview").textContent = state.mode === "preview" ? "Seguir editando" : "Vista previa";
+    const stateEl = $("#editor-v2-current-state");
+    if (stateEl) {
+      stateEl.textContent =
+        state.mode === "preview"
+          ? "Navega la página como visitante antes de publicar."
+          : "Haz clic sobre la página para editar lo que ves.";
+    }
     renderSidebar();
     loadFrame();
+  }
+
+  function displayKeyLabel(key) {
+    const labels = {
+      "hero.title": "Título principal",
+      "hero.subtitle": "Subtítulo principal",
+      "hero.image": "Imagen principal",
+      "hero.buttons": "Botones principales",
+      "text.heading": "Título de texto",
+      "text.body": "Contenido de texto",
+      "contact.heading": "Título de contacto",
+      "contact.whatsapp": "WhatsApp",
+      "contact.phone": "Teléfono",
+      "contact.email": "Correo",
+      "contact.address": "Dirección",
+      "contact.maps_url": "Enlace del mapa",
+      "features.heading": "Título de ventajas",
+      "gallery.heading": "Título de galería",
+      "video.heading": "Título de video",
+      "video.description": "Descripción de video",
+      "testimonials.heading": "Título de testimonios",
+      "hours.heading": "Título de horarios",
+      "buttons.heading": "Título de botones",
+      "buttons.items": "Botones de acción",
+      "menu.heading": "Título del menú"
+    };
+
+    return labels[key] || key;
   }
 
   const EDITABLE_SELECTOR = "[data-eb-editable]";
