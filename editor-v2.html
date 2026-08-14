@@ -78,6 +78,18 @@
     <p class="form-status" id="editor-v2-status"></p>
   </main>
 
+  <div class="editor-modal-backdrop" id="editor-v2-confirm" hidden>
+    <div class="editor-modal" role="dialog" aria-modal="true" aria-labelledby="editor-v2-confirm-title">
+      <p class="editor-eyebrow">Último paso</p>
+      <h2 id="editor-v2-confirm-title">¿Estás seguro de publicar los cambios?</h2>
+      <p class="editor-modal-copy">Al publicar, tu sitio se actualiza para que el cliente y los visitantes vean los cambios.</p>
+      <div class="editor-modal-actions">
+        <button class="button button-light" id="editor-v2-confirm-cancel" type="button">Cancelar</button>
+        <button class="button button-primary" id="editor-v2-confirm-ok" type="button">Sí, publicar</button>
+      </div>
+    </div>
+  </div>
+
   <script src="supabase-config.js"></script>
   <script src="supabase-client.js"></script>
   <script src="editor-v2.js"></script>

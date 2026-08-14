@@ -300,7 +300,12 @@
 
     if (state.sourceMode === "html_repo") {
       const draft = currentDraft();
-      frame.srcdoc = prepareRepoHtml(draft?.edited_html || draft?.original_html || "");
+      const html = prepareRepoHtml(draft?.edited_html || draft?.original_html || "");
+      if (frame.srcdoc === html && frame.contentWindow) {
+        frame.contentWindow.location.reload();
+      } else {
+        frame.srcdoc = html;
+      }
     } else {
       frame.removeAttribute("srcdoc");
       frame.src = frameUrl();
@@ -531,6 +536,18 @@
     cleanEditorRuntimeMarks(doc);
     restoreRepoRelativeUrls(doc);
     draft.edited_html = `<!doctype html>\n${doc.documentElement.outerHTML}`;
+    ensureFrameBaseInDoc();
+  }
+
+  function ensureFrameBaseInDoc() {
+    const frame = $("#editor-v2-frame");
+    const doc = frame?.contentDocument;
+    if (!doc || doc.querySelector("base")) return;
+    const base = repoCdnUrl(state.project, "");
+    const baseHref = base.endsWith("/") ? base : `${base}/`;
+    const tag = doc.createElement("base");
+    tag.href = baseHref;
+    if (doc.head) doc.head.appendChild(tag);
   }
 
   async function saveRepoDraft() {
@@ -591,8 +608,28 @@
     setStatus("Borrador guardado.", "success");
   }
 
+    function showPublishConfirm() {
+    const overlay = $("#editor-v2-confirm");
+    if (!overlay) return Promise.resolve(true);
+    const ok = $("#editor-v2-confirm-ok");
+    const cancel = $("#editor-v2-confirm-cancel");
+    return new Promise(resolve => {
+      overlay.hidden = false;
+      const done = result => {
+        overlay.hidden = true;
+        ok.onclick = null;
+        cancel.onclick = null;
+        resolve(result);
+      };
+      ok.onclick = () => done(true);
+      cancel.onclick = () => done(false);
+      ok.focus();
+    });
+  }
+
   async function publishDraft() {
     if (state.sourceMode === "html_repo") {
+      if (!(await showPublishConfirm())) return;
       await saveRepoDraft();
 
       setStatus("Publicando en GitHub...");
@@ -623,7 +660,7 @@
       return;
     }
 
-    if (!confirm("¿Quieres publicar estos cambios?")) return;
+    if (!(await showPublishConfirm())) return;
     setStatus("Publicando cambios...");
 
     const { error } = await db.rpc("client_publish_site_changes", {

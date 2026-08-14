@@ -377,3 +377,46 @@ body[data-portal-page="editor-v2"]{
     justify-content:stretch;
   }
 }
+
+.editor-modal-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:200;
+  background:rgba(16,40,35,.5);
+  display:grid;
+  place-items:center;
+  padding:1rem;
+}
+
+.editor-modal-backdrop[hidden]{
+  display:none;
+}
+
+.editor-modal{
+  background:var(--editor-panel);
+  color:var(--editor-ink);
+  border:1px solid var(--editor-line);
+  border-radius:18px;
+  max-width:420px;
+  width:100%;
+  padding:1.5rem;
+  box-shadow:0 18px 50px rgba(16,40,35,.3);
+}
+
+.editor-modal h2{
+  margin:.25rem 0 .5rem;
+  font-family:"Manrope",sans-serif;
+  font-size:22px;
+}
+
+.editor-modal-copy{
+  margin:0 0 1.25rem;
+  color:var(--editor-muted);
+  line-height:1.55;
+}
+
+.editor-modal-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:.6rem;
+}
