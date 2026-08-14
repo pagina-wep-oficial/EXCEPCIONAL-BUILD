@@ -1,0 +1,303 @@
+(() => {
+  "use strict";
+
+  const portal = window.EBPortal || {};
+  const db = portal.client;
+  const $ = (s, r = document) => r.querySelector(s);
+  const safe = (v = "") => String(v ?? "").replace(/[&<>'"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;" }[c]));
+  const getParam = name => new URLSearchParams(location.search).get(name);
+
+  const state = {
+    project: null,
+    pages: [],
+    versions: new Map(),
+    currentPageId: "",
+    mode: "published"
+  };
+
+  function setStatus(text, tone = "") {
+    const el = $("#site-view-status");
+    if (!el) return;
+    el.textContent = text;
+    el.className = `site-view-status${tone ? ` ${tone}` : ""}`;
+  }
+
+  async function getSession() {
+    return (await db.auth.getSession()).data.session;
+  }
+
+  async function requireSessionForDraft() {
+    const session = await getSession();
+    if (!session) {
+      localStorage.setItem(portal.authNextKey, `site-view.html${location.search}`);
+      location.replace("acceso.html");
+      throw new Error("AUTH_REDIRECT");
+    }
+    return session;
+  }
+
+  function normalizeViewMode() {
+    return getParam("mode") === "draft" ? "draft" : "published";
+  }
+
+  async function loadSite() {
+    const projectId = getParam("project");
+    if (!projectId) {
+      location.replace("index.html");
+      return;
+    }
+
+    const mode = normalizeViewMode();
+    const slug = getParam("page") || "inicio";
+
+    state.mode = mode;
+    if (mode === "draft") await requireSessionForDraft();
+
+    const { data: project, error: projectError } = await db
+      .from("client_projects")
+      .select("id, name")
+      .eq("id", projectId)
+      .maybeSingle();
+
+    if (projectError) throw projectError;
+    if (!project) throw new Error("No encontramos este sitio.");
+    state.project = project;
+
+    const { data: pages, error: pagesError } = await db
+      .from("client_site_pages")
+      .select("id, slug, name, page_order, is_home, is_visible")
+      .eq("project_id", projectId)
+      .order("page_order", { ascending: true });
+
+    if (pagesError) throw pagesError;
+    state.pages = pages || [];
+    if (!state.pages.length) throw new Error("Este sitio todavía no tiene páginas publicadas.");
+
+    const pageIds = state.pages.map(p => p.id);
+    const { data: versions, error: versionsError } = await db
+      .from("client_site_page_versions")
+      .select("id, page_id, version_kind, content_json")
+      .in("page_id", pageIds);
+
+    if (versionsError) throw versionsError;
+
+    state.versions = new Map();
+    for (const row of versions || []) {
+      const pageMap = state.versions.get(row.page_id) || {};
+      pageMap[row.version_kind] = row;
+      state.versions.set(row.page_id, pageMap);
+    }
+
+    const bySlug = state.pages.find(p => p.slug === slug);
+    const home = state.pages.find(p => p.is_home);
+    state.currentPageId = (bySlug || home || state.pages[0]).id;
+
+    renderNav();
+    renderPage();
+  }
+
+  function currentPage() {
+    return state.pages.find(p => p.id === state.currentPageId) || null;
+  }
+
+  function currentVersion() {
+    const map = state.versions.get(state.currentPageId) || {};
+    return map[state.mode] || null;
+  }
+
+  function renderNav() {
+    const nav = $("#site-view-nav");
+    const baseMode = state.mode === "draft" ? "draft" : "published";
+
+    nav.innerHTML = state.pages
+      .filter(page => page.is_visible !== false)
+      .map(page => {
+        const href = `site-view.html?project=${encodeURIComponent(state.project.id)}&mode=${encodeURIComponent(baseMode)}&page=${encodeURIComponent(page.slug || "")}`;
+        return `
+          <a class="${page.id === state.currentPageId ? "active" : ""}" href="${href}">
+            ${safe(page.name)}
+          </a>
+        `;
+      }).join("");
+  }
+
+  function renderButtons(items = []) {
+    if (!items.length) return "";
+    return `<div class="site-hero-actions">${
+      items.map(item => {
+        const url = String(item.url || "").trim() || "#";
+        const external = /^https?:\/\//i.test(url);
+        return `<a class="site-btn ${safe(item.style || "primary")}" href="${safe(url)}"${external ? ` target="_blank" rel="noopener"` : ""}>${safe(item.label || "Botón")}</a>`;
+      }).join("")
+    }</div>`;
+  }
+
+  function waNumber(phone = "") {
+    return String(phone || "").replace(/\D/g, "").replace(/^52(?=\d{10}$)/, "");
+  }
+
+  function renderBlock(section) {
+    if (section.visible === false) return "";
+    const data = section.data || {};
+
+    if (section.type === "hero") {
+      const actions = [];
+      if (data.button_text) actions.push({ label: data.button_text, url: data.button_url || "", style: "primary" });
+      return `
+        <section class="site-section site-hero">
+          <h2>${safe(data.title || "Tu negocio")}</h2>
+          <p>${safe(data.subtitle || "")}</p>
+          ${renderButtons(actions)}
+          ${data.image_url ? `<div class="site-media-box"><strong>Imagen principal</strong><br>${safe(data.image_url)}</div>` : ""}
+        </section>
+      `;
+    }
+
+    if (section.type === "text") {
+      return `
+        <section class="site-section">
+          ${data.heading ? `<h2>${safe(data.heading)}</h2>` : ""}
+          <p>${safe(data.body || "")}</p>
+        </section>
+      `;
+    }
+
+    if (section.type === "features") {
+      const items = Array.isArray(data.items) ? data.items : [];
+      return `
+        <section class="site-section">
+          ${data.heading ? `<h2>${safe(data.heading)}</h2>` : ""}
+          <div class="site-features-grid">
+            ${items.length ? items.map(item => `<div>${safe(item)}</div>`).join("") : `<div>Agrega tus ventajas aquí.</div>`}
+          </div>
+        </section>
+      `;
+    }
+
+    if (section.type === "gallery") {
+      const images = Array.isArray(data.images) ? data.images : [];
+      return `
+        <section class="site-section">
+          ${data.heading ? `<h2>${safe(data.heading)}</h2>` : ""}
+          <div class="site-gallery">
+            ${images.length ? images.map(img => `
+              <article class="site-gallery-card">
+                <strong>${safe(img.caption || img.alt || "Imagen")}</strong>
+                <div class="site-media-box">${safe(img.url || "Sin URL")}</div>
+              </article>
+            `).join("") : `<div class="site-media-box">Sin imágenes todavía.</div>`}
+          </div>
+        </section>
+      `;
+    }
+
+    if (section.type === "video") {
+      const url = String(data.url || "").trim();
+      const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]{6,})/);
+      return `
+        <section class="site-section">
+          ${data.heading ? `<h2>${safe(data.heading)}</h2>` : ""}
+          <div class="site-video">
+            ${m ? `
+              <div class="site-video-frame">
+                <iframe src="https://www.youtube.com/embed/${safe(m[1])}" title="${safe(data.heading || "Video")}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe>
+              </div>
+            ` : url ? `<a class="site-video-link" href="${safe(url)}" target="_blank" rel="noopener">Ver video</a>` : `<div class="site-media-box">Sin video todavía.</div>`}
+          </div>
+        </section>
+      `;
+    }
+
+    if (section.type === "testimonials") {
+      const items = Array.isArray(data.items) ? data.items : [];
+      return `
+        <section class="site-section">
+          ${data.heading ? `<h2>${safe(data.heading)}</h2>` : ""}
+          <div class="site-testimonials">
+            ${items.length ? items.map(item => `
+              <article class="site-testimonial">
+                <p>“${safe(item.text || item.body || "")}”</p>
+                <strong>${safe(item.name || item.author || "Cliente")}</strong>
+              </article>
+            `).join("") : `<div class="site-media-box">Sin testimonios todavía.</div>`}
+          </div>
+        </section>
+      `;
+    }
+
+    if (section.type === "contact") {
+      const rows = [];
+      if (data.whatsapp) rows.push({ label: "WhatsApp", html: `<a href="https://wa.me/${safe(waNumber(data.whatsapp))}" target="_blank" rel="noopener">${safe(data.whatsapp)}</a>` });
+      if (data.phone) rows.push({ label: "Teléfono", html: `<a href="tel:${safe(data.phone)}">${safe(data.phone)}</a>` });
+      if (data.email) rows.push({ label: "Correo", html: `<a href="mailto:${safe(data.email)}">${safe(data.email)}</a>` });
+      if (data.address) rows.push({ label: "Dirección", html: `<span>${safe(data.address)}</span>` });
+      if (data.maps_url) rows.push({ label: "Ubicación", html: `<a href="${safe(data.maps_url)}" target="_blank" rel="noopener">Ver en el mapa</a>` });
+      return `
+        <section class="site-section">
+          ${data.heading ? `<h2>${safe(data.heading)}</h2>` : ""}
+          <div class="site-contact-list">
+            ${rows.length ? rows.map(row => `<div class="site-contact-row"><span>${safe(row.label)}</span>${row.html}</div>`).join("") : `<div class="site-media-box">Todavía no has agregado tus datos de contacto.</div>`}
+          </div>
+        </section>
+      `;
+    }
+
+    if (section.type === "hours") {
+      const items = Array.isArray(data.items) && data.items.length
+        ? data.items
+        : (data.days_text ? [{ days: data.days_text, hours: data.hours_text || "" }] : []);
+      return `
+        <section class="site-section">
+          ${data.heading ? `<h2>${safe(data.heading)}</h2>` : ""}
+          <div class="site-hours">
+            ${items.length ? items.map(item => `<div class="site-hours-row"><span>${safe(item.days || item.day || "")}</span><span>${safe(item.hours || item.hour || "")}</span></div>`).join("") : `<div class="site-media-box">Sin horarios todavía.</div>`}
+          </div>
+        </section>
+      `;
+    }
+
+    if (section.type === "buttons") {
+      const items = Array.isArray(data.items) ? data.items : [];
+      return `
+        <section class="site-section">
+          ${data.heading ? `<h2>${safe(data.heading)}</h2>` : ""}
+          <div class="site-actions-row">
+            ${renderButtons(items)}
+          </div>
+        </section>
+      `;
+    }
+
+    return `
+      <section class="site-section">
+        <h3>${safe(section.label || "Sección")}</h3>
+        <p>Este bloque aún no tiene formato específico.</p>
+      </section>
+    `;
+  }
+
+  function renderPage() {
+    const page = currentPage();
+    const version = currentVersion();
+    const sections = version?.content_json?.sections || [];
+
+    $("#site-view-project-name").textContent = state.project?.name || "Sitio";
+    $("#site-view-mode-badge").textContent = state.mode === "draft" ? "Borrador" : "Publicado";
+    $("#site-view-mode-badge").classList.toggle("draft", state.mode === "draft");
+    setStatus(state.mode === "draft"
+      ? `Estás viendo el borrador privado de ${page?.name || "la página"}.`
+      : `Estás viendo la versión pública publicada de ${page?.name || "la página"}.`);
+
+    document.title = `${page?.name || "Sitio"} | ${state.project?.name || "Sitio"}`;
+
+    const content = $("#site-view-content");
+    content.innerHTML = sections.length
+      ? sections.map(section => renderBlock(section)).join("")
+      : `<section class="site-section"><p>Esta página todavía no tiene contenido publicado.</p></section>`;
+  }
+
+  loadSite().catch(err => {
+    console.error(err);
+    setStatus(err.message || "No pudimos cargar este sitio.", "error");
+  });
+})();

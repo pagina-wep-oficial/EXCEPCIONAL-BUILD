@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="index,follow">
+  <meta name="theme-color" content="#102823">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="portal.css">
+  <link rel="stylesheet" href="site-view.css">
+  <title>Sitio | Excepcional Build</title>
+</head>
+<body data-portal-page="site-view">
+  <header class="site-view-bar">
+    <div class="site-view-bar-main">
+      <a class="site-view-brand" href="index.html" aria-label="Excepcional Build">EB</a>
+      <strong id="site-view-project-name">Sitio</strong>
+      <span class="site-view-mode-badge" id="site-view-mode-badge">Publicado</span>
+    </div>
+    <nav class="site-view-nav" id="site-view-nav" aria-label="Páginas del sitio"></nav>
+  </header>
+
+  <main class="site-view-main">
+    <p class="site-view-status" id="site-view-status" aria-live="polite"></p>
+    <div class="site-view-content" id="site-view-content"></div>
+  </main>
+
+  <script src="supabase-config.js"></script>
+  <script src="supabase-client.js"></script>
+  <script src="site-view.js"></script>
+</body>
+</html>

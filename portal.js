@@ -134,9 +134,19 @@ function nextStepText(project) {
     const i=stageIndex(project);
     return ["Configurar ahora","Completar información","Ver avance","Revisar página","Abrir proyecto"][i] || "Abrir proyecto";
   }
+  function publicSiteHref(project, mode="published", page="inicio") {
+    return `site-view.html?project=${encodeURIComponent(project.id)}&mode=${encodeURIComponent(mode)}&page=${encodeURIComponent(page)}`;
+  }
+
   function siteAction(project, label) {
-    if(project.site_visibility === "public" && project.site_url) return `<a class="button button-primary" href="${safe(project.site_url)}" target="_blank" rel="noopener">${safe(label||"Abrir mi página")} ↗</a>`;
-    if(project.site_visibility === "preview" && (project.preview_url || project.site_url)) return `<a class="button button-primary" href="${safe(project.preview_url || project.site_url)}" target="_blank" rel="noopener">${safe(label||"Ver avance")} ↗</a>`;
+    if(project.site_visibility === "public") {
+      const href = project.site_url || publicSiteHref(project, "published", "inicio");
+      return `<a class="button button-primary" href="${safe(href)}" target="_blank" rel="noopener">${safe(label||"Abrir mi página")} →</a>`;
+    }
+    if(project.site_visibility === "preview") {
+      const href = project.preview_url || publicSiteHref(project, "published", "inicio");
+      return `<a class="button button-primary" href="${safe(href)}" target="_blank" rel="noopener">${safe(label||"Ver avance")} →</a>`;
+    }
     return "";
   }
   function continueProjectHref(project, profile, source="portal-cliente") {
