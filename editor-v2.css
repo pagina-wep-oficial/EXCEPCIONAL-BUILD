@@ -415,6 +415,17 @@ body[data-portal-page="editor-v2"]{
   line-height:1.55;
 }
 
+.editor-modal-note{
+  margin:-0.75rem 0 1.25rem;
+  color:var(--editor-muted);
+  font-size:13px;
+  line-height:1.5;
+  background:var(--editor-soft);
+  border:1px solid var(--editor-line);
+  border-radius:10px;
+  padding:.6rem .8rem;
+}
+
 .editor-modal-actions{
   display:flex;
   justify-content:flex-end;

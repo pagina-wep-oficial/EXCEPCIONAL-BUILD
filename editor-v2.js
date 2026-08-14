@@ -656,7 +656,7 @@
         return;
       }
 
-      setStatus("Cambios publicados en GitHub. La página puede tardar unos segundos en actualizarse.", "success");
+      setStatus("Cambios publicados. Los verás en tu página en unos 2 minutos.", "success");
       return;
     }
 
