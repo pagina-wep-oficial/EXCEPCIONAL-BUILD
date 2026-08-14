@@ -17,7 +17,11 @@
     currentKey: "",
     currentType: "",
     mode: "edit",
-    frameReady: false
+    frameReady: false,
+    sourceMode: "sections",
+    repoPages: [],
+    repoDrafts: new Map(),
+    currentNodeValue: ""
   };
 
   function setStatus(text, tone = "") {
@@ -66,30 +70,37 @@
     if (projectError) throw projectError;
     state.project = project;
 
-    const { data: pages, error: prepError } = await db.rpc("client_prepare_site_draft", {
-      p_project_id: projectId
-    });
-    if (prepError) throw prepError;
+    if (project.site_editor_mode === "html_repo" && project.site_repo_owner && project.site_repo_name) {
+      state.sourceMode = "html_repo";
+      await loadRepoPages(project);
+    } else {
+      state.sourceMode = "sections";
 
-    state.pages = pages || [];
-    if (!state.pages.length) throw new Error("No se pudieron preparar las páginas del editor.");
+      const { data: pages, error: prepError } = await db.rpc("client_prepare_site_draft", {
+        p_project_id: projectId
+      });
+      if (prepError) throw prepError;
 
-    const pageIds = state.pages.map(p => p.id);
-    const { data: versions, error: versionsError } = await db
-      .from("client_site_page_versions")
-      .select("*")
-      .in("page_id", pageIds);
+      state.pages = pages || [];
+      if (!state.pages.length) throw new Error("No se pudieron preparar las páginas del editor.");
 
-    if (versionsError) throw versionsError;
+      const pageIds = state.pages.map(p => p.id);
+      const { data: versions, error: versionsError } = await db
+        .from("client_site_page_versions")
+        .select("*")
+        .in("page_id", pageIds);
 
-    state.versions = new Map();
-    for (const row of versions || []) {
-      const pageMap = state.versions.get(row.page_id) || {};
-      pageMap[row.version_kind] = row;
-      state.versions.set(row.page_id, pageMap);
+      if (versionsError) throw versionsError;
+
+      state.versions = new Map();
+      for (const row of versions || []) {
+        const pageMap = state.versions.get(row.page_id) || {};
+        pageMap[row.version_kind] = row;
+        state.versions.set(row.page_id, pageMap);
+      }
+
+      state.currentPageId = state.pages.find(p => p.is_home)?.id || state.pages[0].id;
     }
-
-    state.currentPageId = state.pages.find(p => p.is_home)?.id || state.pages[0].id;
 
     $("#editor-v2-project-name").textContent = project.name || "Editor de tu sitio";
     $("#editor-v2-project-copy").textContent = "Edita por páginas, revisa en vista previa y publica cuando estés listo.";
@@ -102,16 +113,97 @@
     renderSidebar();
   }
 
+  function repoBasePath(project) {
+    const raw = String(project.site_repo_path || "/").trim();
+    if (!raw || raw === "/") return "";
+    return raw.replace(/^\/+|\/+$/g, "");
+  }
+
+  function repoApiUrl(project, path = "") {
+    const base = repoBasePath(project);
+    const fullPath = [base, path].filter(Boolean).join("/");
+    const branch = encodeURIComponent(project.site_repo_branch || "main");
+    return `https://api.github.com/repos/${encodeURIComponent(project.site_repo_owner)}/${encodeURIComponent(project.site_repo_name)}/contents/${fullPath}?ref=${branch}`;
+  }
+
+  function repoRawUrl(project, path = "") {
+    const base = repoBasePath(project);
+    const fullPath = [base, path].filter(Boolean).join("/");
+    const branch = encodeURIComponent(project.site_repo_branch || "main");
+    return `https://raw.githubusercontent.com/${encodeURIComponent(project.site_repo_owner)}/${encodeURIComponent(project.site_repo_name)}/${branch}/${fullPath}`;
+  }
+
+  function pageNameFromPath(path = "") {
+    const file = String(path).split("/").pop() || "pagina.html";
+    const name = file.replace(/\.html?$/i, "");
+    if (name === "index") return "Inicio";
+    return name
+      .replace(/[-_]+/g, " ")
+      .replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  async function loadRepoPages(project) {
+    setStatus("Leyendo páginas del repo...");
+    const res = await fetch(repoApiUrl(project));
+    if (!res.ok) throw new Error("No pudimos leer el repo de GitHub. Revisa owner, repo, rama y carpeta.");
+    const entries = await res.json();
+
+    const htmlFiles = (Array.isArray(entries) ? entries : [])
+      .filter(item => item.type === "file" && /\.html?$/i.test(item.name))
+      .sort((a, b) => {
+        if (a.name === "index.html") return -1;
+        if (b.name === "index.html") return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+    if (!htmlFiles.length) throw new Error("No encontramos archivos HTML en ese repo/carpeta.");
+
+    state.repoPages = htmlFiles.map((item, index) => ({
+      id: item.path,
+      slug: item.path,
+      name: pageNameFromPath(item.path),
+      path: item.path,
+      is_home: item.name === "index.html" || index === 0,
+      is_visible: true
+    }));
+
+    state.pages = state.repoPages;
+    state.currentPageId = state.pages.find(p => p.is_home)?.id || state.pages[0].id;
+
+    await Promise.all(state.pages.map(async page => {
+      const htmlRes = await fetch(repoRawUrl(project, page.path));
+      if (!htmlRes.ok) throw new Error(`No pudimos leer ${page.path}.`);
+      const html = await htmlRes.text();
+      state.repoDrafts.set(page.id, {
+        id: page.id,
+        path: page.path,
+        original_html: html,
+        edited_html: html,
+        elements: {}
+      });
+    }));
+
+    setStatus("Repo cargado. Toca un elemento editable.");
+  }
+
   function currentPage() {
     return state.pages.find(p => p.id === state.currentPageId) || null;
   }
 
   function currentDraft() {
+    if (state.sourceMode === "html_repo") {
+      return state.repoDrafts.get(state.currentPageId) || null;
+    }
+
     const map = state.versions.get(state.currentPageId) || {};
     return map.draft || null;
   }
 
   function currentDraftData() {
+    if (state.sourceMode === "html_repo") {
+      return currentDraft()?.elements || {};
+    }
+
     return currentDraft()?.content_json?.elements || {};
   }
 
@@ -161,6 +253,7 @@
   }
 
   function frameUrl() {
+    if (state.sourceMode === "html_repo") return "about:blank";
     return `site-view.html?project=${encodeURIComponent(state.project.id)}&mode=draft&page=${encodeURIComponent(currentDraftSlug())}`;
   }
 
@@ -179,9 +272,28 @@
 
     frame.classList.toggle("is-preview", state.mode === "preview");
     frame.classList.toggle("is-edit", state.mode === "edit");
-    frame.src = frameUrl();
+
+    if (state.sourceMode === "html_repo") {
+      const draft = currentDraft();
+      frame.srcdoc = prepareRepoHtml(draft?.edited_html || draft?.original_html || "");
+    } else {
+      frame.removeAttribute("srcdoc");
+      frame.src = frameUrl();
+    }
   }
 
+
+  function prepareRepoHtml(html) {
+    const base = repoRawUrl(state.project, "");
+    const baseHref = base.endsWith("/") ? base : `${base}/`;
+    const baseTag = `<base href="${safe(baseHref)}">`;
+
+    if (/<head[^>]*>/i.test(html)) {
+      return html.replace(/<head([^>]*)>/i, `<head$1>${baseTag}`);
+    }
+
+    return `${baseTag}${html}`;
+  }
 
   function renderSidebar() {
     const empty = $("#editor-v2-sidebar-empty");
@@ -201,7 +313,7 @@
     $("#editor-v2-section-title").textContent = displayKeyLabel(state.currentKey);
 
     const data = currentDraftData();
-    const value = data[state.currentKey]?.value ?? draftSectionValue(state.currentKey);
+    const value = data[state.currentKey]?.value ?? (state.sourceMode === "html_repo" ? state.currentNodeValue : draftSectionValue(state.currentKey));
     const type = state.currentType || data[state.currentKey]?.type || "text";
 
     fields.innerHTML = buildInlineFields(type, value);
@@ -331,13 +443,21 @@
     const draft = currentDraft();
     if (!draft || !state.currentKey) return;
 
-    draft.content_json = draft.content_json || {};
-    draft.content_json.elements = draft.content_json.elements || {};
+    if (state.sourceMode === "html_repo") {
+      draft.elements = draft.elements || {};
+      draft.elements[state.currentKey] = {
+        type: state.currentType || "text",
+        value: rawValue
+      };
+    } else {
+      draft.content_json = draft.content_json || {};
+      draft.content_json.elements = draft.content_json.elements || {};
 
-    draft.content_json.elements[state.currentKey] = {
-      type: state.currentType || "text",
-      value: rawValue
-    };
+      draft.content_json.elements[state.currentKey] = {
+        type: state.currentType || "text",
+        value: rawValue
+      };
+    }
 
     const stateEl = $("#editor-v2-current-state");
     if (stateEl) stateEl.textContent = "Tienes cambios en esta página. Guarda borrador o publícalos cuando termines.";
@@ -347,6 +467,11 @@
   async function saveDraft() {
     const draft = currentDraft();
     if (!draft) return;
+
+    if (state.sourceMode === "html_repo") {
+      setStatus("Borrador guardado en memoria. En la Tanda 3 se guardará en Supabase.");
+      return;
+    }
 
     setStatus("Guardando borrador...");
     const { error } = await db
@@ -488,6 +613,13 @@
     });
   }
 
+  function readNodeValue(node, type) {
+    if (!node) return "";
+    if (type === "image" && node.tagName === "IMG") return node.getAttribute("src") || "";
+    if (type === "link" && node.tagName === "A") return node.getAttribute("href") || "";
+    return node.textContent || "";
+  }
+
   function bindEditableNodes(doc) {
     if (!doc || state.mode !== "edit") return;
 
@@ -504,6 +636,7 @@
 
         state.currentKey = node.getAttribute("data-eb-key") || "";
         state.currentType = node.getAttribute("data-eb-editable") || "text";
+        state.currentNodeValue = readNodeValue(node, state.currentType);
         renderSidebar();
       });
     });
@@ -553,7 +686,9 @@
     const frame = $("#editor-v2-frame");
     const doc = frame?.contentDocument;
     const draft = currentDraft();
-    const elements = draft?.content_json?.elements || {};
+    const elements = state.sourceMode === "html_repo"
+      ? (draft?.elements || {})
+      : (draft?.content_json?.elements || {});
     if (!doc) return;
 
     Object.entries(elements).forEach(([key, entry]) => {
