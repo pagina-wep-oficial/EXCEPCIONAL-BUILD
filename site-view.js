@@ -342,6 +342,47 @@
       `;
     }
 
+    if (section.type === "menu") {
+      const heading = elementValue("menu.heading", data.heading || "Nuestro menú");
+      const items = Array.isArray(data.items) ? data.items : [];
+      const categories = Array.isArray(data.categories) && data.categories.length
+        ? data.categories
+        : Array.from(new Set(items.map(item => item.category).filter(Boolean)));
+      const showTabs = categories.length > 1;
+
+      return `
+        <section class="site-section site-menu" ${editableSection("menu")}>
+          <h2 ${editableAttrs("text", "menu.heading")}>${safe(heading)}</h2>
+          ${showTabs ? `
+            <div class="site-menu-tabs" data-menu-tabs>
+              <button class="site-menu-tab active" type="button" data-menu-cat="all">Todo</button>
+              ${categories.map(cat => `<button class="site-menu-tab" type="button" data-menu-cat="${safe(cat)}">${safe(cat)}</button>`).join("")}
+            </div>
+          ` : ""}
+          <div class="site-menu-grid">
+            ${items.length ? items.map(item => `
+              <article class="site-menu-card" data-menu-item data-category="${safe(item.category || "")}">
+                ${item.image ? `<div class="site-menu-card-media">${renderImage(item.image, item.name || "Producto", "site-menu-card-img")}</div>` : ""}
+                <div class="site-menu-card-body">
+                  <div class="site-menu-card-head">
+                    <h3>${safe(item.name || "Producto")}</h3>
+                    <strong class="site-menu-card-price">$${safe(String(item.price ?? item.price_from ?? ""))}</strong>
+                  </div>
+                  ${item.description ? `<p>${safe(item.description)}</p>` : ""}
+                  ${item.sizes?.length ? `
+                    <div class="site-menu-sizes">
+                      ${item.sizes.map(size => `<span>${safe(size.label || "")} $${safe(String(size.price ?? ""))}</span>`).join("")}
+                    </div>
+                  ` : ""}
+                  ${item.tag ? `<span class="site-menu-tag">${safe(item.tag)}</span>` : ""}
+                </div>
+              </article>
+            `).join("") : `<div class="site-media-box">Todavía no has agregado productos al menú.</div>`}
+          </div>
+        </section>
+      `;
+    }
+
     return `
       <section class="site-section">
         <h3>${safe(section.label || "Sección")}</h3>
@@ -368,6 +409,21 @@
     content.innerHTML = sections.length
       ? sections.map(section => renderBlock(section)).join("")
       : `<section class="site-section"><p>Esta página todavía no tiene contenido publicado.</p></section>`;
+
+    // Filtro por categorías del menú (si hay tabs)
+    content.querySelectorAll("[data-menu-tabs]").forEach(tabs => {
+      tabs.addEventListener("click", e => {
+        const btn = e.target.closest("[data-menu-cat]");
+        if (!btn) return;
+        tabs.querySelectorAll("[data-menu-cat]").forEach(b => b.classList.toggle("active", b === btn));
+        const cat = btn.dataset.menuCat;
+        const grid = tabs.parentElement?.querySelector(".site-menu-grid");
+        grid?.querySelectorAll("[data-menu-item]").forEach(item => {
+          const show = cat === "all" || item.dataset.category === cat;
+          item.style.display = show ? "" : "none";
+        });
+      });
+    });
   }
 
   loadSite().catch(err => {
