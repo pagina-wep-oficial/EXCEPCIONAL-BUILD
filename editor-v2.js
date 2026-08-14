@@ -201,7 +201,7 @@
     $("#editor-v2-section-title").textContent = state.currentKey;
 
     const data = currentDraftData();
-    const value = data[state.currentKey]?.value ?? "";
+    const value = data[state.currentKey]?.value ?? draftSectionValue(state.currentKey);
     const type = state.currentType || data[state.currentKey]?.type || "text";
 
     fields.innerHTML = buildInlineFields(type, value);
@@ -211,6 +211,24 @@
         updateCurrentValue(e.currentTarget.value);
       });
     });
+  }
+
+  function draftSectionValue(key) {
+    const draft = currentDraft();
+    const sections = draft?.content_json?.sections || [];
+    const dot = key.indexOf(".");
+    if (dot < 0) return "";
+    const blockType = key.slice(0, dot);
+    const field = key.slice(dot + 1);
+    const section = sections.find(s => s.type === blockType);
+    const data = section?.data || {};
+    if (field === "heading") return data.heading || data.title || "";
+    if (field === "description") return data.description || "";
+    if (field === "items") {
+      const items = Array.isArray(data.items) ? data.items.filter(item => String(item?.label || "").trim()) : [];
+      return items.length ? JSON.stringify(items, null, 2) : "";
+    }
+    return data[field] ?? "";
   }
 
   function buildInlineFields(type, value) {
