@@ -15,9 +15,14 @@ Sitio público + portal de clientes + CRM administrativo.
 
 Lee en este orden:
 
-1. `GUIA-VERSION-FINAL.md`
-2. `FLUJO-COMERCIAL.md`
-3. `CONFIGURAR-GOOGLE-DRIVE.md`
+1. `FLUJO-COMERCIAL.md`
+2. `CONFIGURAR-GOOGLE-DRIVE.md`
+
+Si vas a instalar o migrar base de datos:
+
+3. `supabase-schema.sql`
+4. `supabase-workflow-migration.sql`
+5. `supabase-final-migration.sql`
 
 ## Archivos privados del cliente
 
@@ -33,7 +38,20 @@ Lee en este orden:
 
 ## Base de datos
 
-- `supabase-workflow-migration.sql`: actualización desde la versión anterior.
-- `supabase-schema.sql`: instalación completa.
+- `supabase-schema.sql`: instalación completa base + columnas actuales sincronizadas con producción.
+- `supabase-workflow-migration.sql`: migración desde la versión anterior.
+- `supabase-final-migration.sql`: ajustes posteriores del flujo comercial.
+
+## Documentos vigentes
+
+- `FLUJO-COMERCIAL.md`: flujo real actual del CRM y portal.
+- `CONFIGURAR-GOOGLE-DRIVE.md`: conexión de archivos con Drive.
+- `editor-autogestionable-manual.sql`: columnas necesarias para el editor si se aplican por separado.
+- `crm-usuarios.sql`: funciones RPC del panel de usuarios.
+
+## Notas
+
+- El portal del cliente, el CRM y el flujo comercial ya no deben documentarse en guías viejas separadas.
+- Si un `.md` contradice este README o `FLUJO-COMERCIAL.md`, toma como válidos estos archivos actuales.
 
 Nunca publiques secretos de Google, `service_role`, contraseña de base de datos ni JWT secret.

@@ -1,0 +1,3 @@
+Estos archivos son utilidades manuales o SQL de apoyo.
+No forman parte del flujo principal del producto.
+Antes de ejecutar cualquiera, revisa si su contenido sigue siendo vigente.
