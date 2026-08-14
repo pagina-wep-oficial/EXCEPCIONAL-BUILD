@@ -183,6 +183,20 @@
       });
     }));
 
+    const draftResponse = await fetch(`/api/editor-repo-draft?project_id=${encodeURIComponent(project.id)}`, {
+      headers: { Authorization: `Bearer ${state.session.access_token}` }
+    });
+
+    if (draftResponse.ok) {
+      const draftResult = await draftResponse.json().catch(() => null);
+      (draftResult?.drafts || []).forEach(saved => {
+        const draft = state.repoDrafts.get(saved.page_path);
+        if (!draft) return;
+        draft.edited_html = saved.edited_html || draft.original_html;
+        draft.elements = saved.elements || {};
+      });
+    }
+
     setStatus("Repo cargado. Toca un elemento editable.");
   }
 
@@ -464,12 +478,54 @@
     applyDraftToFrame();
   }
 
+  function syncRepoDraftFromFrame() {
+    if (state.sourceMode !== "html_repo") return;
+    const draft = currentDraft();
+    const frame = $("#editor-v2-frame");
+    const doc = frame?.contentDocument;
+    if (!draft || !doc) return;
+
+    doc.querySelectorAll("base").forEach(base => base.remove());
+    draft.edited_html = `<!doctype html>\n${doc.documentElement.outerHTML}`;
+  }
+
+  async function saveRepoDraft() {
+    syncRepoDraftFromFrame();
+
+    const draft = currentDraft();
+    if (!draft) return;
+
+    setStatus("Guardando borrador...");
+    const response = await fetch("/api/editor-repo-draft", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${state.session.access_token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        project_id: state.project.id,
+        page_path: draft.path,
+        original_html: draft.original_html,
+        edited_html: draft.edited_html,
+        elements: draft.elements || {}
+      })
+    });
+
+    const result = await response.json().catch(() => null);
+    if (!response.ok || !result?.ok) {
+      setStatus(result?.message || "No pudimos guardar el borrador.", "error");
+      return;
+    }
+
+    setStatus("Borrador guardado.", "success");
+  }
+
   async function saveDraft() {
     const draft = currentDraft();
     if (!draft) return;
 
     if (state.sourceMode === "html_repo") {
-      setStatus("Borrador guardado en memoria. En la Tanda 3 se guardará en Supabase.");
+      await saveRepoDraft();
       return;
     }
 
@@ -493,7 +549,34 @@
 
   async function publishDraft() {
     if (state.sourceMode === "html_repo") {
-      setStatus("La publicación por GitHub llega en la Tanda 3. Tu borrador está guardado en memoria.");
+      if (!confirm("¿Quieres publicar estos cambios en GitHub?")) return;
+      await saveRepoDraft();
+
+      setStatus("Publicando en GitHub...");
+      const pages = [...state.repoDrafts.values()].map(draft => ({
+        path: draft.path,
+        edited_html: draft.edited_html
+      }));
+
+      const response = await fetch("/api/editor-repo-publish", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${state.session.access_token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          project_id: state.project.id,
+          pages
+        })
+      });
+
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.ok) {
+        setStatus(result?.message || "No pudimos publicar.", "error");
+        return;
+      }
+
+      setStatus("Cambios publicados en GitHub. La página puede tardar unos segundos en actualizarse.", "success");
       return;
     }
 
