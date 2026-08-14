@@ -218,10 +218,11 @@
     }
 
     if (section.type === "features") {
+      const featureHeading = elementValue("features.heading", data.heading || "");
       const items = Array.isArray(data.items) ? data.items : [];
       return `
-        <section class="site-section">
-          ${data.heading ? `<h2>${safe(data.heading)}</h2>` : ""}
+        <section class="site-section" ${editableSection("features")}>
+          ${featureHeading ? `<h2 ${editableAttrs("text", "features.heading")}>${safe(featureHeading)}</h2>` : ""}
           <div class="site-features-grid">
             ${items.length ? items.map(item => `<div>${safe(item)}</div>`).join("") : `<div>Agrega tus ventajas aquí.</div>`}
           </div>
@@ -230,10 +231,11 @@
     }
 
     if (section.type === "gallery") {
+      const galleryHeading = elementValue("gallery.heading", data.heading || "");
       const images = Array.isArray(data.images) ? data.images : [];
       return `
-        <section class="site-section">
-          ${data.heading ? `<h2>${safe(data.heading)}</h2>` : ""}
+        <section class="site-section" ${editableSection("gallery")}>
+          ${galleryHeading ? `<h2 ${editableAttrs("text", "gallery.heading")}>${safe(galleryHeading)}</h2>` : ""}
           <div class="site-gallery">
             ${images.length ? images.map(img => `
               <article class="site-gallery-card">
@@ -259,16 +261,18 @@
     }
 
     if (section.type === "video") {
+      const videoHeading = elementValue("video.heading", data.title || data.heading || "");
+      const videoDescription = elementValue("video.description", data.description || "");
       const url = String(data.video_url || data.url || "").trim();
       const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]{6,})/);
       return `
-        <section class="site-section">
-          ${(data.title || data.heading) ? `<h2>${safe(data.title || data.heading)}</h2>` : ""}
-          ${data.description ? `<p>${safe(data.description)}</p>` : ""}
+        <section class="site-section" ${editableSection("video")}>
+          ${videoHeading ? `<h2 ${editableAttrs("text", "video.heading")}>${safe(videoHeading)}</h2>` : ""}
+          ${videoDescription ? `<p ${editableAttrs("text", "video.description")}>${safe(videoDescription)}</p>` : ""}
           <div class="site-video">
             ${m ? `
               <div class="site-video-frame">
-                <iframe src="https://www.youtube.com/embed/${safe(m[1])}" title="${safe(data.title || data.heading || "Video")}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe>
+                <iframe src="https://www.youtube.com/embed/${safe(m[1])}" title="${safe(videoHeading || "Video")}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe>
               </div>
             ` : url ? `<a class="site-video-link" href="${safe(url)}" target="_blank" rel="noopener">Ver video</a>` : `<div class="site-media-box">Sin video todavía.</div>`}
           </div>
@@ -277,10 +281,11 @@
     }
 
     if (section.type === "testimonials") {
+      const testimonialsHeading = elementValue("testimonials.heading", data.heading || "");
       const items = Array.isArray(data.items) ? data.items : [];
       return `
-        <section class="site-section">
-          ${data.heading ? `<h2>${safe(data.heading)}</h2>` : ""}
+        <section class="site-section" ${editableSection("testimonials")}>
+          ${testimonialsHeading ? `<h2 ${editableAttrs("text", "testimonials.heading")}>${safe(testimonialsHeading)}</h2>` : ""}
           <div class="site-testimonials">
             ${items.length ? items.map(item => `
               <article class="site-testimonial">
@@ -317,12 +322,13 @@
     }
 
     if (section.type === "hours") {
+      const hoursHeading = elementValue("hours.heading", data.heading || "");
       const items = Array.isArray(data.items) && data.items.length
         ? data.items
         : (data.days_text ? [{ days: data.days_text, hours: data.hours_text || "" }] : []);
       return `
-        <section class="site-section">
-          ${data.heading ? `<h2>${safe(data.heading)}</h2>` : ""}
+        <section class="site-section" ${editableSection("hours")}>
+          ${hoursHeading ? `<h2 ${editableAttrs("text", "hours.heading")}>${safe(hoursHeading)}</h2>` : ""}
           <div class="site-hours">
             ${items.length ? items.map(item => `<div class="site-hours-row"><span>${safe(item.days || item.day || "")}</span><span>${safe(item.hours || item.hour || "")}</span></div>`).join("") : `<div class="site-media-box">Sin horarios todavía.</div>`}
           </div>
@@ -331,12 +337,17 @@
     }
 
     if (section.type === "buttons") {
-      const items = Array.isArray(data.items) ? data.items.filter(item => String(item?.label || "").trim()) : [];
+      const buttonsHeading = elementValue("buttons.heading", data.heading || "");
+      const items = elementJson(
+        "buttons.items",
+        Array.isArray(data.items) ? data.items.filter(item => String(item?.label || "").trim()) : []
+      );
+
       return `
-        <section class="site-section">
-          ${data.heading ? `<h2>${safe(data.heading)}</h2>` : ""}
-          <div class="site-actions-row">
-            ${items.length ? renderButtons(items) : `<div class="site-media-box">Agrega botones de acción para esta sección.</div>`}
+        <section class="site-section" ${editableSection("buttons")}>
+          ${buttonsHeading ? `<h2 ${editableAttrs("text", "buttons.heading")}>${safe(buttonsHeading)}</h2>` : ""}
+          <div class="site-actions-row" ${editableAttrs("buttons", "buttons.items")}>
+            ${Array.isArray(items) && items.length ? renderButtons(items) : `<div class="site-media-box">Agrega botones de acción para esta sección.</div>`}
           </div>
         </section>
       `;
