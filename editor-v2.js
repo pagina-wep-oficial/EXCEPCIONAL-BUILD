@@ -111,6 +111,13 @@
     return currentDraft()?.content_json?.sections || [];
   }
 
+  function openPage(pageId, keepSelection = false) {
+    state.currentPageId = pageId;
+    if (!keepSelection) state.currentSectionId = "";
+    renderPageTabs();
+    renderCurrentPage();
+  }
+
   function renderPageTabs() {
     const wrap = $("#editor-v2-page-tabs");
     wrap.innerHTML = state.pages.map(page => `
@@ -118,6 +125,24 @@
         ${safe(page.name)}
       </button>
     `).join("");
+  }
+
+  function renderPreviewNav() {
+    const nav = $("#editor-v2-preview-nav");
+    if (!nav) return;
+    if (state.mode !== "preview") {
+      nav.hidden = true;
+      nav.innerHTML = "";
+      return;
+    }
+    nav.hidden = false;
+    nav.innerHTML = state.pages
+      .filter(page => page.is_visible !== false)
+      .map(page => `
+        <button class="editor-preview-link ${page.id === state.currentPageId ? "active" : ""}" type="button" data-preview-page-id="${page.id}">
+          ${safe(page.name)}
+        </button>
+      `).join("");
   }
 
   function renderCurrentPage() {
@@ -129,11 +154,14 @@
     $("#editor-v2-mode-badge").textContent = state.mode === "preview" ? "Vista previa" : "Modo edición";
     $("#editor-v2-current-state").textContent =
       state.mode === "preview"
-        ? "Navega esta página como visitante antes de publicar."
+        ? "Revisa esta página como visitante. Puedes moverte entre páginas antes de publicar."
         : "Edita esta página bloque por bloque.";
+
+    renderPreviewNav();
 
     const canvas = $("#editor-v2-canvas");
     canvas.classList.toggle("is-edit", state.mode === "edit");
+    canvas.classList.toggle("is-preview", state.mode === "preview");
 
     canvas.innerHTML = sections.length
       ? sections.map(section => renderSection(section)).join("")
@@ -147,6 +175,8 @@
           renderSidebar();
         });
       });
+    } else {
+      state.currentSectionId = "";
     }
 
     renderSidebar();
@@ -517,6 +547,7 @@
 
   function togglePreview() {
     state.mode = state.mode === "edit" ? "preview" : "edit";
+    if (state.mode === "preview") state.currentSectionId = "";
     $("#editor-v2-preview").textContent = state.mode === "preview" ? "Seguir editando" : "Vista previa";
     renderCurrentPage();
   }
@@ -525,10 +556,13 @@
     $("#editor-v2-page-tabs").addEventListener("click", e => {
       const btn = e.target.closest("[data-page-id]");
       if (!btn) return;
-      state.currentPageId = btn.dataset.pageId;
-      state.currentSectionId = "";
-      renderPageTabs();
-      renderCurrentPage();
+      openPage(btn.dataset.pageId);
+    });
+
+    $("#editor-v2-preview-nav").addEventListener("click", e => {
+      const btn = e.target.closest("[data-preview-page-id]");
+      if (!btn) return;
+      openPage(btn.dataset.previewPageId, false);
     });
 
     $("#editor-v2-save").onclick = saveDraft;

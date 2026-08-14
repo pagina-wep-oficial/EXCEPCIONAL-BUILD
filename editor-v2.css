@@ -220,6 +220,34 @@ body[data-portal-page="editor-v2"]{
   font-size:12px;
 }
 
+.editor-preview-nav{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  padding:14px 18px 0;
+}
+
+.editor-preview-link{
+  display:inline-flex;
+  align-items:center;
+  min-height:38px;
+  padding:0 14px;
+  border-radius:999px;
+  border:1px solid var(--editor-line);
+  background:#fff;
+  color:var(--editor-ink);
+  font-size:12px;
+  font-weight:800;
+  text-decoration:none;
+  cursor:pointer;
+}
+
+.editor-preview-link.active{
+  background:var(--editor-accent);
+  color:var(--editor-accent-ink);
+  border-color:transparent;
+}
+
 .editor-canvas{
   display:grid;
   gap:16px;
@@ -237,6 +265,15 @@ body[data-portal-page="editor-v2"]{
 
 .editor-canvas.is-edit .editor-section{
   cursor:pointer;
+}
+
+.editor-canvas.is-preview .editor-section{
+  cursor:default;
+}
+
+.editor-canvas.is-preview .editor-section.active{
+  border-color:var(--editor-line);
+  box-shadow:none;
 }
 
 .editor-canvas.is-edit .editor-section:hover{
