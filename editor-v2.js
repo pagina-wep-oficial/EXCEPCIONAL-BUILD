@@ -14,8 +14,10 @@
     pages: [],
     versions: new Map(),
     currentPageId: "",
-    currentSectionId: "",
-    mode: "edit"
+    currentKey: "",
+    currentType: "",
+    mode: "edit",
+    frameReady: false
   };
 
   function setStatus(text, tone = "") {
@@ -94,8 +96,10 @@
     $("#editor-v2-back").href = `proyecto.html?id=${encodeURIComponent(project.id)}`;
 
     renderPageTabs();
-    renderCurrentPage();
+    renderPreviewNav();
     bindActions();
+    loadFrame();
+    renderSidebar();
   }
 
   function currentPage() {
@@ -107,15 +111,20 @@
     return map.draft || null;
   }
 
-  function currentSections() {
-    return currentDraft()?.content_json?.sections || [];
+  function currentDraftData() {
+    return currentDraft()?.content_json?.elements || {};
   }
 
   function openPage(pageId, keepSelection = false) {
     state.currentPageId = pageId;
-    if (!keepSelection) state.currentSectionId = "";
+    if (!keepSelection) {
+      state.currentKey = "";
+      state.currentType = "";
+    }
     renderPageTabs();
-    renderCurrentPage();
+    renderPreviewNav();
+    loadFrame();
+    renderSidebar();
   }
 
   function renderPageTabs() {
@@ -130,11 +139,13 @@
   function renderPreviewNav() {
     const nav = $("#editor-v2-preview-nav");
     if (!nav) return;
+
     if (state.mode !== "preview") {
       nav.hidden = true;
       nav.innerHTML = "";
       return;
     }
+
     nav.hidden = false;
     nav.innerHTML = state.pages
       .filter(page => page.is_visible !== false)
@@ -145,348 +156,121 @@
       `).join("");
   }
 
-  function renderCurrentPage() {
-    const page = currentPage();
-    const draft = currentDraft();
-    const sections = draft?.content_json?.sections || [];
+  function currentDraftSlug() {
+    return currentPage()?.slug || "inicio";
+  }
 
-    $("#editor-v2-current-page").textContent = page?.name || "Página";
+  function frameUrl() {
+    return `site-view.html?project=${encodeURIComponent(state.project.id)}&mode=draft&page=${encodeURIComponent(currentDraftSlug())}`;
+  }
+
+  function loadFrame() {
+    const frame = $("#editor-v2-frame");
+    if (!frame) return;
+    state.frameReady = false;
+    $("#editor-v2-current-page").textContent = currentPage()?.name || "Página";
     $("#editor-v2-mode-badge").textContent = state.mode === "preview" ? "Vista previa" : "Modo edición";
     $("#editor-v2-current-state").textContent =
       state.mode === "preview"
-        ? "Revisa esta página como visitante. Puedes moverte entre páginas antes de publicar."
-        : "Edita esta página bloque por bloque.";
+        ? "Navega la página como visitante antes de publicar."
+        : "Haz clic sobre la página para editar lo que ves.";
 
     renderPreviewNav();
 
-    const canvas = $("#editor-v2-canvas");
-    canvas.classList.toggle("is-edit", state.mode === "edit");
-    canvas.classList.toggle("is-preview", state.mode === "preview");
-
-    canvas.innerHTML = sections.length
-      ? sections.map(section => renderSection(section)).join("")
-      : `<article class="editor-section"><p>Esta página todavía no tiene bloques cargados.</p></article>`;
-
-    if (state.mode === "edit") {
-      canvas.querySelectorAll("[data-section-id]").forEach(el => {
-        el.addEventListener("click", () => {
-          state.currentSectionId = el.dataset.sectionId;
-          renderCurrentPage();
-          renderSidebar();
-        });
-      });
-    } else {
-      state.currentSectionId = "";
-    }
-
-    renderSidebar();
+    frame.classList.toggle("is-preview", state.mode === "preview");
+    frame.classList.toggle("is-edit", state.mode === "edit");
+    frame.src = frameUrl();
   }
 
-  function renderSection(section) {
-    const hidden = section.visible === false;
-    const active = state.currentSectionId === section.id;
-    const data = section.data || {};
-
-    if (section.type === "hero") {
-      return `
-        <article class="editor-section ${hidden ? "editor-section-hidden" : ""} ${active ? "active" : ""}" data-section-id="${section.id}">
-          <div class="editor-section-head">
-            <span class="editor-section-tag">${safe(section.label || "Hero")}</span>
-            <span class="editor-section-state">${hidden ? "Oculto" : "Visible"}</span>
-          </div>
-          <h3>${safe(data.title || "Título principal")}</h3>
-          <p>${safe(data.subtitle || "Subtítulo del bloque hero.")}</p>
-          <div class="editor-section-media">Imagen: ${safe(data.image_url || "Sin imagen")}</div>
-        </article>
-      `;
-    }
-
-    if (section.type === "text") {
-      return `
-        <article class="editor-section ${hidden ? "editor-section-hidden" : ""} ${active ? "active" : ""}" data-section-id="${section.id}">
-          <div class="editor-section-head">
-            <span class="editor-section-tag">${safe(section.label || "Texto")}</span>
-            <span class="editor-section-state">${hidden ? "Oculto" : "Visible"}</span>
-          </div>
-          <h3>${safe(data.heading || "Encabezado")}</h3>
-          <p>${safe(data.body || "Texto informativo.")}</p>
-        </article>
-      `;
-    }
-
-    if (section.type === "contact") {
-      return `
-        <article class="editor-section ${hidden ? "editor-section-hidden" : ""} ${active ? "active" : ""}" data-section-id="${section.id}">
-          <div class="editor-section-head">
-            <span class="editor-section-tag">${safe(section.label || "Contacto")}</span>
-            <span class="editor-section-state">${hidden ? "Oculto" : "Visible"}</span>
-          </div>
-          <h3>Contacto</h3>
-          <ul class="editor-section-list">
-            <li>WhatsApp: ${safe(data.whatsapp || "Sin definir")}</li>
-            <li>Correo: ${safe(data.email || "Sin definir")}</li>
-            <li>Dirección: ${safe(data.address || "Sin definir")}</li>
-          </ul>
-        </article>
-      `;
-    }
-
-    if (section.type === "hours") {
-      return `
-        <article class="editor-section ${hidden ? "editor-section-hidden" : ""} ${active ? "active" : ""}" data-section-id="${section.id}">
-          <div class="editor-section-head">
-            <span class="editor-section-tag">${safe(section.label || "Horarios")}</span>
-            <span class="editor-section-state">${hidden ? "Oculto" : "Visible"}</span>
-          </div>
-          <h3>${safe(data.days_text || "Días de atención")}</h3>
-          <p>${safe(data.hours_text || "Horario pendiente")}</p>
-        </article>
-      `;
-    }
-
-    if (section.type === "features") {
-      const items = Array.isArray(data.items) ? data.items : [];
-      return `
-        <article class="editor-section ${hidden ? "editor-section-hidden" : ""} ${active ? "active" : ""}" data-section-id="${section.id}">
-          <div class="editor-section-head">
-            <span class="editor-section-tag">${safe(section.label || "Ventajas")}</span>
-            <span class="editor-section-state">${hidden ? "Oculto" : "Visible"}</span>
-          </div>
-          <h3>${safe(data.heading || "Lo que ofreces")}</h3>
-          <ul class="editor-section-list">
-            ${(items.length ? items : ["Sin elementos todavía"]).map(item => `<li>${safe(item)}</li>`).join("")}
-          </ul>
-        </article>
-      `;
-    }
-
-    if (section.type === "gallery") {
-      const images = Array.isArray(data.images) ? data.images : [];
-      return `
-        <article class="editor-section ${hidden ? "editor-section-hidden" : ""} ${active ? "active" : ""}" data-section-id="${section.id}">
-          <div class="editor-section-head">
-            <span class="editor-section-tag">${safe(section.label || "Galería")}</span>
-            <span class="editor-section-state">${hidden ? "Oculto" : "Visible"}</span>
-          </div>
-          <h3>${safe(data.heading || "Galería")}</h3>
-          <div class="editor-section-media">${images.length} imagen${images.length === 1 ? "" : "es"} cargada${images.length === 1 ? "" : "s"}</div>
-          <ul class="editor-section-list">
-            ${(images.length ? images : [{ caption: "Sin imágenes todavía" }]).map(img => `<li>${safe(img.caption || img.alt || img.url || "Imagen")}</li>`).join("")}
-          </ul>
-        </article>
-      `;
-    }
-
-    if (section.type === "video") {
-      return `
-        <article class="editor-section ${hidden ? "editor-section-hidden" : ""} ${active ? "active" : ""}" data-section-id="${section.id}">
-          <div class="editor-section-head">
-            <span class="editor-section-tag">${safe(section.label || "Video")}</span>
-            <span class="editor-section-state">${hidden ? "Oculto" : "Visible"}</span>
-          </div>
-          <h3>${safe(data.title || "Video principal")}</h3>
-          <p>${safe(data.description || "Sin descripción todavía.")}</p>
-          <div class="editor-section-media">Video: ${safe(data.video_url || "Sin video")}</div>
-        </article>
-      `;
-    }
-
-    if (section.type === "buttons") {
-      const items = Array.isArray(data.items) ? data.items : [];
-      return `
-        <article class="editor-section ${hidden ? "editor-section-hidden" : ""} ${active ? "active" : ""}" data-section-id="${section.id}">
-          <div class="editor-section-head">
-            <span class="editor-section-tag">${safe(section.label || "Botones")}</span>
-            <span class="editor-section-state">${hidden ? "Oculto" : "Visible"}</span>
-          </div>
-          <h3>Acciones</h3>
-          <ul class="editor-section-list">
-            ${(items.length ? items : [{ label: "Sin botones todavía" }]).map(item => `<li>${safe(item.label || "Botón")}</li>`).join("")}
-          </ul>
-        </article>
-      `;
-    }
-
-    if (section.type === "testimonials") {
-      const items = Array.isArray(data.items) ? data.items : [];
-      return `
-        <article class="editor-section ${hidden ? "editor-section-hidden" : ""} ${active ? "active" : ""}" data-section-id="${section.id}">
-          <div class="editor-section-head">
-            <span class="editor-section-tag">${safe(section.label || "Testimonios")}</span>
-            <span class="editor-section-state">${hidden ? "Oculto" : "Visible"}</span>
-          </div>
-          <h3>${safe(data.heading || "Opiniones de clientes")}</h3>
-          <ul class="editor-section-list">
-            ${(items.length ? items : [{ name: "Sin testimonios todavía", text: "" }]).map(item => `<li>${safe(item.name || "Cliente")}${item.text ? `: ${safe(item.text)}` : ""}</li>`).join("")}
-          </ul>
-        </article>
-      `;
-    }
-
-    return `
-      <article class="editor-section ${hidden ? "editor-section-hidden" : ""} ${active ? "active" : ""}" data-section-id="${section.id}">
-        <div class="editor-section-head">
-          <span class="editor-section-tag">${safe(section.label || section.type || "Bloque")}</span>
-          <span class="editor-section-state">${hidden ? "Oculto" : "Visible"}</span>
-        </div>
-        <p>Bloque tipo <strong>${safe(section.type)}</strong>. Aquí iremos conectando su editor específico.</p>
-      </article>
-    `;
-  }
 
   function renderSidebar() {
     const empty = $("#editor-v2-sidebar-empty");
     const form = $("#editor-v2-form");
     const fields = $("#editor-v2-fields");
 
-    if (!state.currentSectionId || state.mode !== "edit") {
+    if (!state.currentKey || state.mode !== "edit") {
       empty.hidden = false;
       form.hidden = true;
       return;
     }
 
-    const section = currentSections().find(s => s.id === state.currentSectionId);
-    if (!section) {
-      empty.hidden = false;
-      form.hidden = true;
-      return;
-    }
-
-    empty.hidden = true;
+    empty.hidden = false;
     form.hidden = false;
+    empty.hidden = true;
 
-    $("#editor-v2-section-title").textContent = section.label || section.type || "Sección";
-    $("#editor-v2-section-visible").checked = section.visible !== false;
+    $("#editor-v2-section-title").textContent = state.currentKey;
 
-    fields.innerHTML = buildFields(section);
+    const data = currentDraftData();
+    const value = data[state.currentKey]?.value ?? "";
+    const type = state.currentType || data[state.currentKey]?.type || "text";
 
-    $("#editor-v2-section-visible").onchange = e => {
-      section.visible = e.currentTarget.checked;
-      renderCurrentPage();
-    };
+    fields.innerHTML = buildInlineFields(type, value);
 
-    fields.querySelectorAll("[data-field]").forEach(input => {
+    fields.querySelectorAll("[data-inline-field]").forEach(input => {
       input.addEventListener("input", e => {
-        const key = e.currentTarget.dataset.field;
-        section.data = section.data || {};
-
-        if (key === "items_text") {
-          section.data.items = String(e.currentTarget.value || "")
-            .split("\n")
-            .map(v => v.trim())
-            .filter(Boolean);
-        } else if (key === "images_json") {
-          try {
-            const parsed = JSON.parse(e.currentTarget.value || "[]");
-            section.data.images = Array.isArray(parsed) ? parsed : [];
-          } catch {}
-        } else if (key === "items_json") {
-          try {
-            const parsed = JSON.parse(e.currentTarget.value || "[]");
-            section.data.items = Array.isArray(parsed) ? parsed : [];
-          } catch {}
-        } else {
-          section.data[key] = e.currentTarget.value;
-        }
-
-        renderCurrentPage();
+        updateCurrentValue(e.currentTarget.value);
       });
     });
   }
 
-  function buildFields(section) {
-    const data = section.data || {};
-
-    if (section.type === "hero") {
+  function buildInlineFields(type, value) {
+    if (type === "text") {
       return `
-        ${field("Título", "title", data.title || "")}
-        ${textareaField("Subtítulo", "subtitle", data.subtitle || "")}
-        ${field("Texto del botón", "button_text", data.button_text || "")}
-        ${field("URL del botón", "button_url", data.button_url || "")}
-        ${field("URL de imagen", "image_url", data.image_url || "")}
-        ${field("Texto alternativo", "image_alt", data.image_alt || "")}
+        <label class="editor-field">
+          <span>Texto</span>
+          <textarea data-inline-field="value">${safe(value)}</textarea>
+        </label>
       `;
     }
 
-    if (section.type === "text") {
+    if (type === "image") {
       return `
-        ${field("Encabezado", "heading", data.heading || "")}
-        ${textareaField("Texto", "body", data.body || "")}
+        <label class="editor-field">
+          <span>URL de imagen</span>
+          <input type="text" data-inline-field="value" value="${safe(value)}">
+        </label>
       `;
     }
 
-    if (section.type === "contact") {
+    if (type === "link") {
       return `
-        ${field("Teléfono", "phone", data.phone || "")}
-        ${field("WhatsApp", "whatsapp", data.whatsapp || "")}
-        ${field("Correo", "email", data.email || "")}
-        ${field("Dirección", "address", data.address || "")}
-        ${field("Mapa URL", "maps_url", data.maps_url || "")}
+        <label class="editor-field">
+          <span>URL o enlace</span>
+          <input type="text" data-inline-field="value" value="${safe(value)}">
+        </label>
       `;
     }
 
-    if (section.type === "hours") {
+    if (type === "buttons") {
       return `
-        ${field("Días", "days_text", data.days_text || "")}
-        ${field("Horario", "hours_text", data.hours_text || "")}
+        <label class="editor-field">
+          <span>Botones JSON</span>
+          <textarea data-inline-field="value">${safe(value)}</textarea>
+        </label>
       `;
     }
 
-    if (section.type === "features") {
-      return `
-        ${field("Encabezado", "heading", data.heading || "")}
-        ${textareaField("Elementos (uno por línea)", "items_text", Array.isArray(data.items) ? data.items.join("\n") : "")}
-      `;
-    }
-
-    if (section.type === "gallery") {
-      return `
-        ${field("Encabezado", "heading", data.heading || "")}
-        ${textareaField("Imágenes JSON", "images_json", JSON.stringify(Array.isArray(data.images) ? data.images : [], null, 2))}
-      `;
-    }
-
-    if (section.type === "video") {
-      return `
-        ${field("Título", "title", data.title || "")}
-        ${textareaField("Descripción", "description", data.description || "")}
-        ${field("URL del video", "video_url", data.video_url || "")}
-        ${field("Poster URL", "poster_url", data.poster_url || "")}
-      `;
-    }
-
-    if (section.type === "buttons") {
-      return `
-        ${textareaField("Botones JSON", "items_json", JSON.stringify(Array.isArray(data.items) ? data.items : [], null, 2))}
-      `;
-    }
-
-    if (section.type === "testimonials") {
-      return `
-        ${field("Encabezado", "heading", data.heading || "")}
-        ${textareaField("Testimonios JSON", "items_json", JSON.stringify(Array.isArray(data.items) ? data.items : [], null, 2))}
-      `;
-    }
-
-    return `<p>Este bloque aún no tiene formulario específico en el MVP inicial.</p>`;
-  }
-
-  function field(label, key, value) {
     return `
       <label class="editor-field">
-        <span>${safe(label)}</span>
-        <input type="text" data-field="${safe(key)}" value="${safe(value)}">
+        <span>Valor</span>
+        <input type="text" data-inline-field="value" value="${safe(value)}">
       </label>
     `;
   }
 
-  function textareaField(label, key, value) {
-    return `
-      <label class="editor-field">
-        <span>${safe(label)}</span>
-        <textarea data-field="${safe(key)}">${safe(value)}</textarea>
-      </label>
-    `;
+  function updateCurrentValue(rawValue) {
+    const draft = currentDraft();
+    if (!draft || !state.currentKey) return;
+
+    draft.content_json = draft.content_json || {};
+    draft.content_json.elements = draft.content_json.elements || {};
+
+    draft.content_json.elements[state.currentKey] = {
+      type: state.currentType || "text",
+      value: rawValue
+    };
+
+    applyDraftToFrame();
   }
 
   async function saveDraft() {
@@ -547,9 +331,11 @@
 
   function togglePreview() {
     state.mode = state.mode === "edit" ? "preview" : "edit";
-    if (state.mode === "preview") state.currentSectionId = "";
+    state.currentKey = "";
+    state.currentType = "";
     $("#editor-v2-preview").textContent = state.mode === "preview" ? "Seguir editando" : "Vista previa";
-    renderCurrentPage();
+    renderSidebar();
+    loadFrame();
   }
 
   function bindActions() {
@@ -569,6 +355,78 @@
     $("#editor-v2-publish").onclick = publishDraft;
     $("#editor-v2-reset").onclick = resetDraft;
     $("#editor-v2-preview").onclick = togglePreview;
+
+    $("#editor-v2-frame").addEventListener("load", () => {
+      state.frameReady = true;
+      const frame = $("#editor-v2-frame");
+      const doc = frame.contentDocument;
+      if (!doc) return;
+
+      applyDraftToFrame();
+
+      if (state.mode !== "edit") return;
+
+      doc.querySelectorAll("[data-eb-editable]").forEach(node => {
+        node.style.outline = "2px dashed rgba(183,255,74,.75)";
+        node.style.outlineOffset = "3px";
+        node.style.cursor = "pointer";
+
+        node.addEventListener("click", evt => {
+          evt.preventDefault();
+          evt.stopPropagation();
+
+          state.currentKey = node.getAttribute("data-eb-key") || "";
+          state.currentType = node.getAttribute("data-eb-editable") || "text";
+          renderSidebar();
+        });
+      });
+
+      doc.querySelectorAll("a").forEach(a => {
+        a.addEventListener("click", evt => {
+          if (state.mode === "edit") {
+            evt.preventDefault();
+            evt.stopPropagation();
+          }
+        });
+      });
+    });
+  }
+
+  function applyDraftToFrame() {
+    const frame = $("#editor-v2-frame");
+    const doc = frame?.contentDocument;
+    const draft = currentDraft();
+    const elements = draft?.content_json?.elements || {};
+    if (!doc) return;
+
+    Object.entries(elements).forEach(([key, entry]) => {
+      const nodes = doc.querySelectorAll(`[data-eb-key="${CSS.escape(key)}"]`);
+      nodes.forEach(node => {
+        const type = entry?.type || node.getAttribute("data-eb-editable") || "text";
+        const value = entry?.value ?? "";
+
+        if (type === "text") {
+          node.textContent = value;
+        } else if (type === "image" && node.tagName === "IMG") {
+          node.setAttribute("src", value);
+        } else if (type === "link" && node.tagName === "A") {
+          node.setAttribute("href", value || "#");
+          if (!node.textContent.trim()) node.textContent = value || "Enlace";
+        } else if (type === "buttons") {
+          try {
+            const parsed = JSON.parse(value || "[]");
+            if (Array.isArray(parsed)) {
+              node.innerHTML = parsed.map(item => {
+                const url = String(item?.url || "").trim() || "#";
+                const label = String(item?.label || "Botón");
+                const style = String(item?.style || "primary");
+                return `<a class="site-btn ${safe(style)}" href="${safe(url)}">${safe(label)}</a>`;
+              }).join("");
+            }
+          } catch {}
+        }
+      });
+    });
   }
 
   loadEditor().catch(err => {

@@ -37,38 +37,41 @@
 
     <section class="editor-page-tabs" id="editor-v2-page-tabs"></section>
 
-    <section class="editor-layout">
+    <section class="editor-layout editor-layout-inline">
       <aside class="editor-sidebar" id="editor-v2-sidebar">
         <div class="editor-sidebar-empty" id="editor-v2-sidebar-empty">
-          <strong>Selecciona una sección</strong>
-          <p>Toca un bloque de la página para editar su contenido.</p>
+          <strong>Toca algo editable</strong>
+          <p>Haz clic en un texto, imagen o botón dentro de la página para editarlo.</p>
         </div>
 
         <form class="editor-form" id="editor-v2-form" hidden>
           <div class="editor-form-head">
             <div>
-              <p class="editor-eyebrow">Bloque activo</p>
-              <h2 id="editor-v2-section-title">Sección</h2>
+              <p class="editor-eyebrow">Elemento activo</p>
+              <h2 id="editor-v2-section-title">Elemento</h2>
             </div>
-            <label class="editor-visibility-toggle">
-              <input type="checkbox" id="editor-v2-section-visible">
-              <span>Visible</span>
-            </label>
           </div>
 
           <div class="editor-form-fields" id="editor-v2-fields"></div>
         </form>
       </aside>
 
-      <section class="editor-canvas-wrap">
+      <section class="editor-canvas-wrap editor-inline-wrap">
         <div class="editor-canvas-toolbar">
           <strong id="editor-v2-current-page">Página</strong>
-          <span id="editor-v2-current-state">Edita esta página bloque por bloque.</span>
+          <span id="editor-v2-current-state">Haz clic sobre la página para editar lo que ves.</span>
         </div>
 
         <nav class="editor-preview-nav" id="editor-v2-preview-nav" hidden></nav>
 
-        <div class="editor-canvas is-edit" id="editor-v2-canvas"></div>
+        <div class="editor-inline-frame-wrap">
+          <iframe
+            id="editor-v2-frame"
+            class="editor-inline-frame"
+            title="Vista editable del sitio"
+            loading="eager">
+          </iframe>
+        </div>
       </section>
     </section>
 

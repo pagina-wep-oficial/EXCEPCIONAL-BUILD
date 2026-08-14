@@ -118,6 +118,10 @@ body[data-portal-page="editor-v2"]{
   align-items:start;
 }
 
+.editor-layout-inline{
+  align-items:stretch;
+}
+
 .editor-sidebar,
 .editor-canvas-wrap{
   border:1px solid var(--editor-line);
@@ -129,6 +133,23 @@ body[data-portal-page="editor-v2"]{
   position:sticky;
   top:18px;
   padding:16px;
+}
+
+.editor-inline-wrap{
+  overflow:hidden;
+}
+
+.editor-inline-frame-wrap{
+  padding:18px;
+  background:linear-gradient(180deg,#f4f1e7 0%,#ece8dc 100%);
+}
+
+.editor-inline-frame{
+  width:100%;
+  min-height:72vh;
+  border:1px solid rgba(16,40,35,.12);
+  border-radius:22px;
+  background:#fff;
 }
 
 .editor-sidebar-empty{
@@ -255,30 +276,12 @@ body[data-portal-page="editor-v2"]{
   min-height:65vh;
 }
 
-.editor-section{
-  position:relative;
-  padding:18px;
-  border:1px solid var(--editor-line);
-  border-radius:22px;
-  background:#fff;
+.editor-inline-frame.is-preview{
+  outline:3px solid rgba(16,40,35,.08);
 }
 
-.editor-canvas.is-edit .editor-section{
-  cursor:pointer;
-}
-
-.editor-canvas.is-preview .editor-section{
-  cursor:default;
-}
-
-.editor-canvas.is-preview .editor-section.active{
-  border-color:var(--editor-line);
-  box-shadow:none;
-}
-
-.editor-canvas.is-edit .editor-section:hover{
-  border-color:#9fba8c;
-  box-shadow:0 0 0 3px rgba(183,255,74,.18);
+.editor-inline-frame.is-edit{
+  outline:3px solid rgba(183,255,74,.22);
 }
 
 .editor-section.active{
