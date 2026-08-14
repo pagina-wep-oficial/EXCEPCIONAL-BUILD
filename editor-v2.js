@@ -133,12 +133,15 @@
     return `https://raw.githubusercontent.com/${encodeURIComponent(project.site_repo_owner)}/${encodeURIComponent(project.site_repo_name)}/${branch}/${fullPath}`;
   }
 
-  // jsDelivr sirve CSS/JS/imágenes con el MIME correcto (raw.githubusercontent los sirve como text/plain y el navegador los bloquea, dejando la página sin estilos).
+  // El <base> del iframe apunta a NUESTRA API (/api/repo-asset) para servir CSS/JS/imágenes
+  // con el MIME correcto y sin depender de CDNs de terceros (raw los sirve como text/plain
+  // y el navegador los bloquea, dejando la página sin estilos).
   function repoCdnUrl(project, path = "") {
     const base = repoBasePath(project);
     const fullPath = [base, path].filter(Boolean).join("/");
-    const branch = encodeURIComponent(project.site_repo_branch || "main");
-    return `https://cdn.jsdelivr.net/gh/${encodeURIComponent(project.site_repo_owner)}/${encodeURIComponent(project.site_repo_name)}@${branch}/${fullPath}`;
+    const branch = project.site_repo_branch || "main";
+    const prefix = `${encodeURIComponent(project.site_repo_owner)}/${encodeURIComponent(project.site_repo_name)}@${encodeURIComponent(branch)}`;
+    return `/api/repo-asset/${prefix}/${fullPath}`;
   }
 
   function pageNameFromPath(path = "") {
