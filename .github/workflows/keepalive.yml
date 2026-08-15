@@ -15,10 +15,10 @@ jobs:
         run: |
           URL="https://scaebulgcuvqpucondws.supabase.co/auth/v1/health"
           for i in 1 2 3 4; do
-            code=$(curl -sS -o /dev/null -w "%{http_code}" -X POST "$URL" -H "apikey: $KEY" || echo 000)
+            code=$(curl -sS -o /dev/null -w "%{http_code}" "$URL" -H "apikey: $KEY" || echo 000)
             echo "Intento $i de 4 -> HTTP $code"
-            if [ "$code" = "200" ]; then
-              echo "Supabase despierto y activo."
+            if [ "$code" = "200" ] || [ "$code" = "405" ]; then
+              echo "Supabase despierto y activo (proyecto respondiendo)."
               exit 0
             fi
             sleep 20
