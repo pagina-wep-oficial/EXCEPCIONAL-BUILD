@@ -1,0 +1,27 @@
+name: Keep Supabase alive
+on:
+  schedule:
+    - cron: "0 13 * * *"
+  workflow_dispatch:
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping health de Supabase
+        shell: bash
+        env:
+          KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          URL="https://scaebulgcuvqpucondws.supabase.co/auth/v1/health"
+          for i in 1 2 3 4; do
+            code=$(curl -sS -o /dev/null -w "%{http_code}" -X POST "$URL" -H "apikey: $KEY" || echo 000)
+            echo "Intento $i de 4 -> HTTP $code"
+            if [ "$code" = "200" ]; then
+              echo "Supabase despierto y activo."
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "No se pudo despertar Supabase." >&2
+          exit 1
