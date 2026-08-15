@@ -60,7 +60,7 @@ function nextStepText(project) {
     if(i===1) return ["Envíanos la información del negocio","Completa los datos, fotos y archivos que usaremos."];
     if(i===2) return ["Estamos construyendo tu página","Por ahora no necesitas hacer nada."];
     if(i===3) return ["Revisa tu página","Mira la vista previa y dinos si quieres cambiar algo."];
-    if(/mantenimiento/.test(stageKey(project))) return ["Tu página está en mantenimiento","El sitio sigue en línea y puede recibir ajustes o mejoras."];
+    if(/mantenimiento/.test(stageKey(project))) return ["Tu página está en mantenimiento","Tu sitio web está en mantenimiento."];
     return ["Tu página está publicada","Puedes pedir cambios o mantenimiento cuando lo necesites."];
   }
   function projectBaseTimeline(project) {
@@ -119,7 +119,7 @@ function nextStepText(project) {
     if(/mantenimiento/i.test(String(project?.project_stage||""))){
       items.push({
         title:"Tu página está en mantenimiento",
-        description:"El proyecto sigue activo y puede recibir ajustes o mejoras.",
+        description:"Tu sitio web está en mantenimiento.",
         dateValue:project.updated_at||project.published_at||project.created_at
       });
     }
@@ -703,7 +703,7 @@ db.from("client_requests").select("*").eq("project_id",id).order("created_at",{a
     if(pos===1){focus.innerHTML=`<div class="focus-icon">2</div><div><span>Lo que sigue</span><h2>Envíanos la información de tu negocio</h2><p>Completa lo que puedas y sube las fotos o archivos que quieras usar.</p></div><a class="button button-primary" href="#informacion">Comenzar →</a>`;briefCard.hidden=false;briefCard.id="informacion";}
     if(pos===2){focus.innerHTML=`<div class="focus-icon done">✓</div><div><span>Información recibida</span><h2>Estamos preparando tu página</h2><p>Por ahora no necesitas hacer nada. Te avisaremos cuando tengamos una vista lista.</p></div><button class="button button-light" id="show-brief-again" type="button">Ver lo que envié</button>`;briefCard.hidden=true;setTimeout(()=>$("#show-brief-again")?.addEventListener("click",()=>{briefCard.hidden=false;briefCard.scrollIntoView({behavior:"smooth"});}),0);}
     if(pos===3){focus.innerHTML=`<div class="focus-icon">3</div><div><span>Lista para revisar</span><h2>Mira tu página antes de publicarla</h2><p>Revísala con calma. Si quieres cambiar algo, envíanos una solicitud.</p></div>${siteAction(project,"Ver vista previa")||"<span class=\"muted-box\">La vista previa estará disponible en cuanto la activemos.</span>"}`;actionsCard.hidden=false;}
-    if(pos===4){focus.innerHTML=`<div class="focus-icon done">✓</div><div><span>${isMaint?"Mantenimiento activo":"Proyecto publicado"}</span><h2>${isMaint?"Tu página está en mantenimiento":"Tu página ya está en internet"}</h2><p>${isMaint?"El sitio sigue en línea y puede recibir ajustes o mejoras.":"Puedes compartirla y pedir cambios o mantenimiento cuando lo necesites."}</p></div>${siteAction(project,"Abrir mi página")||""}`;actionsCard.hidden=false;}
+    if(pos===4){focus.innerHTML=`<div class="focus-icon done">✓</div><div><span>${isMaint?"Mantenimiento activo":"Proyecto publicado"}</span><h2>${isMaint?"Tu página está en mantenimiento":"Tu página ya está en internet"}</h2><p>${isMaint?"Tu sitio web está en mantenimiento.":"Puedes compartirla y pedir cambios o mantenimiento cuando lo necesites."}</p></div>${siteAction(project,"Abrir mi página")||""}`;actionsCard.hidden=false;}
     }
 
     const hasPayments=[project.total_price,project.deposit_amount,project.balance_amount].some(v=>v!=null&&v!=="");
