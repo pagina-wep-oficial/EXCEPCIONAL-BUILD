@@ -855,6 +855,125 @@ left join public.client_profiles pr on pr.id = p.user_id;
 
 grant select on public.crm_project_overview to authenticated;
 
+-- ============================================================================
+-- TANDA 1 - ADMINISTRACIÓN, PLANES Y BLOQUEOS DE DOMINIO Y ALOJAMIENTO
+-- ----------------------------------------------------------------------------
+-- Sección idempotente: puede ejecutarse más de una vez.
+-- ============================================================================
+
+-- 1.1a) Columnas de administración en client_project_setup.
+alter table public.client_project_setup
+  add column if not exists domain_type_locked boolean not null default false,
+  add column if not exists domain_value_locked boolean not null default false,
+  add column if not exists domain_verified_at timestamptz,
+  add column if not exists hosting_plan_locked boolean not null default false,
+  add column if not exists hosting_plan_id text,
+  add column if not exists hosting_plan_name text,
+  add column if not exists hosting_plan_features jsonb,
+  add column if not exists hosting_first_year numeric(12,2),
+  add column if not exists hosting_renewal numeric(12,2),
+  add column if not exists hosting_currency text;
+
+-- 1.1b) Ampliar hosting_type: permite "propio" (el cliente ya tiene hosting).
+alter table public.client_project_setup
+  drop constraint if exists client_project_setup_hosting_check;
+alter table public.client_project_setup
+  add constraint client_project_setup_hosting_check
+  check (hosting_type in ('cloudflare','hostinger','propio'));
+
+-- 1.3) Catálogo de planes de hosting (puede empezar vacío; solo admin escribe).
+create table if not exists public.client_hosting_plans (
+  id text primary key,
+  name text not null,
+  description text,
+  features jsonb not null default '[]'::jsonb,
+  first_year numeric(12,2),
+  renewal numeric(12,2),
+  currency text not null default 'MXN',
+  period_months integer not null default 12,
+  active boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+alter table public.client_hosting_plans enable row level security;
+grant select on public.client_hosting_plans to authenticated;
+grant insert, update, delete on public.client_hosting_plans to authenticated;
+
+drop policy if exists "client_hosting_plans_select_active" on public.client_hosting_plans;
+create policy "client_hosting_plans_select_active" on public.client_hosting_plans
+  for select to authenticated
+  using (active = true);
+
+drop policy if exists "admin_hosting_plans_all" on public.client_hosting_plans;
+create policy "admin_hosting_plans_all" on public.client_hosting_plans
+  for all to authenticated
+  using ((select public.is_app_admin()))
+  with check ((select public.is_app_admin()));
+
+-- 1.4) Trigger de bloqueos: el cliente no puede tocar lo que el admin fijó.
+create or replace function public.client_project_setup_guard()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_is_admin boolean := public.is_app_admin();
+begin
+  if v_is_admin then
+    return new;
+  end if;
+
+  -- Cliente insertando su configuración: nunca puede fijar bloqueos.
+  if tg_op = 'INSERT' then
+    new.domain_type_locked := false;
+    new.domain_value_locked := false;
+    new.hosting_plan_locked := false;
+    return new;
+  end if;
+
+  -- UPDATE: el cliente no puede cambiar los bloqueos.
+  if new.domain_type_locked is distinct from old.domain_type_locked
+     or new.domain_value_locked is distinct from old.domain_value_locked
+     or new.hosting_plan_locked is distinct from old.hosting_plan_locked then
+    raise exception 'No puedes cambiar la configuración fijada. Pide al equipo que la ajuste.';
+  end if;
+
+  -- Proteger los campos según cada bloqueo activo.
+  if old.domain_type_locked and new.address_type is distinct from old.address_type then
+    raise exception 'El tipo de dirección fue fijado por tu equipo.';
+  end if;
+
+  if old.domain_value_locked and (
+    new.address_type is distinct from old.address_type
+    or new.domain is distinct from old.domain
+    or new.site_name is distinct from old.site_name
+  ) then
+    raise exception 'La dirección de tu página fue fijada por tu equipo.';
+  end if;
+
+  if old.hosting_plan_locked and (
+    new.hosting_type is distinct from old.hosting_type
+    or new.hosting_plan_id is distinct from old.hosting_plan_id
+    or new.hosting_plan_name is distinct from old.hosting_plan_name
+    or new.hosting_plan_features is distinct from old.hosting_plan_features
+    or new.hosting_first_year is distinct from old.hosting_first_year
+    or new.hosting_renewal is distinct from old.hosting_renewal
+    or new.hosting_currency is distinct from old.hosting_currency
+  ) then
+    raise exception 'El alojamiento fue fijado por tu equipo.';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists client_project_setup_guard on public.client_project_setup;
+create trigger client_project_setup_guard
+  before insert or update on public.client_project_setup
+  for each row execute function public.client_project_setup_guard();
+
 -- ===========================================================
 -- INVITACIONES CON CÓDIGO CORTO (Plan A+B)
 -- ===========================================================

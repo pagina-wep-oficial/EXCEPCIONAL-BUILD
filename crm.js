@@ -6,7 +6,7 @@
   const crmPage=document.body?.dataset.crmPage||"dashboard";
   const WHATSAPP="529811332914";
   const PROD_ORIGIN=(location.protocol.startsWith("http")&&!['localhost','127.0.0.1'].includes(location.hostname))?location.origin:"https://excepcional-build.pages.dev";
-  const state={session:null,rol:null,prospects:[],trash:[],clients:[],projects:[],requests:[],users:[],currentProject:null,currentProspect:null,currentClient:null};
+  const state={session:null,rol:null,prospects:[],trash:[],clients:[],projects:[],requests:[],users:[],currentProject:null,currentProspect:null,currentClient:null,hostingPlans:[],currentSetup:null};
   let crmRealtimeChannel=null;
   let crmRefreshTimer=0;
   let crmLiveBusy=false;
@@ -206,6 +206,7 @@
     ]);
     for(const r of results)if(r.error)throw r.error;
     const all=results[0].data||[];state.prospects=all.filter(p=>!p.borrado_en);state.trash=all.filter(p=>p.borrado_en);state.clients=results[1].data||[];state.projects=results[2].data||[];state.requests=results[3].data||[];
+    await loadHostingPlans();
     if(render){renderAll();if(state.rol==="administrador")await loadUsers();}
   }
   function patchCollection(list,row,event,key="id"){
@@ -809,6 +810,82 @@
     dates.textContent="Todavía no tiene acceso al editor.";
     copy.textContent="Actívalo por tiempo y decide a qué editor entrará el cliente.";
   }
+  const CONSULTAR_ENDPOINT="https://scaebulgcuvqpucondws.supabase.co/functions/v1/consultar-dominio";
+  function normalizeSiteName(raw){let v=String(raw||"").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");v=v.replace(/^[a-z]+:\/\//,"").replace(/^www\./,"").split(/[/?#]/)[0].replace(/\s+/g,"-").replace(/[^a-z0-9-]/g,"").replace(/^-+|-+$/g,"");return v.slice(0,63);}
+  function normalizeDomain(raw){let v=String(raw||"").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");v=v.replace(/^[a-z]+:\/\//,"").replace(/^www\./,"").split(/[/?#]/)[0].replace(/^\.+|\.+$/g,"");if(!v)return "";if(!v.includes("."))v+=".com";return /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(v)?v:"";}
+  async function fetchTimeout(url,ms=20000){const c=new AbortController(),t=setTimeout(()=>c.abort(),ms);try{return await fetch(url,{signal:c.signal});}finally{clearTimeout(t);}}
+  async function loadHostingPlans(){try{const {data,error}=await db.from("client_hosting_plans").select("*").order("sort_order",{ascending:true});if(error)throw error;state.hostingPlans=data||[];}catch(e){state.hostingPlans=[];}}
+  function hostingPlanById(id){return state.hostingPlans.find(p=>p.id===id);}
+  function hostingLabel(value){return ({cloudflare:"Incluido",hostinger:"Funciones especiales",propio:"El cliente ya tiene hosting"}[value]||"Incluido");}
+  function renderHostingPlans(selectedId){
+    const grid=$("#hosting-plans-grid"); if(!grid)return;
+    const setupPlan=state.currentSetup?.hosting_plan_id&&!hostingPlanById(selectedId)?state.currentSetup:null;
+    let cards=state.hostingPlans.map(p=>{
+      const price=p.first_year!=null?`${money(p.first_year)}/año`:(p.renewal!=null?`${money(p.renewal)}/año`:"—");
+      return `<label class="hosting-plan-card"><input type="radio" name="hosting_plan_id" value="${esc(p.id)}"><span><strong>${esc(p.name)}</strong>${p.description?`<small>${esc(p.description)}</small>`:""}${Array.isArray(p.features)&&p.features.length?`<em>${esc(p.features.join(" · "))}</em>`:""}</span><b>${price}</b></label>`;
+    }).join("");
+    if(setupPlan&&setupPlan.hosting_plan_id){
+      cards+=`<label class="hosting-plan-card old"><input type="radio" name="hosting_plan_id" value="${esc(setupPlan.hosting_plan_id)}" checked><span><strong>${esc(setupPlan.hosting_plan_name||"Plan anterior")}</strong><small>Este plan ya no está en el catálogo, pero se conservó el de ese proyecto.</small></span><b>${setupPlan.hosting_first_year!=null?`${money(setupPlan.hosting_first_year)}/año`:"—"}</b></label>`;
+    }
+    grid.innerHTML=cards;
+    const radio=grid.querySelector(`input[name="hosting_plan_id"][value="${esc(selectedId||"")}"]`);
+    if(radio){radio.checked=true;radio.closest(".hosting-plan-card")?.classList.add("selected");}
+    const show=String($("#project-form")?.elements?.hosting_type?.value||"cloudflare")==="hostinger";
+    grid.hidden=!show||!cards.length;
+  }
+  function applySetupToForm(setup){
+    const f=$("#project-form"); if(!f)return;
+    const el=f.elements;
+    if(setup){
+      state.currentSetup=setup;
+      if(el.domain_owned)el.domain_owned.checked=Boolean(setup.domain_owned);
+      if(el.domain_type_locked)el.domain_type_locked.checked=Boolean(setup.domain_type_locked);
+      if(el.domain_value_locked)el.domain_value_locked.checked=Boolean(setup.domain_value_locked);
+      if(el.domain_verified_at)el.domain_verified_at.value=setup.domain_verified_at||"";
+      if(el.hosting_plan_locked)el.hosting_plan_locked.checked=Boolean(setup.hosting_plan_locked);
+      if(el.domain)el.domain.value=setup.address_type==="dominio"?(setup.domain||""):(setup.site_name?`${setup.site_name}.pages.dev`:"" );
+  const status=$("#verify-domain-status");if(status) status.textContent=setup.domain_verified_at?`Dominio verificado (${fmtDate(setup.domain_verified_at)})`:"";
+      renderHostingPlans(setup.hosting_plan_id||"");
+    }else{
+      state.currentSetup=null;
+      if($("#verify-domain-status"))$("#verify-domain-status").textContent="";
+      renderHostingPlans("");
+    }
+    updateConfigUI();
+  }
+  function updateConfigUI(){
+    const f=$("#project-form"); if(!f)return;
+    const address=f.elements.address_type?.value||"gratis", hosting=f.elements.hosting_type?.value||"cloudflare";
+    const domainInput=$("#publication-config-domain-label input[name=domain]");
+    if(domainInput)domainInput.placeholder=address==="dominio"?"Ej. tunegocio.com":"Ej. tunegocio.pages.dev";
+    const owned=f.elements.domain_owned;
+    if(owned){const wrap=owned.closest(".checks");if(wrap)wrap.style.visibility=address==="dominio"?"visible":"hidden";owned.disabled=address!=="dominio";if(address!=="dominio")owned.checked=false;}
+    const picks=$$("#project-form [name=domain_value_locked]");
+    picks.forEach(p=>{p.disabled=!String(f.elements.domain?.value||"").trim()||address!=="dominio";if(p.disabled)p.checked=false;});
+    const grid=$("#hosting-plans-grid");
+    if(grid)grid.hidden=hosting!=="hostinger";
+  }
+  async function verifyAdminDomain(){
+    const f=$("#project-form"); if(!f)return;
+    const address=f.elements.address_type?.value||"gratis";
+    const raw=String(f.elements.domain?.value||"").trim();
+    const status=$("#verify-domain-status"); if(!status)return;
+    if(!raw){status.textContent="Escribe primero la dirección.";return;}
+    status.textContent="Verificando…";
+    try{
+      const target=address==="dominio"?normalizeDomain(raw):`${normalizeSiteName(raw)}.pages.dev`;
+      if(!target)throw new Error("Dominio inválido");
+      const r=await fetchTimeout(`${CONSULTAR_ENDPOINT}?dominio=${encodeURIComponent(target)}`,15000);
+      if(!r.ok)throw new Error();
+      const d=await r.json();
+      if(d?.ok!==true)throw new Error();
+      const libre=d.disponible;
+      if(address==="dominio"){status.textContent=libre===true?"El dominio está libre y se puede comprar.":libre===false?"El dominio ya está registrado (tiene dueño).":"No se pudo confirmar el dominio.";}
+      else{status.textContent=libre===true?`${target} está disponible para usar.`:libre===false?`${target} ya está tomado.`:"No se pudo confirmar la disponibilidad.";}
+      if(f.elements.domain_verified_at)f.elements.domain_verified_at.value=new Date().toISOString();
+    }catch(_){status.textContent="No pudimos verificar. Revisa que el formato sea correcto.";}
+  }
+
   async function saveEditorLaunchUrl(){
     const project=state.currentProject,url=String($("#project-editor-url")?.value||"").trim()||null;
     if(!project?.id)return;
@@ -912,7 +989,7 @@
   }
 
   function setProjectForm(project={}){
-    const f=$("#project-form"),el=f.elements;state.currentProject=project.id?project:null;const savedTab=(project.id?localStorage.getItem(projectTabKey(project.id)):null)||"summary";f.reset();el.id.value=project.id||"";el.source_prospect_id.value=project.source_prospect_id||"";el.name.value=project.name||"";fillClientSelect();el.user_id.value=project.user_id||"";el.project_stage.value=project.project_stage||"Invitación";el.status.value=project.status||"Pendiente de activar cuenta";el.address_type.value=project.address_type||"gratis";el.domain.value=project.domain||"";el.hosting_type.value=project.hosting_type||"cloudflare";el.site_visibility.value=project.site_visibility||"hidden";el.site_url.value=project.site_url||"";el.preview_url.value=project.preview_url||"";el.total_price.value=project.total_price??750;el.deposit_amount.value=project.deposit_amount??375;el.balance_amount.value=project.balance_amount??375;el.payment_method.value=project.payment_method||"Transferencia";el.deposit_paid.checked=Boolean(project.deposit_paid);el.balance_paid.checked=Boolean(project.balance_paid);el.client_note.value=project.client_note||"";$("#project-modal-title").textContent=project.id?project.name:"Nuevo proyecto";setLine("#project-form-status","");setLine("#project-editor-line","");const inv=inviteUrl(project);$("#project-invite-box").hidden=!project.id||Boolean(project.user_id);$("#project-invite-url").textContent=inv||"Guarda el proyecto para generar una invitación.";$("#update-title").value="";$("#update-status").value="";$("#update-description").value="";setProjectTab(savedTab);updateProjectSummary();updateProjectLifecycleUI(project);updateEditorAdminUI(project);
+    const f=$("#project-form"),el=f.elements;state.currentProject=project.id?project:null;const savedTab=(project.id?localStorage.getItem(projectTabKey(project.id)):null)||"summary";f.reset();el.id.value=project.id||"";el.source_prospect_id.value=project.source_prospect_id||"";el.name.value=project.name||"";fillClientSelect();el.user_id.value=project.user_id||"";el.project_stage.value=project.project_stage||"Invitación";el.status.value=project.status||"Pendiente de activar cuenta";el.address_type.value=project.address_type||"gratis";el.domain.value=project.domain||"";el.hosting_type.value=project.hosting_type||"cloudflare";el.site_visibility.value=project.site_visibility||"hidden";el.site_url.value=project.site_url||"";el.preview_url.value=project.preview_url||"";el.total_price.value=project.total_price??750;el.deposit_amount.value=project.deposit_amount??375;el.balance_amount.value=project.balance_amount??375;el.payment_method.value=project.payment_method||"Transferencia";el.deposit_paid.checked=Boolean(project.deposit_paid);el.balance_paid.checked=Boolean(project.balance_paid);el.client_note.value=project.client_note||"";$("#project-modal-title").textContent=project.id?project.name:"Nuevo proyecto";setLine("#project-form-status","");setLine("#project-editor-line","");const inv=inviteUrl(project);$("#project-invite-box").hidden=!project.id||Boolean(project.user_id);$("#project-invite-url").textContent=inv||"Guarda el proyecto para generar una invitación.";$("#update-title").value="";$("#update-status").value="";$("#update-description").value="";setProjectTab(savedTab);updateProjectSummary();updateProjectLifecycleUI(project);updateEditorAdminUI(project);updateConfigUI();renderHostingPlans(project.id?state.currentSetup?.hosting_plan_id||"":"");
   }
 
   async function downloadAdminFile(fileId,fileName){try{const r=await fetch(`/api/project-file?id=${encodeURIComponent(fileId)}`,{headers:{Authorization:`Bearer ${state.session.access_token}`}});if(!r.ok)throw new Error();const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=fileName||"archivo";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch{toast("No pudimos descargar el archivo.");}}
@@ -924,7 +1001,11 @@
     setProjectForm(p);$("#project-setup-admin-content").innerHTML="<span>Cargando…</span>";$("#project-brief-admin-content").innerHTML="<span>Cargando…</span>";$("#project-files-admin").innerHTML="<span>Cargando…</span>";
     const [setupR,briefR,filesR]=await Promise.all([db.from("client_project_setup").select("*").eq("project_id",id).maybeSingle(),db.from("client_project_briefs").select("*").eq("project_id",id).maybeSingle(),db.from("client_project_files").select("*").eq("project_id",id).order("created_at",{ascending:false})]);
     const setup=setupR.data,brief=briefR.data,files=filesR.data||[];
-    $("#project-setup-admin-content").innerHTML=setup?[["Dirección",setup.address_type==="dominio"?setup.domain:`${setup.site_name||""}.pages.dev`],["Dominio del cliente",setup.domain_owned?"Sí":"No"],["Primer año dominio",setup.domain_first_year!=null?money(setup.domain_first_year):"—"],["Renovación",setup.domain_renewal!=null?money(setup.domain_renewal):"—"],["Alojamiento",setup.hosting_type==="hostinger"?"Funciones especiales":"Incluido"],["Nota especial",setup.special_features_note||"—"]].map(([a,b])=>`<div><b>${esc(a)}</b><span>${esc(b)}</span></div>`).join(""):`<span>El cliente todavía no ha configurado su página.</span>`;
+    state.currentSetup=setup||null;
+    applySetupToForm(setup||null);
+    const hostingPlanName=setup?.hosting_plan_id?(setup?.hosting_plan_name||"Plan elegido"):(setup?.hosting_type==="hostinger"?"Plan pendiente de definir":null);
+    const lockedRows=[setup?.domain_type_locked&&["Tipo de dirección fijo","Sí"],setup?.domain_value_locked&&["Dirección fija","Sí"],setup?.hosting_plan_locked&&["Alojamiento fijo","Sí"]].filter(Boolean);
+    $("#project-setup-admin-content").innerHTML=setup?[["Dirección",setup.address_type==="dominio"?setup.domain:`${setup.site_name||""}.pages.dev`],["Dominio del cliente",setup.domain_owned?"Sí":"No"],["Primer año dominio",setup.domain_first_year!=null?money(setup.domain_first_year):"—"],["Renovación",setup.domain_renewal!=null?money(setup.domain_renewal):"—"],["Alojamiento",hostingLabel(setup.hosting_type)],...(hostingPlanName?[["Plan alojamiento",hostingPlanName],["Primer año plan",setup.hosting_first_year!=null?money(setup.hosting_first_year):"—"],["Renovación plan",setup.hosting_renewal!=null?money(setup.hosting_renewal):"—"]]:[]),...lockedRows,["Nota especial",setup.special_features_note||"—"],["Verificación dominio",setup.domain_verified_at?`${fmtDate(setup.domain_verified_at)}`:"—"],["Enviado",setup.completed_at?fmtDate(setup.completed_at):"—"]].map(([a,b])=>`<div><b>${esc(a)}</b><span>${esc(b)}</span></div>`).join(""):`<span>El cliente todavía no ha configurado su página.</span>`;
     $("#project-brief-admin-content").innerHTML=brief?[["Negocio",brief.business_name],["Descripción",brief.business_description],["Productos / servicios",brief.products_services],["Dirección",brief.address_text],["Horario",brief.schedule_text],["WhatsApp público",brief.public_phone],["Google Maps",brief.maps_url],["Facebook",brief.facebook_url],["Instagram",brief.instagram_url],["TikTok",brief.tiktok_url],["Qué quiere mostrar",Array.isArray(brief.content_options)?brief.content_options.join(", "):""],["Estilo",brief.visual_notes],["Referencias",brief.reference_links],["Notas",brief.extra_notes]].filter(([,v])=>v).map(([a,b])=>`<div><b>${esc(a)}</b><span>${esc(b)}</span></div>`).join("")||"<span>Abrió el formulario, pero todavía no agregó información.</span>":`<span>El cliente todavía no ha enviado información.</span>`;
     $("#project-files-count").textContent=files.length?`${files.length} archivo${files.length===1?"":"s"}`:"";$("#project-files-admin").innerHTML=files.length?files.map(f=>`<div class="admin-file-row"><div><strong>${esc(f.file_name)}</strong><span>${esc(f.category)} · ${fmtDate(f.created_at)}</span></div><button type="button" class="tiny-btn" data-admin-download="${f.id}" data-file-name="${esc(f.file_name)}">Descargar</button></div>`).join(""):`<span>No hay archivos.</span>`;
     $$('[data-admin-download]',$("#project-files-admin")).forEach(b=>b.addEventListener("click",()=>downloadAdminFile(b.dataset.adminDownload,b.dataset.fileName)));
@@ -993,7 +1074,36 @@
     if(result.error){setLine("#project-form-status",result.error.message||"No pudimos guardar.","error");return;}
     const saved=result.data,idx=state.projects.findIndex(p=>p.id===saved.id);if(idx>=0)state.projects[idx]=saved;else state.projects.unshift(saved);
     if(saved.source_prospect_id)await db.from("prospectos").update({client_user_id:userId,client_project_id:saved.id}).eq("id",saved.source_prospect_id).then(()=>{});
+    await saveProjectSetup(saved,fd);
     setProjectForm(saved);if(crmPage!=="project-admin")renderAll();renderClientDetail();setLine("#project-form-status","Proyecto guardado.","success");toast("Proyecto actualizado.");
+  }
+  async function saveProjectSetup(saved,fd){
+    const setupAnterior=state.currentSetup&&state.currentSetup.project_id===saved.id?state.currentSetup:null;
+    const addressType=String(fd.get("address_type")||"gratis");
+    const hostingType=String(fd.get("hosting_type")||"cloudflare");
+    const rawDomain=String(fd.get("domain")||"").trim();
+    const isDomain=addressType==="dominio";
+    const siteName=isDomain?null:normalizeSiteName(rawDomain.replace(/\.pages\.dev$/,""));
+    const domain=isDomain?normalizeDomain(rawDomain):null;
+    const hostingChanged=!setupAnterior||setupAnterior.hosting_type!==hostingType;
+    let plan={hosting_plan_id:null,hosting_plan_name:null,hosting_plan_features:null,hosting_first_year:null,hosting_renewal:null,hosting_currency:"MXN"};
+    if(hostingType==="hostinger"){
+      const planId=String(fd.get("hosting_plan_id")||"").trim()||null;
+      if(planId){
+        const p=hostingPlanById(planId);
+        plan={hosting_plan_id:p?.id||planId,hosting_plan_name:p?.name||setupAnterior?.hosting_plan_name||null,hosting_plan_features:p?.features||null,hosting_first_year:p?.first_year??null,hosting_renewal:p?.renewal??null,hosting_currency:p?.currency||"MXN"};
+      }else if(setupAnterior){
+        plan={hosting_plan_id:setupAnterior.hosting_plan_id||null,hosting_plan_name:setupAnterior.hosting_plan_name||null,hosting_plan_features:setupAnterior.hosting_plan_features||null,hosting_first_year:setupAnterior.hosting_first_year??null,hosting_renewal:setupAnterior.hosting_renewal??null,hosting_currency:setupAnterior.hosting_currency||"MXN"};
+      }
+    }else if(hostingChanged||!setupAnterior){
+      plan={hosting_plan_id:null,hosting_plan_name:null,hosting_plan_features:null,hosting_first_year:null,hosting_renewal:null,hosting_currency:"MXN"};
+    }else{
+      plan={hosting_plan_id:setupAnterior.hosting_plan_id||null,hosting_plan_name:setupAnterior.hosting_plan_name||null,hosting_plan_features:setupAnterior.hosting_plan_features||null,hosting_first_year:setupAnterior.hosting_first_year??null,hosting_renewal:setupAnterior.hosting_renewal??null,hosting_currency:setupAnterior.hosting_currency||"MXN"};
+    }
+    const payload={project_id:saved.id,user_id:saved.user_id||setupAnterior?.user_id||null,address_type:addressType,site_name:siteName,domain,domain_owned:isDomain&&fd.get("domain_owned")==="on",domain_type_locked:fd.get("domain_type_locked")==="on",domain_value_locked:fd.get("domain_value_locked")==="on"&&!!(siteName||domain),domain_verified_at:String(fd.get("domain_verified_at")||"")||setupAnterior?.domain_verified_at||null,hosting_type:hostingType,hosting_plan_locked:fd.get("hosting_plan_locked")==="on",...plan,updated_at:new Date().toISOString()};
+    const {data,error}=await db.from("client_project_setup").upsert(payload,{onConflict:"project_id"}).select().single();
+    if(error&&!/locked|fijad|configuraci/i.test(error.message||"")){setLine("#project-form-status",`El proyecto se guardó, pero no la configuración: ${error.message}`,"error");return;}
+    if(data)state.currentSetup=data;
   }
 
   async function addUpdate(){const p=state.currentProject;if(!p?.id)return;const title=$("#update-title").value.trim();if(!title){toast("Escribe un título para el avance.");return;}const payload={project_id:p.id,user_id:p.user_id||null,title,description:$("#update-description").value.trim()||null,status:$("#update-status").value.trim()||null};const {error}=await db.from("client_updates").insert(payload);if(error){toast(error.message||"No pudimos agregar el avance.");return;}$("#update-title").value="";$("#update-status").value="";$("#update-description").value="";toast("Avance agregado.");}
@@ -1026,7 +1136,7 @@
   $("#prospect-form")?.addEventListener("submit",saveProspect);$("#cancel-prospect")?.addEventListener("click",()=>{$("#prospect-form").reset();$("#prospect-form").elements.id.value="";$("#cancel-prospect").hidden=true;setLine("#prospect-status","")});$("#export-prospects")?.addEventListener("click",exportProspects);
   $("#agreement-form")?.addEventListener("submit",saveAgreement);$$('[data-close-agreement]').forEach(b=>b.addEventListener("click",()=>$("#agreement-modal").close()));
   $("#request-edit-form")?.addEventListener("submit",saveRequestEditor);$$('[data-close-request]').forEach(b=>b.addEventListener("click",()=>$("#request-modal").close()));
-  $("#project-form")?.addEventListener("submit",saveProject);$$('[data-close-project]').forEach(b=>b.addEventListener("click",()=>$("#project-modal").close()));$("#new-project")?.addEventListener("click",()=>{setProjectForm({project_stage:"Invitación",status:"Pendiente de activar cuenta",site_visibility:"hidden",total_price:750,deposit_amount:375,balance_amount:375,payment_method:"Transferencia"});$("#project-setup-admin-content").innerHTML="<span>Sin configuración.</span>";$("#project-brief-admin-content").innerHTML="<span>Sin información.</span>";$("#project-files-admin").innerHTML="<span>No hay archivos.</span>";$("#project-modal").showModal();});
+  $("#project-form")?.addEventListener("submit",saveProject);$$('[data-close-project]').forEach(b=>b.addEventListener("click",()=>$("#project-modal").close()));$("#new-project")?.addEventListener("click",()=>{state.currentSetup=null;setProjectForm({project_stage:"Invitación",status:"Pendiente de activar cuenta",site_visibility:"hidden",total_price:750,deposit_amount:375,balance_amount:375,payment_method:"Transferencia"});$("#project-setup-admin-content").innerHTML="<span>Sin configuración.</span>";$("#project-brief-admin-content").innerHTML="<span>Sin información.</span>";$("#project-files-admin").innerHTML="<span>No hay archivos.</span>";$("#project-modal").showModal();});
   $("#copy-project-invite")?.addEventListener("click",()=>state.currentProject&&copyInvite(state.currentProject.id));$("#whatsapp-project-invite")?.addEventListener("click",()=>state.currentProject&&sendInvite(state.currentProject.id));$("#renew-project-invite")?.addEventListener("click",renewInvite);$("#cancel-project-invite")?.addEventListener("click",()=>state.currentProject&&cancelInvite(state.currentProject.id));$("#archive-project-cancel")?.addEventListener("click",()=>archiveProjectState("cancel"));$("#archive-project-discontinue")?.addEventListener("click",()=>archiveProjectState("discontinue"));$("#restore-project")?.addEventListener("click",restoreArchivedProject);$("#delete-project-permanently")?.addEventListener("click",()=>deleteProjectPermanently());$("#add-project-update")?.addEventListener("click",addUpdate);
   $$("[data-editor-activate]").forEach(b=>b.addEventListener("click",()=>activateEditorAccess(Number(b.dataset.editorActivate),Number(b.dataset.editorPrice))));
   $("#save-editor-url")?.addEventListener("click",saveEditorLaunchUrl);
@@ -1036,6 +1146,16 @@
   $$("[data-prospect-stage]").forEach(b=>b.addEventListener("click",()=>setProspectStage(b.dataset.prospectStage)));
   ["user_id","project_stage","site_visibility","total_price"].forEach(name=>$("#project-form")?.elements?.[name]?.addEventListener("input",updateProjectSummary));
   ["user_id","project_stage","site_visibility"].forEach(name=>$("#project-form")?.elements?.[name]?.addEventListener("change",updateProjectSummary));
+  $("#verify-domain-btn")?.addEventListener("click",verifyAdminDomain);
+  $("#project-form")?.addEventListener("change",e=>{
+    const t=e.target;
+    if(t&&(t.name==="address_type"||t.name==="hosting_type"||t.name==="domain")){
+      if(t.name==="domain"){$$("#project-form [name=domain_value_locked]").forEach(p=>{p.disabled=!String(t.value||"").trim()||String($("#project-form [name=address_type]")?.value||"gratis")!=="dominio";if(p.disabled)p.checked=false;});}
+      updateConfigUI();
+    }
+    if(t&&t.name==="hosting_type"){if(t.value!=="hostinger"){const r=$("#project-form [name=hosting_plan_id]");if(r)r.checked=false;}renderHostingPlans($("#project-form [name=hosting_plan_id]:checked")?.value||"");}
+  });
+  $$("#project-form [name=domain_value_locked]").forEach(p=>p.addEventListener("change",()=>{if(p.checked&&!String($("#project-form [name=domain]")?.value||"").trim())p.checked=false;}));
   $("#prospect-search")?.addEventListener("input",e=>{rememberCrmUiState({prospectSearch:e.currentTarget.value});renderProspects();});
   $("#prospect-filter")?.addEventListener("change",e=>{rememberCrmUiState({prospectFilter:e.currentTarget.value});renderProspects();});
   $("#trash-search")?.addEventListener("input",e=>{rememberCrmUiState({trashSearch:e.currentTarget.value});renderTrash();});
@@ -1055,7 +1175,7 @@
   $("#client-detail-projects")?.addEventListener("click",e=>{const t=e.target,id=t.dataset.openProject;if(id)openProject(id);if(t.dataset.restoreProject)restoreArchivedProject(t.dataset.restoreProject);if(t.dataset.deleteProject)deleteProjectPermanently(t.dataset.deleteProject);});
   $("#client-detail-actions")?.addEventListener("click",e=>{if(e.target.dataset.openClients)setView("clients");});
   $("#client-detail-back")?.addEventListener("click",()=>setView("clients"));
-  $("#client-detail-new-project")?.addEventListener("click",()=>{const client=clientById(state.currentClient);if(!client)return;setProjectForm({user_id:client.id,project_stage:"Invitación",status:"Pendiente de activar cuenta",site_visibility:"hidden",total_price:750,deposit_amount:375,balance_amount:375,payment_method:"Transferencia"});$("#project-setup-admin-content").innerHTML="<span>Sin configuración.</span>";$("#project-brief-admin-content").innerHTML="<span>Sin información.</span>";$("#project-files-admin").innerHTML="<span>No hay archivos.</span>";$("#project-modal").showModal();});
+  $("#client-detail-new-project")?.addEventListener("click",()=>{const client=clientById(state.currentClient);if(!client)return;state.currentSetup=null;setProjectForm({user_id:client.id,project_stage:"Invitación",status:"Pendiente de activar cuenta",site_visibility:"hidden",total_price:750,deposit_amount:375,balance_amount:375,payment_method:"Transferencia"});$("#project-setup-admin-content").innerHTML="<span>Sin configuración.</span>";$("#project-brief-admin-content").innerHTML="<span>Sin información.</span>";$("#project-files-admin").innerHTML="<span>No hay archivos.</span>";$("#project-modal").showModal();});
   $("#request-board")?.addEventListener("click",e=>{
     const t=e.target;
     if(t.dataset.openProject)openProject(t.dataset.openProject);
