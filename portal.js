@@ -707,7 +707,7 @@ db.from("client_requests").select("*").eq("project_id",id).order("created_at",{a
     if(!archivedState&&hasPayments){$("#payment-card").hidden=false;$("#project-payments").innerHTML=`<div class="payment-box"><span>Total acordado</span><strong>${money(project.total_price)}</strong><small>${safe(project.payment_method||"")}</small></div><div class="payment-box"><span>Anticipo</span><strong>${money(project.deposit_amount)}</strong><em class="payment-state ${project.deposit_paid?"paid":""}">${project.deposit_paid?"Pagado":"Pendiente"}</em></div><div class="payment-box"><span>Saldo final</span><strong>${money(project.balance_amount)}</strong><em class="payment-state ${project.balance_paid?"paid":""}">${project.balance_paid?"Pagado":"Pendiente"}</em></div>`;}
 
     const editorCard=$("#project-editor-card");
-    if(editorCard && !archivedState){
+    if(editorCard && !archivedState && /^publicado$/.test(stageKey(project))){
       const access=editorAccessState(project);
       const active=access.status==="active";
       const expired=access.status==="expired";
