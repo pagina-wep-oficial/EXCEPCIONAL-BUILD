@@ -60,6 +60,7 @@ function nextStepText(project) {
     if(i===1) return ["Envíanos la información del negocio","Completa los datos, fotos y archivos que usaremos."];
     if(i===2) return ["Estamos construyendo tu página","Por ahora no necesitas hacer nada."];
     if(i===3) return ["Revisa tu página","Mira la vista previa y dinos si quieres cambiar algo."];
+    if(/mantenimiento/.test(stageKey(project))) return ["Tu página está en mantenimiento","El sitio sigue en línea y puede recibir ajustes o mejoras."];
     return ["Tu página está publicada","Puedes pedir cambios o mantenimiento cuando lo necesites."];
   }
   function projectBaseTimeline(project) {
@@ -678,8 +679,10 @@ db.from("client_requests").select("*").eq("project_id",id).order("created_at",{a
       location.reload();
     });
     document.title=`${project.name} | Excepcional Build`; $("#project-title").textContent=project.name; $("#project-subtitle").innerHTML=`<span class="status-badge ${statusClass(project.status||project.project_stage)}">${safe(project.status||project.project_stage)}</span>`; $("#project-top-actions").innerHTML=(stageIndex(project)<2&&!archivedClientState(project))?siteAction(project):"";
-    const labels=["Configurar","Enviar información","Construcción","Revisión","Publicada"], pos=stageIndex(project);
-    $("#project-stage-track").innerHTML=labels.map((label,i)=>`<div class="stage-step ${i<pos?"done":i===pos?"current":""}"><i>${i<pos?"✓":i+1}</i><span>${safe(label)}</span><small>${i===pos?"Ahora":""}</small></div>`).join("");
+    const isMaint=/mantenimiento/.test(stageKey(project));
+    const labels=["Configurar","Enviar información","Construcción","Revisión","Publicada",...(isMaint?["Mantenimiento"]:[])], pos=stageIndex(project);
+    const track=$("#project-stage-track"); track.classList.toggle("has-maint",isMaint);
+    track.innerHTML=labels.map((label,i)=>`<div class="stage-step ${(i<pos||(isMaint&&i===4))?"done":(isMaint&&i===5)?"current maint":i===pos?"current":""}"><i>${(i<pos||(isMaint&&i===4))?"✓":i+1}</i><span>${safe(label)}</span><small>${(isMaint?i===5:i===pos)?"Ahora":""}</small></div>`).join("");
     if(project.client_note && stageIndex(project) === 0){$("#project-client-note").hidden=false;$("#project-client-note").textContent=project.client_note;}
 
     const focus=$("#project-focus"), briefCard=$("#project-brief-card"), actionsCard=$("#project-actions-card");
@@ -700,7 +703,7 @@ db.from("client_requests").select("*").eq("project_id",id).order("created_at",{a
     if(pos===1){focus.innerHTML=`<div class="focus-icon">2</div><div><span>Lo que sigue</span><h2>Envíanos la información de tu negocio</h2><p>Completa lo que puedas y sube las fotos o archivos que quieras usar.</p></div><a class="button button-primary" href="#informacion">Comenzar →</a>`;briefCard.hidden=false;briefCard.id="informacion";}
     if(pos===2){focus.innerHTML=`<div class="focus-icon done">✓</div><div><span>Información recibida</span><h2>Estamos preparando tu página</h2><p>Por ahora no necesitas hacer nada. Te avisaremos cuando tengamos una vista lista.</p></div><button class="button button-light" id="show-brief-again" type="button">Ver lo que envié</button>`;briefCard.hidden=true;setTimeout(()=>$("#show-brief-again")?.addEventListener("click",()=>{briefCard.hidden=false;briefCard.scrollIntoView({behavior:"smooth"});}),0);}
     if(pos===3){focus.innerHTML=`<div class="focus-icon">3</div><div><span>Lista para revisar</span><h2>Mira tu página antes de publicarla</h2><p>Revísala con calma. Si quieres cambiar algo, envíanos una solicitud.</p></div>${siteAction(project,"Ver vista previa")||"<span class=\"muted-box\">La vista previa estará disponible en cuanto la activemos.</span>"}`;actionsCard.hidden=false;}
-    if(pos===4){focus.innerHTML=`<div class="focus-icon done">✓</div><div><span>Proyecto publicado</span><h2>Tu página ya está en internet</h2><p>Puedes compartirla y pedir cambios o mantenimiento cuando lo necesites.</p></div>${siteAction(project,"Abrir mi página")||""}`;actionsCard.hidden=false;}
+    if(pos===4){focus.innerHTML=`<div class="focus-icon done">✓</div><div><span>${isMaint?"Mantenimiento activo":"Proyecto publicado"}</span><h2>${isMaint?"Tu página está en mantenimiento":"Tu página ya está en internet"}</h2><p>${isMaint?"El sitio sigue en línea y puede recibir ajustes o mejoras.":"Puedes compartirla y pedir cambios o mantenimiento cuando lo necesites."}</p></div>${siteAction(project,"Abrir mi página")||""}`;actionsCard.hidden=false;}
     }
 
     const hasPayments=[project.total_price,project.deposit_amount,project.balance_amount].some(v=>v!=null&&v!=="");
