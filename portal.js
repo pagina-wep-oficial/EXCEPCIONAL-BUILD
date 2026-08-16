@@ -488,7 +488,7 @@ function nextStepText(project) {
     $("#configure-back").href=`proyecto.html?id=${encodeURIComponent(id)}`; $("#configure-mobile-back").href=`proyecto.html?id=${encodeURIComponent(id)}`;
     function setupSig(row){
       if(!row)return "";
-      return JSON.stringify({a:row.address_type||"",d:row.domain||"",s:row.site_name||"",o:row.domain_owned||false,v:row.domain_verified_at||"",f:row.domain_first_year??null,r:row.domain_renewal??null,h:row.hosting_type||"",p:row.hosting_plan_id||"",pn:row.hosting_plan_name||"",pf:row.hosting_plan_features||[],hf:row.hosting_first_year??null,hr:row.hosting_renewal??null,c:row.hosting_currency||"",n:row.special_features_note||"",tl:row.domain_type_locked||false,vl:row.domain_value_locked||false,hl:row.hosting_plan_locked||false});
+      return JSON.stringify({a:row.address_type||"",d:row.domain||"",s:row.site_name||"",o:row.domain_owned||false,v:row.domain_verified_at||"",f:row.domain_first_year??null,r:row.domain_renewal??null,h:row.hosting_type||"",p:row.hosting_plan_id||"",pn:row.hosting_plan_name||"",pf:row.hosting_plan_features||[],hf:row.hosting_first_year??null,hr:row.hosting_renewal??null,c:(row.hosting_currency==="MXN"?null:row.hosting_currency)||"",n:row.special_features_note||"",tl:row.domain_type_locked||false,vl:row.domain_value_locked||false,hl:row.hosting_plan_locked||false});
     }
     const setupLockSig=()=>({domain_type_locked:setup?.domain_type_locked||false,domain_value_locked:setup?.domain_value_locked||false,hosting_plan_locked:setup?.hosting_plan_locked||false});
     let persistedSig=setupSig(setup);
@@ -509,7 +509,7 @@ function nextStepText(project) {
 
     function selectRadio(name,value){const radio=form.querySelector(`[name="${name}"][value="${value}"]`); if(radio)radio.checked=true;}
     function currentPlan(){return hostingPlans.find(p=>p.id===selectedPlanId)||null;}
-    function planSnapshot(plan){return plan?{hosting_plan_id:plan.id,hosting_plan_name:plan.name,hosting_plan_features:plan.features||[],hosting_first_year:Number(plan.first_year||0),hosting_renewal:Number(plan.renewal||plan.first_year||0),hosting_currency:plan.currency||"MXN"}:{hosting_plan_id:null,hosting_plan_name:null,hosting_plan_features:[],hosting_first_year:null,hosting_renewal:null,hosting_currency:"MXN"};}
+    function planSnapshot(plan){return plan?{hosting_plan_id:plan.id,hosting_plan_name:plan.name,hosting_plan_features:plan.features||[],hosting_first_year:plan.first_year!=null?Number(plan.first_year):null,hosting_renewal:plan.renewal!=null?Number(plan.renewal):plan.first_year!=null?Number(plan.first_year):null,hosting_currency:plan.currency||null}:{hosting_plan_id:null,hosting_plan_name:null,hosting_plan_features:[],hosting_first_year:null,hosting_renewal:null,hosting_currency:null};}
     function setupDomainValue(){
       if(initialAddress==="dominio") return setup?.domain||(/\.pages\.dev$/.test(project.domain||"")?"":project.domain||"");
       return setup?.site_name||String(project.domain||"").replace(/\.pages\.dev$/,"");
