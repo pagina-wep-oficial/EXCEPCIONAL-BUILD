@@ -15,23 +15,37 @@
   <article class="agreement-card"><div><span>Proyecto</span><strong id="configure-project-name">Cargando…</strong></div><div><span>Precio acordado</span><strong id="configure-price">—</strong></div><div><span>Pago</span><strong id="configure-payment">—</strong></div></article>
 
   <form id="setup-form" class="setup-form">
-    <section class="setup-section"><div class="setup-heading"><span class="setup-number">1</span><div><h2>Elige la dirección de tu página</h2><p>Si no quieres pagar renovación, empieza gratis. Puedes pedir un dominio después.</p></div></div>
-      <div class="choice-cards-mobile">
-        <label class="choice-card-mobile"><input type="radio" name="address_type" value="gratis" checked><span class="choice-check">✓</span><strong>Enlace gratuito</strong><code>tunegocio.pages.dev</code><small>Sin costo y sin renovación.</small></label>
-        <label class="choice-card-mobile"><input type="radio" name="address_type" value="dominio"><span class="choice-check">✓</span><strong>Dominio propio</strong><code>tunegocio.com</code><small>Más profesional. Se renueva cada año.</small></label>
+    <section class="setup-section">
+      <div class="setup-heading"><span class="setup-number">1</span><div><h2>Direccion de tu pagina</h2><p>Elige como quieres que la gente abra tu sitio.</p></div></div>
+      <p class="setup-lock-note" id="domain-type-lock-note" hidden>Esta parte ya fue acordada con el equipo.</p>
+      <div class="choice-cards-mobile setup-choice-grid">
+        <label class="choice-card-mobile"><input type="radio" name="address_type" value="gratis" checked><span class="choice-check">✓</span><strong>Enlace gratuito</strong><code>tunegocio.pages.dev</code><small>Sin costo anual. Ideal para empezar rapido.</small></label>
+        <label class="choice-card-mobile"><input type="radio" name="address_type" value="dominio"><span class="choice-check">✓</span><strong>Dominio personalizado</strong><code>tunegocio.com</code><small>Mas profesional. Puede tener costo anual.</small></label>
       </div>
-      <div class="name-check-card"><label><span id="setup-name-label">Nombre para tu enlace</span><div class="inline-field"><input id="setup-name" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Ej. abarroteslupita"><button class="button button-light" id="setup-check" type="button">Verificar</button></div></label><p class="field-help" id="setup-name-help">Quedará como abarroteslupita.pages.dev</p><label class="owned-domain-check" id="owned-domain-wrap" hidden><input id="setup-domain-owned" type="checkbox"> <span>Ya tengo este dominio y quiero usarlo</span></label><div id="setup-domain-prices" class="mini-price-grid" hidden><div><span>Primer año</span><strong id="setup-domain-first">—</strong></div><div><span>Renovación</span><strong id="setup-domain-renew">—</strong></div></div><p class="form-status" id="setup-domain-status"></p></div>
+
+      <div class="name-check-card" id="domain-config-card">
+        <p class="setup-lock-note" id="domain-value-lock-note" hidden>El dominio ya fue fijado por el equipo.</p>
+        <label><span id="setup-name-label">Nombre para tu enlace</span><div class="inline-field"><input id="setup-name" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Ej. abarroteslupita"><button class="button button-light" id="setup-check" type="button">Verificar</button></div></label>
+        <p class="field-help" id="setup-name-help">Quedara como abarroteslupita.pages.dev</p>
+        <label class="owned-domain-check" id="owned-domain-wrap" hidden><input id="setup-domain-owned" type="checkbox"> <span>Ya tengo este dominio y quiero usarlo</span></label>
+        <div id="setup-domain-prices" class="mini-price-grid" hidden><div><span>Primer año</span><strong id="setup-domain-first">—</strong></div><div><span>Renovacion</span><strong id="setup-domain-renew">—</strong></div></div>
+        <p class="form-status" id="setup-domain-status"></p>
+      </div>
     </section>
 
-    <section class="setup-section"><div class="setup-heading"><span class="setup-number">2</span><div><h2>¿Tu página necesita funciones especiales?</h2><p>La mayoría de negocios no necesita pagar alojamiento adicional.</p></div></div>
-      <div class="choice-cards-mobile">
-        <label class="choice-card-mobile"><input type="radio" name="hosting_type" value="cloudflare" checked><span class="choice-check">✓</span><strong>Página normal</strong><small>Alojamiento incluido. Ideal para información, menú, catálogo, ubicación y WhatsApp.</small></label>
-        <label class="choice-card-mobile"><input type="radio" name="hosting_type" value="hostinger"><span class="choice-check">✓</span><strong>Funciones especiales</strong><small>Para sistemas, usuarios, bases de datos u otras funciones avanzadas. Requiere dominio propio y se cotiza aparte.</small></label>
+    <section class="setup-section">
+      <div class="setup-heading"><span class="setup-number">2</span><div><h2>Alojamiento</h2><p>Elige donde vivira tu pagina. Si ya lo acordamos, aparecera marcado aqui.</p></div></div>
+      <p class="setup-lock-note" id="hosting-lock-note" hidden>Este alojamiento ya fue acordado con el equipo.</p>
+      <div class="choice-cards-mobile setup-choice-grid">
+        <label class="choice-card-mobile"><input type="radio" name="hosting_type" value="cloudflare" checked><span class="choice-check">✓</span><strong>Alojamiento incluido</strong><small>Sin costo anual para paginas informativas normales.</small></label>
+        <label class="choice-card-mobile"><input type="radio" name="hosting_type" value="hostinger"><span class="choice-check">✓</span><strong>Plan Hostinger</strong><small>Para proyectos que necesitan hosting contratado.</small></label>
+        <label class="choice-card-mobile"><input type="radio" name="hosting_type" value="propio"><span class="choice-check">✓</span><strong>Ya tengo hosting</strong><small>Nos contactaremos contigo para conectarlo.</small></label>
       </div>
-      <label id="special-note-wrap" hidden><span>¿Qué función especial necesitas?</span><textarea name="special_features_note" rows="3" placeholder="Ej. quiero que mis clientes creen una cuenta y hagan pedidos."></textarea></label>
+      <div class="hosting-plan-list" id="setup-hosting-plans" hidden></div>
+      <label id="special-note-wrap" hidden><span>Notas sobre alojamiento o dominio</span><textarea name="special_features_note" rows="3" placeholder="Ej. ya tengo Hostinger, despues les mando los accesos por WhatsApp."></textarea></label>
     </section>
 
-    <section class="setup-summary"><p class="eyebrow">Resumen</p><h2>Así comenzará tu proyecto</h2><div id="setup-summary-lines"></div><p class="setup-note">Los servicios externos, como dominio o alojamiento especializado, se confirman contigo antes de cualquier compra.</p></section>
+    <section class="setup-summary"><p class="eyebrow">Resumen</p><h2>Asi comenzara tu proyecto</h2><div id="setup-summary-lines"></div><p class="setup-note">Si elegiste servicios con renovacion, el costo anual aparecera separado para que no se mezcle con la creacion de tu pagina.</p></section>
 
     <button class="button button-primary button-wide button-large" type="submit">Guardar y continuar con la información de mi negocio →</button>
     <p class="form-status" id="setup-status" aria-live="polite"></p>

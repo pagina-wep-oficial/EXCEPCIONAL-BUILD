@@ -477,96 +477,146 @@ function nextStepText(project) {
 
   async function initConfigure() {
     const {session}=await loadContext(); const id=getParam("project"); if(!id){location.replace("panel.html");return;}
-    const [{data:project,error},{data:setup,error:setupErr}]=await Promise.all([db.from("client_projects").select("*").eq("id",id).single(),db.from("client_project_setup").select("*").eq("project_id",id).maybeSingle()]);
+    const [{data:project,error},{data:setup,error:setupErr},{data:plans,error:plansErr}]=await Promise.all([
+      db.from("client_projects").select("*").eq("id",id).single(),
+      db.from("client_project_setup").select("*").eq("project_id",id).maybeSingle(),
+      db.from("client_hosting_plans").select("*").eq("active",true).order("sort_order",{ascending:true})
+    ]);
     if(error||setupErr) throw error||setupErr;
+    if(plansErr) console.warn("No se pudieron cargar planes de hosting",plansErr);
     if(archivedClientState(project)||stageIndex(project)>=2){ location.replace(`proyecto.html?id=${encodeURIComponent(id)}`); return; }
     $("#configure-back").href=`proyecto.html?id=${encodeURIComponent(id)}`; $("#configure-mobile-back").href=`proyecto.html?id=${encodeURIComponent(id)}`;
-    startLiveUpdates(`portal-configure-${id}`,[{table:"client_projects",filter:`id=eq.${id}`},{table:"client_project_setup",filter:`project_id=eq.${id}`}],async()=>location.reload());
-    const form=$("#setup-form"), input=$("#setup-name"), checkBtn=$("#setup-check");
-    let verifiedValue="", domainPrice=null;
-    const initialAddress=setup?.address_type||project.address_type||"gratis", initialHosting=setup?.hosting_type||project.hosting_type||"cloudflare";
-    form.querySelector(`[name="address_type"][value="${initialAddress}"]`).checked=true;
-    form.querySelector(`[name="hosting_type"][value="${initialHosting}"]`).checked=true;
-    form.elements.special_features_note.value=setup?.special_features_note||"";
-    $("#setup-domain-owned").checked=Boolean(setup?.domain_owned);
-    input.value=initialAddress==="dominio"?(setup?.domain||(/\.pages\.dev$/.test(project.domain||"")?"":project.domain||"")):(setup?.site_name||String(project.domain||"").replace(/\.pages\.dev$/,""));
-    if(input.value) verifiedValue=initialAddress==="dominio"?normalizeDomain(input.value):normalizeSiteName(input.value);
-    domainPrice=setup?.domain_first_year!=null?{first_period_price:Number(setup.domain_first_year)*100,price:Number(setup.domain_renewal||setup.domain_first_year)*100,currency:"MXN"}:null;
+    let savingSetup=false;
+    startLiveUpdates(`portal-configure-${id}`,[{table:"client_projects",filter:`id=eq.${id}`},{table:"client_project_setup",filter:`project_id=eq.${id}`}],async()=>{if(!savingSetup)location.reload();});
 
+    const form=$("#setup-form"), input=$("#setup-name"), checkBtn=$("#setup-check");
+    const hostingPlans=plans||[];
+    let verifiedValue="", domainPrice=null, selectedPlanId=setup?.hosting_plan_id||"";
+    const initialAddress=setup?.address_type||project.address_type||"gratis";
+    const initialHosting=setup?.hosting_type||project.hosting_type||"cloudflare";
+    const lockType=Boolean(setup?.domain_type_locked), lockValue=Boolean(setup?.domain_value_locked), lockHosting=Boolean(setup?.hosting_plan_locked);
+
+    function selectRadio(name,value){const radio=form.querySelector(`[name="${name}"][value="${value}"]`); if(radio)radio.checked=true;}
+    function currentPlan(){return hostingPlans.find(p=>p.id===selectedPlanId)||null;}
+    function planSnapshot(plan){return plan?{hosting_plan_id:plan.id,hosting_plan_name:plan.name,hosting_plan_features:plan.features||[],hosting_first_year:Number(plan.first_year||0),hosting_renewal:Number(plan.renewal||plan.first_year||0),hosting_currency:plan.currency||"MXN"}:{hosting_plan_id:null,hosting_plan_name:null,hosting_plan_features:[],hosting_first_year:null,hosting_renewal:null,hosting_currency:"MXN"};}
+    function setupDomainValue(){
+      if(initialAddress==="dominio") return setup?.domain||(/\.pages\.dev$/.test(project.domain||"")?"":project.domain||"");
+      return setup?.site_name||String(project.domain||"").replace(/\.pages\.dev$/,"");
+    }
     function addressType(){return form.querySelector('[name="address_type"]:checked')?.value||"gratis";}
     function hostingType(){return form.querySelector('[name="hosting_type"]:checked')?.value||"cloudflare";}
-    function updateSetupUI(){
-      const domain=addressType()==="dominio";
-      $("#setup-name-label").textContent=domain?"Nombre de tu dominio":"Nombre para tu enlace";
-      input.placeholder=domain?"Ej. abarroteslupita.com":"Ej. abarroteslupita";
-      $("#setup-name-help").textContent=domain?"Puedes escribir tunegocio.com o solo tunegocio.":"Quedará como tunegocio.pages.dev";
-      $("#special-note-wrap").hidden=hostingType()!=="hostinger";
-      $("#owned-domain-wrap").hidden=!domain;
-      if(!domain) $("#setup-domain-owned").checked=false;
-      if(hostingType()==="hostinger"&&addressType()==="gratis"){
-        const d=form.querySelector('[name="address_type"][value="dominio"]');d.checked=true;verifiedValue="";domainPrice=null;input.value="";$("#setup-domain-prices").hidden=true;setStatus("#setup-domain-status","Las funciones especiales requieren un dominio propio. Elige el nombre de tu dominio.");
-      }
-      renderSetupSummary();
-      scheduleSetupSave();
+    function applyLocks(){
+      $$('[name="address_type"]',form).forEach(el=>el.disabled=lockType);
+      $("#setup-domain-owned").disabled=lockType||lockValue;
+      input.disabled=lockValue;
+      checkBtn.disabled=lockValue;
+      $$('[name="hosting_type"]',form).forEach(el=>el.disabled=lockHosting);
+      $$('[name="hosting_plan_id"]',form).forEach(el=>el.disabled=lockHosting);
+      $("#domain-type-lock-note").hidden=!lockType;
+      $("#domain-value-lock-note").hidden=!lockValue;
+      $("#hosting-lock-note").hidden=!lockHosting;
     }
-    let setupAutosaveTimer=null;
-    const scheduleSetupSave=()=>{
-      clearTimeout(setupAutosaveTimer);
-      setupAutosaveTimer=setTimeout(async()=>{
-        const isDomain=addressType()==="dominio", current=isDomain?normalizeDomain(input.value):normalizeSiteName(input.value);
-        const payload={project_id:id,user_id:session.user.id,address_type:isDomain?"dominio":"gratis",hosting_type:hostingType(),special_features_note:String(form.elements.special_features_note.value||"").trim()||null,domain_owned:isDomain&&$("#setup-domain-owned").checked};
-        if(verifiedValue&&verifiedValue===current){
-          if(isDomain){payload.domain=current;payload.site_name=null;}else{payload.site_name=current;payload.domain=null;}
-          if(isDomain&&domainPrice){payload.domain_first_year=(domainPrice.first_period_price??domainPrice.price)/100;payload.domain_renewal=(domainPrice.price??domainPrice.first_period_price)/100;}
-        }
-        try{
-          const {error:saveErr}=await db.from("client_project_setup").upsert(payload,{onConflict:"project_id"});
-          if(saveErr)return;
-          const st=$("#setup-status"); st.textContent="Configuración guardada automáticamente."; st.className="form-status success";
-          setTimeout(()=>{if(st.textContent==="Configuración guardada automáticamente.")st.className="form-status";},2500);
-        }catch(_){/* el envío final sigue mostrando errores */}
-      },900);
-    };
-    window.addEventListener("pagehide",()=>{clearTimeout(setupAutosaveTimer);});
+    function renderHostingPlans(){
+      const box=$("#setup-hosting-plans");
+      const show=hostingType()==="hostinger";
+      box.hidden=!show;
+      if(!show){selectedPlanId="";box.innerHTML="";return;}
+      if(!hostingPlans.length){box.innerHTML=`<p class="empty-inline">El equipo aun no cargo planes. Puedes continuar y lo confirmamos por WhatsApp.</p>`;return;}
+      box.innerHTML=hostingPlans.map(plan=>{
+        const checked=plan.id===selectedPlanId?"checked":"";
+        const disabled=lockHosting?"disabled":"";
+        const features=Array.isArray(plan.features)?plan.features:[];
+        return `<label class="hosting-plan-card"><input type="radio" name="hosting_plan_id" value="${safe(plan.id)}" ${checked} ${disabled}><span><b>${safe(plan.name)}</b><small>${safe(plan.description||"")}</small><em>Primer año ${money(plan.first_year)} · Renovacion ${money(plan.renewal||plan.first_year)}</em>${features.length?`<ul>${features.slice(0,4).map(f=>`<li>${safe(f)}</li>`).join("")}</ul>`:""}</span></label>`;
+      }).join("");
+    }
+    function selectedDomainPrice(){
+      if(domainPrice)return {first:(domainPrice.first_period_price??domainPrice.price)/100,renew:(domainPrice.price??domainPrice.first_period_price)/100};
+      if(setup?.domain_first_year!=null)return {first:Number(setup.domain_first_year||0),renew:Number(setup.domain_renewal||setup.domain_first_year||0)};
+      return {first:null,renew:null};
+    }
     function renderSetupSummary(){
-      const domain=addressType()==="dominio", host=hostingType()==="hostinger";
+      const domain=addressType()==="dominio", host=hostingType();
       const name=domain?(normalizeDomain(input.value)||"Dominio por elegir"):(normalizeSiteName(input.value)?`${normalizeSiteName(input.value)}.pages.dev`:"Enlace por elegir");
-      const lines=[
-        ["Creación de tu página",money(project.total_price)||"Acordado"],
-        ["Dirección",name],
-        ["Alojamiento",host?"Funciones especiales · se cotiza aparte":"Incluido · sin costo anual"]
-      ];
-      if(domain&&domainPrice){const first=(domainPrice.first_period_price??domainPrice.price)/100,renew=(domainPrice.price??domainPrice.first_period_price)/100;lines.push(["Dominio · primer año",money(first)]);lines.push(["Renovación del dominio",money(renew)]);}
+      const dp=selectedDomainPrice(), plan=currentPlan()||setup;
+      const hostingFirst=host==="hostinger"?Number(plan?.hosting_first_year??plan?.first_year??0):0;
+      const hostingRenew=host==="hostinger"?Number(plan?.hosting_renewal??plan?.renewal??plan?.first_year??0):0;
+      const creation=Number(project.total_price||0);
+      const firstTotal=creation+Number(dp.first||0)+hostingFirst;
+      const renewalTotal=Number(dp.renew||0)+hostingRenew;
+      const hostingLabel=host==="propio"?"El cliente ya tiene hosting":host==="hostinger"?(plan?.hosting_plan_name||plan?.name||"Plan Hostinger por elegir"):"Incluido";
+      const lines=[["Creacion de tu pagina",money(creation)||"Acordado"],["Direccion",name],["Alojamiento",hostingLabel],["Total inicial estimado",money(firstTotal)]];
+      if(domain&&dp.first!=null){lines.splice(3,0,["Dominio primer año",money(dp.first)],["Renovacion dominio",money(dp.renew)]);}
+      if(host==="hostinger"){lines.splice(lines.length-1,0,["Hosting primer año",money(hostingFirst)],["Renovacion hosting",money(hostingRenew)]);}
+      if(renewalTotal>0)lines.push(["Renovacion anual estimada",money(renewalTotal)]);
       $("#setup-summary-lines").innerHTML=lines.map(([a,b])=>`<div><span>${safe(a)}</span><strong>${safe(b)}</strong></div>`).join("");
     }
+    function updateSetupUI(){
+      const domain=addressType()==="dominio", host=hostingType();
+      $("#setup-name-label").textContent=domain?"Dominio para tu pagina":"Nombre para tu enlace";
+      input.placeholder=domain?"Ej. abarroteslupita.com":"Ej. abarroteslupita";
+      $("#setup-name-help").textContent=domain?"Puedes escribir tunegocio.com o solo tunegocio.":"Quedara como tunegocio.pages.dev";
+      $("#owned-domain-wrap").hidden=!domain;
+      $("#special-note-wrap").hidden=host==="cloudflare";
+      if(!domain) $("#setup-domain-owned").checked=false;
+      if((host==="hostinger"||host==="propio")&&addressType()==="gratis"&&!lockType){
+        selectRadio("address_type","dominio"); verifiedValue=""; domainPrice=null; input.value="";
+        $("#setup-domain-prices").hidden=true; setStatus("#setup-domain-status","Este alojamiento necesita dominio personalizado.");
+      }
+      renderHostingPlans(); applyLocks(); renderSetupSummary(); scheduleSetupSave();
+    }
+    async function saveSetup({final=false}={}){
+      const isDomain=addressType()==="dominio", current=isDomain?normalizeDomain(input.value):normalizeSiteName(input.value);
+      const plan=hostingType()==="hostinger"?(currentPlan()||setup):null;
+      const payload={project_id:id,user_id:session.user.id,address_type:isDomain?"dominio":"gratis",hosting_type:hostingType(),special_features_note:String(form.elements.special_features_note.value||"").trim()||null,domain_owned:isDomain&&$("#setup-domain-owned").checked,...planSnapshot(plan)};
+      if(verifiedValue&&verifiedValue===current){
+        if(isDomain){payload.domain=current;payload.site_name=null;}else{payload.site_name=current;payload.domain=null;}
+        const dp=selectedDomainPrice(); if(isDomain&&dp.first!=null){payload.domain_first_year=dp.first;payload.domain_renewal=dp.renew;}
+        if(final)payload.domain_verified_at=setup?.domain_verified_at||new Date().toISOString();
+      }
+      savingSetup=true;
+      const {error:saveErr}=await db.from("client_project_setup").upsert(payload,{onConflict:"project_id"});
+      savingSetup=false;
+      if(saveErr)throw saveErr;
+    }
+    let setupAutosaveTimer=null;
+    const scheduleSetupSave=()=>{clearTimeout(setupAutosaveTimer);setupAutosaveTimer=setTimeout(async()=>{try{await saveSetup();const st=$("#setup-status");st.textContent="Configuracion guardada automaticamente.";st.className="form-status success";setTimeout(()=>{if(st.textContent==="Configuracion guardada automaticamente.")st.className="form-status";},2500);}catch(_){/* el envio final muestra errores */}},900);};
+    window.addEventListener("pagehide",()=>{clearTimeout(setupAutosaveTimer);});
+
+    selectRadio("address_type",initialAddress);
+    selectRadio("hosting_type",initialHosting);
+    form.elements.special_features_note.value=setup?.special_features_note||"";
+    $("#setup-domain-owned").checked=Boolean(setup?.domain_owned);
+    input.value=setupDomainValue();
+    if(input.value)verifiedValue=initialAddress==="dominio"?normalizeDomain(input.value):normalizeSiteName(input.value);
+    if(setup?.domain_first_year!=null)domainPrice={first_period_price:Number(setup.domain_first_year)*100,price:Number(setup.domain_renewal||setup.domain_first_year)*100,currency:"MXN"};
+
     $$('[name="address_type"], [name="hosting_type"]',form).forEach(el=>el.addEventListener("change",updateSetupUI));
-    input.addEventListener("input",()=>{verifiedValue="";domainPrice=null;$("#setup-domain-prices").hidden=true;setStatus("#setup-domain-status","");renderSetupSummary();scheduleSetupSave();});
+    $("#setup-hosting-plans").addEventListener("change",e=>{if(e.target?.name==="hosting_plan_id"){selectedPlanId=e.target.value;renderSetupSummary();scheduleSetupSave();}});
+    input.addEventListener("input",()=>{if(lockValue)return;verifiedValue="";domainPrice=null;$("#setup-domain-prices").hidden=true;setStatus("#setup-domain-status","");renderSetupSummary();scheduleSetupSave();});
     $("#setup-domain-owned").addEventListener("change",()=>{verifiedValue="";domainPrice=null;$("#setup-domain-prices").hidden=true;setStatus("#setup-domain-status","");renderSetupSummary();scheduleSetupSave();});
     checkBtn.addEventListener("click",async()=>{
       const isDomain=addressType()==="dominio", value=isDomain?normalizeDomain(input.value):normalizeSiteName(input.value);
-      if(!value){setStatus("#setup-domain-status",isDomain?"Escribe un dominio válido, por ejemplo tunegocio.com.":"Escribe un nombre corto sin espacios ni símbolos.","error");return;}
-      if(isDomain && $("#setup-domain-owned").checked){verifiedValue=value;domainPrice=null;$("#setup-domain-prices").hidden=true;setStatus("#setup-domain-status",`Usaremos ${value}. Después confirmaremos contigo cómo conectarlo.`,"success");renderSetupSummary();return;}
-      checkBtn.disabled=true;setStatus("#setup-domain-status","Comprobando…");
+      if(!value){setStatus("#setup-domain-status",isDomain?"Escribe un dominio valido, por ejemplo tunegocio.com.":"Escribe un nombre corto sin espacios ni simbolos.","error");return;}
+      if(isDomain && $("#setup-domain-owned").checked){verifiedValue=value;domainPrice=null;$("#setup-domain-prices").hidden=true;setStatus("#setup-domain-status",`Usaremos ${value}. Despues confirmaremos contigo como conectarlo.`,"success");renderSetupSummary();scheduleSetupSave();return;}
+      checkBtn.disabled=true;setStatus("#setup-domain-status","Comprobando...");
       const result=await checkName(value,isDomain); checkBtn.disabled=false;
-      if(result.availability==="taken"){verifiedValue="";setStatus("#setup-domain-status",`${isDomain?value:`${value}.pages.dev`} ya está en uso. Prueba otro nombre.`,"error");return;}
+      if(result.availability==="taken"){verifiedValue="";setStatus("#setup-domain-status",`${isDomain?value:`${value}.pages.dev`} ya esta en uso. Prueba otro nombre.`,"error");return;}
       verifiedValue=value; domainPrice=isDomain?result.price:null;
       if(isDomain&&domainPrice){const first=(domainPrice.first_period_price??domainPrice.price)/100,renew=(domainPrice.price??domainPrice.first_period_price)/100;$("#setup-domain-first").textContent=money(first);$("#setup-domain-renew").textContent=money(renew);$("#setup-domain-prices").hidden=false;}
-      const msg=result.availability==="free"?`${isDomain?value:`${value}.pages.dev`} está disponible.`:`Anotamos ${isDomain?value:`${value}.pages.dev`}. Confirmaremos la disponibilidad antes de publicar.`;
-      setStatus("#setup-domain-status",msg,"success");renderSetupSummary();scheduleSetupSave();
+      setStatus("#setup-domain-status",`${isDomain?value:`${value}.pages.dev`} esta disponible.`,"success");renderSetupSummary();scheduleSetupSave();
     });
     form.addEventListener("submit",async e=>{
       e.preventDefault(); const isDomain=addressType()==="dominio", current=isDomain?normalizeDomain(input.value):normalizeSiteName(input.value);
-      if(!current){setStatus("#setup-status","Primero escribe el nombre de tu página.","error");return;}
-      if(!verifiedValue||verifiedValue!==current){setStatus("#setup-status","Pulsa “Verificar” para confirmar el nombre antes de continuar.","error");return;}
-      if(hostingType()==="hostinger"&&!isDomain){setStatus("#setup-status","Las funciones especiales necesitan dominio propio.","error");return;}
-      const button=form.querySelector('button[type="submit"]');button.disabled=true;setStatus("#setup-status","Guardando tu configuración…");
+      if(!current){setStatus("#setup-status","Primero escribe el nombre de tu pagina.","error");return;}
+      if(!verifiedValue||verifiedValue!==current){setStatus("#setup-status","Pulsa Verificar para confirmar el nombre antes de continuar.","error");return;}
+      if((hostingType()==="hostinger"||hostingType()==="propio")&&!isDomain){setStatus("#setup-status","Este alojamiento necesita dominio personalizado.","error");return;}
+      if(hostingType()==="hostinger"&&hostingPlans.length&&!selectedPlanId){setStatus("#setup-status","Elige un plan de hosting.","error");return;}
+      const button=form.querySelector('button[type="submit"]');button.disabled=true;setStatus("#setup-status","Guardando tu configuracion...");
       try{
-        const first=isDomain&&domainPrice?(domainPrice.first_period_price??domainPrice.price)/100:null, renew=isDomain&&domainPrice?(domainPrice.price??domainPrice.first_period_price)/100:null;
-        const payload={project_id:id,user_id:session.user.id,address_type:isDomain?"dominio":"gratis",site_name:isDomain?null:current,domain:isDomain?current:null,domain_owned:isDomain&&$("#setup-domain-owned").checked,domain_first_year:first,domain_renewal:renew,hosting_type:hostingType(),special_features_note:String(form.elements.special_features_note.value||"").trim()||null};
-        const {error:saveErr}=await db.from("client_project_setup").upsert(payload,{onConflict:"project_id"});if(saveErr)throw saveErr;
+        await saveSetup({final:true});
         const {error:applyErr}=await db.rpc("client_apply_project_setup",{p_project_id:id});if(applyErr)throw applyErr;
-        setStatus("#setup-status","Listo. Ahora necesitamos la información de tu negocio.","success");location.assign(`proyecto.html?id=${encodeURIComponent(id)}#informacion`);
-      }catch(err){setStatus("#setup-status",friendlyError(err,"No pudimos guardar la configuración."),"error");button.disabled=false;}
+        setStatus("#setup-status","Listo. Ahora necesitamos la informacion de tu negocio.","success");location.assign(`proyecto.html?id=${encodeURIComponent(id)}#informacion`);
+      }catch(err){setStatus("#setup-status",friendlyError(err,"No pudimos guardar la configuracion."),"error");button.disabled=false;}
     });
     updateSetupUI();
   }

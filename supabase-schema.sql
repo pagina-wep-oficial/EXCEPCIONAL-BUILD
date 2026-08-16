@@ -747,33 +747,31 @@ begin
   from public.client_project_setup s
   join public.client_projects p on p.id = s.project_id
   where s.project_id = p_project_id
-    and s.user_id = v_user
+    and (s.user_id = v_user or s.user_id is null)
     and (p.user_id = v_user or p.user_id is null)
-    and coalesce(p.project_stage, 'Invitación') in ('Invitación','Configuración','Cotización','Aprobación','Información');
-
-  if not found then
-    select s.* into v_setup
-    from public.client_project_setup s
-    join public.client_projects p on p.id = s.project_id
-    where s.project_id = p_project_id
-      and s.user_id is null
-      and (p.user_id = v_user or p.user_id is null)
-      and coalesce(p.project_stage, 'Invitación') in ('Invitación','Configuración','Cotización','Aprobación','Información');
-
-    update public.client_project_setup
-    set user_id = v_user, updated_at = now()
-    where project_id = p_project_id and user_id is null;
-  end if;
+    and coalesce(p.project_stage, 'Invitación') in ('Invitación','Configuración','Cotización','Aprobación','Información')
+  order by s.user_id is null
+  limit 1;
 
   if not found then raise exception 'No se encontró la configuración de este proyecto.'; end if;
 
-  if v_setup.hosting_type = 'hostinger' and v_setup.address_type <> 'dominio' then
-    raise exception 'El alojamiento especializado requiere un dominio propio.';
+  if v_setup.hosting_type in ('hostinger','propio') and v_setup.address_type <> 'dominio' then
+    raise exception 'Este alojamiento requiere dominio personalizado.';
+  end if;
+
+  if v_setup.address_type = 'gratis' and nullif(trim(coalesce(v_setup.site_name,'')), '') is null then
+    raise exception 'Falta el nombre del enlace gratuito.';
+  end if;
+
+  if v_setup.address_type = 'dominio' and nullif(trim(coalesce(v_setup.domain,'')), '') is null then
+    raise exception 'Falta el dominio personalizado.';
   end if;
 
   update public.client_project_setup
-  set completed_at = coalesce(completed_at, now()), updated_at = now()
-  where project_id = p_project_id;
+  set user_id = coalesce(user_id, v_user),
+      completed_at = coalesce(completed_at, now()),
+      updated_at = now()
+  where project_id = p_project_id and (user_id = v_user or user_id is null);
 
   update public.client_projects
   set user_id = coalesce(user_id, v_user),
@@ -941,16 +939,21 @@ begin
   end if;
 
   -- Proteger los campos según cada bloqueo activo.
-  if old.domain_type_locked and new.address_type is distinct from old.address_type then
+  if old.domain_type_locked and (
+    new.address_type is distinct from old.address_type
+    or new.domain_owned is distinct from old.domain_owned
+  ) then
     raise exception 'El tipo de dirección fue fijado por tu equipo.';
   end if;
 
   if old.domain_value_locked and (
-    new.address_type is distinct from old.address_type
+    new.site_name is distinct from old.site_name
     or new.domain is distinct from old.domain
-    or new.site_name is distinct from old.site_name
+    or new.domain_first_year is distinct from old.domain_first_year
+    or new.domain_renewal is distinct from old.domain_renewal
+    or new.domain_verified_at is distinct from old.domain_verified_at
   ) then
-    raise exception 'La dirección de tu página fue fijada por tu equipo.';
+    raise exception 'La dirección fue fijada por tu equipo.';
   end if;
 
   if old.hosting_plan_locked and (
