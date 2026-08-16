@@ -486,8 +486,19 @@ function nextStepText(project) {
     if(plansErr) console.warn("No se pudieron cargar planes de hosting",plansErr);
     if(archivedClientState(project)||stageIndex(project)>=2){ location.replace(`proyecto.html?id=${encodeURIComponent(id)}`); return; }
     $("#configure-back").href=`proyecto.html?id=${encodeURIComponent(id)}`; $("#configure-mobile-back").href=`proyecto.html?id=${encodeURIComponent(id)}`;
-    let savingSetup=false;
-    startLiveUpdates(`portal-configure-${id}`,[{table:"client_projects",filter:`id=eq.${id}`},{table:"client_project_setup",filter:`project_id=eq.${id}`}],async()=>{if(!savingSetup)location.reload();});
+    function setupSig(row){
+      if(!row)return "";
+      return JSON.stringify({a:row.address_type||"",d:row.domain||"",s:row.site_name||"",o:row.domain_owned||false,v:row.domain_verified_at||"",f:row.domain_first_year??null,r:row.domain_renewal??null,h:row.hosting_type||"",p:row.hosting_plan_id||"",pn:row.hosting_plan_name||"",pf:row.hosting_plan_features||[],hf:row.hosting_first_year??null,hr:row.hosting_renewal??null,c:row.hosting_currency||"",n:row.special_features_note||"",tl:row.domain_type_locked||false,vl:row.domain_value_locked||false,hl:row.hosting_plan_locked||false});
+    }
+    const setupLockSig=()=>({domain_type_locked:setup?.domain_type_locked||false,domain_value_locked:setup?.domain_value_locked||false,hosting_plan_locked:setup?.hosting_plan_locked||false});
+    let persistedSig=setupSig(setup);
+    startLiveUpdates(`portal-configure-${id}`,[{table:"client_projects",filter:`id=eq.${id}`},{table:"client_project_setup",filter:`project_id=eq.${id}`}],(payload,spec)=>{
+      if(spec.table==="client_project_setup"){
+        const sig=setupSig(payload?.new||null);
+        if(sig&&sig===persistedSig)return;
+      }
+      location.reload();
+    });
 
     const form=$("#setup-form"), input=$("#setup-name"), checkBtn=$("#setup-check");
     const hostingPlans=plans||[];
@@ -573,10 +584,17 @@ function nextStepText(project) {
         const dp=selectedDomainPrice(); if(isDomain&&dp.first!=null){payload.domain_first_year=dp.first;payload.domain_renewal=dp.renew;}
         if(final)payload.domain_verified_at=setup?.domain_verified_at||new Date().toISOString();
       }
-      savingSetup=true;
+      const effective={...payload,...setupLockSig()};
+      if(!("domain" in effective))effective.domain=setup?.domain||"";
+      if(!("site_name" in effective))effective.site_name=setup?.site_name||"";
+      if(!("domain_first_year" in effective))effective.domain_first_year=setup?.domain_first_year??null;
+      if(!("domain_renewal" in effective))effective.domain_renewal=setup?.domain_renewal??null;
+      if(!("domain_verified_at" in effective))effective.domain_verified_at=setup?.domain_verified_at??null;
+      const sig=setupSig(effective);
+      if(!final&&sig===persistedSig)return;
       const {error:saveErr}=await db.from("client_project_setup").upsert(payload,{onConflict:"project_id"});
-      savingSetup=false;
       if(saveErr)throw saveErr;
+      persistedSig=sig;
     }
     let setupAutosaveTimer=null;
     const scheduleSetupSave=()=>{clearTimeout(setupAutosaveTimer);setupAutosaveTimer=setTimeout(async()=>{try{await saveSetup();const st=$("#setup-status");st.textContent="Configuracion guardada automaticamente.";st.className="form-status success";setTimeout(()=>{if(st.textContent==="Configuracion guardada automaticamente.")st.className="form-status";},2500);}catch(_){/* el envio final muestra errores */}},900);};
