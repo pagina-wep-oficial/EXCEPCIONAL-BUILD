@@ -10,45 +10,65 @@
 <header class="portal-header"><div class="portal-shell portal-nav"><a class="portal-brand" href="panel.html"><span class="portal-mark">EB</span><span>EXCEPCIONAL BUILD</span></a><nav class="desktop-nav"><a href="panel.html">Mis páginas</a><a href="perfil.html">Mi cuenta</a></nav></div></header>
 <main class="portal-main"><div class="portal-shell portal-shell-form configure-shell">
   <a class="back-link" id="configure-back" href="panel.html">← Volver al proyecto</a>
-  <section class="configure-hero"><p class="eyebrow">Paso 1 de tu proyecto</p><h1>Configura cómo quieres publicar tu página.</h1><p>La creación de tu página ya fue acordada. Aquí solo eliges la dirección y si necesitas funciones especiales.</p></section>
+  <section class="configure-hero"><p class="eyebrow">Paso 1 de tu proyecto</p><h1>Configura cómo quieres publicar tu página.</h1><p>La creación de tu página ya fue acordada. Aquí solo eliges la dirección y el alojamiento.</p></section>
 
   <article class="agreement-card"><div><span>Proyecto</span><strong id="configure-project-name">Cargando…</strong></div><div><span>Precio acordado</span><strong id="configure-price">—</strong></div><div><span>Pago</span><strong id="configure-payment">—</strong></div></article>
 
-  <form id="setup-form" class="setup-form">
-    <section class="setup-section">
-      <div class="setup-heading"><span class="setup-number">1</span><div><h2>Direccion de tu pagina</h2><p>Elige como quieres que la gente abra tu sitio.</p></div></div>
-      <p class="setup-lock-note" id="domain-type-lock-note" hidden>Esta parte ya fue acordada con el equipo.</p>
-      <div class="choice-cards-mobile setup-choice-grid">
+  <form id="setup-form" class="setup-form" hidden>
+    <div class="setup-steps-nav">
+      <span class="setup-step-chip active" data-step-chip="address">1 · Dirección</span><span class="setup-step-arrow">→</span><span class="setup-step-chip" data-step-chip="hosting">2 · Alojamiento</span><span class="setup-step-arrow">→</span><span class="setup-step-chip" data-step-chip="summary">Resumen</span>
+    </div>
+
+    <section class="setup-section step-panel active" id="setup-step-address">
+      <div class="setup-heading"><span class="setup-number">1</span><div><h2>¿Cómo quieres que se abra tu página?</h2><p>Elige una opción y responde lo necesario.</p></div></div>
+      <p class="setup-lock-note" id="domain-type-lock-note" hidden>Esto ya fue acordado con el equipo. Si necesitas cambiarlo, escribenos por WhatsApp.</p>
+      <div class="choice-cards-mobile setup-choice-grid" id="setup-address-options">
         <label class="choice-card-mobile"><input type="radio" name="address_type" value="gratis" checked><span class="choice-check">✓</span><strong>Enlace gratuito</strong><code>tunegocio.pages.dev</code><small>Sin costo anual. Ideal para empezar rapido.</small></label>
         <label class="choice-card-mobile"><input type="radio" name="address_type" value="dominio"><span class="choice-check">✓</span><strong>Dominio personalizado</strong><code>tunegocio.com</code><small>Mas profesional. Puede tener costo anual.</small></label>
+        <label class="choice-card-mobile"><input type="radio" name="address_type" value="dominio" data-owned="1"><span class="choice-check">✓</span><strong>Ya tengo un dominio</strong><code>tunegocio.com</code><small>Lo conectamos a tu pagina sin costo extra.</small></label>
       </div>
-
-      <div class="name-check-card" id="domain-config-card">
-        <p class="setup-lock-note" id="domain-value-lock-note" hidden>El dominio ya fue fijado por el equipo.</p>
-        <label><span id="setup-name-label">Nombre para tu enlace</span><div class="inline-field"><input id="setup-name" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Ej. abarroteslupita"><button class="button button-light" id="setup-check" type="button">Verificar</button></div></label>
+      <div class="address-choice-box" id="setup-address-fields" hidden>
+        <p class="setup-lock-note" id="domain-value-lock-note" hidden>Esto ya fue acordado con el equipo. Si necesitas cambiarlo, escribenos por WhatsApp.</p>
+        <label><span id="setup-name-label">Nombre para tu enlace</span><div class="inline-field"><input id="setup-name" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Ej. abarroteslupita"><button class="button button-light" id="setup-check" type="button">Verificar disponibilidad</button></div></label>
         <p class="field-help" id="setup-name-help">Quedara como abarroteslupita.pages.dev</p>
-        <label class="owned-domain-check" id="owned-domain-wrap" hidden><input id="setup-domain-owned" type="checkbox"> <span>Ya tengo este dominio y quiero usarlo</span></label>
         <div id="setup-domain-prices" class="mini-price-grid" hidden><div><span>Primer año</span><strong id="setup-domain-first">—</strong></div><div><span>Renovacion</span><strong id="setup-domain-renew">—</strong></div></div>
+        <p class="field-help" id="setup-owned-note" hidden>Nos pondremos en contacto contigo por WhatsApp para conectarlo.</p>
+        <label id="setup-note-address-wrap" hidden><span>Cuéntanos algo sobre ese dominio</span><textarea name="special_features_note" id="setup-note-address" rows="2" placeholder="Ej. lo compre hace 2 años y quiero usarlo para mi negocio."></textarea></label>
+        <button type="button" class="button button-primary setup-confirm-btn" id="setup-confirm-choice" hidden>Usar este enlace</button>
         <p class="form-status" id="setup-domain-status"></p>
       </div>
     </section>
 
-    <section class="setup-section">
-      <div class="setup-heading"><span class="setup-number">2</span><div><h2>Alojamiento</h2><p>Elige donde vivira tu pagina. Si ya lo acordamos, aparecera marcado aqui.</p></div></div>
-      <p class="setup-lock-note" id="hosting-lock-note" hidden>Este alojamiento ya fue acordado con el equipo.</p>
-      <div class="choice-cards-mobile setup-choice-grid">
+    <section class="setup-section step-panel" id="setup-step-hosting" hidden>
+      <div class="setup-heading"><span class="setup-number">2</span><div><h2>¿Dónde vivirá tu página?</h2><p>Elige dónde se alojará tu sitio.</p></div></div>
+      <p class="setup-lock-note" id="hosting-lock-note" hidden>Esto ya fue acordado con el equipo. Si necesitas cambiarlo, escribenos por WhatsApp.</p>
+      <div class="choice-cards-mobile setup-choice-grid" id="setup-hosting-options">
         <label class="choice-card-mobile"><input type="radio" name="hosting_type" value="cloudflare" checked><span class="choice-check">✓</span><strong>Alojamiento incluido</strong><small>Sin costo anual para paginas informativas normales.</small></label>
-        <label class="choice-card-mobile"><input type="radio" name="hosting_type" value="hostinger"><span class="choice-check">✓</span><strong>Plan Hostinger</strong><small>Para proyectos que necesitan hosting contratado.</small></label>
+        <label class="choice-card-mobile"><input type="radio" name="hosting_type" value="hostinger"><span class="choice-check">✓</span><strong>Plan de hosting</strong><small>Para proyectos que necesitan hosting contratado.</small></label>
         <label class="choice-card-mobile"><input type="radio" name="hosting_type" value="propio"><span class="choice-check">✓</span><strong>Ya tengo hosting</strong><small>Nos contactaremos contigo para conectarlo.</small></label>
       </div>
       <div class="hosting-plan-list" id="setup-hosting-plans" hidden></div>
-      <label id="special-note-wrap" hidden><span>Notas sobre alojamiento o dominio</span><textarea name="special_features_note" rows="3" placeholder="Ej. ya tengo Hostinger, despues les mando los accesos por WhatsApp."></textarea></label>
+      <div class="combo-warning" id="setup-invalid-combo" hidden>
+        <strong>Necesitas un dominio personalizado</strong>
+        <p>Para usar un plan de hosting necesitas un dominio personalizado. El dominio también tiene renovación anual.</p>
+        <div class="combo-warning-actions"><button type="button" class="button button-primary" id="setup-fix-domain-btn">Elegir dominio personalizado</button><button type="button" class="button button-light" id="setup-combo-back-btn">Volver</button></div>
+      </div>
+      <label id="setup-note-hosting-wrap" hidden><span id="setup-note-label">Notas sobre tu hosting</span><textarea name="special_features_note_extra" id="setup-note-hosting" rows="2" placeholder="Ej. ya tengo Hostinger, despues les mando los accesos."></textarea></label>
+      <p class="field-help" id="setup-own-hosting-msg" hidden>Nos pondremos en contacto contigo por WhatsApp para conectarlo.</p>
     </section>
 
-    <section class="setup-summary"><p class="eyebrow">Resumen</p><h2>Asi comenzara tu proyecto</h2><div id="setup-summary-lines"></div><p class="setup-note">Si elegiste servicios con renovacion, el costo anual aparecera separado para que no se mezcle con la creacion de tu pagina.</p></section>
+    <section class="setup-summary step-panel" id="setup-step-summary" hidden>
+      <p class="eyebrow">Resumen</p><h2>Así comenzará tu proyecto</h2>
+      <div id="setup-summary-lines"></div>
+      <p class="setup-note">Si elegiste servicios con renovación, el costo anual aparecerá separado para que no se mezcle con la creación de tu página.</p>
+      <button class="button button-primary button-wide button-large" type="submit" id="setup-finish-btn">Guardar y continuar con la información de mi negocio →</button>
+      <p class="form-status" id="setup-status" aria-live="polite"></p>
+    </section>
 
-    <button class="button button-primary button-wide button-large" type="submit">Guardar y continuar con la información de mi negocio →</button>
-    <p class="form-status" id="setup-status" aria-live="polite"></p>
+    <div class="setup-nav-buttons">
+      <button type="button" class="button button-light" id="setup-prev-btn" hidden>← Volver</button>
+      <button type="button" class="button button-primary" id="setup-next-btn">Siguiente →</button>
+    </div>
   </form>
 </div></main>
 <nav class="mobile-nav" aria-label="Navegación principal"><a href="panel.html"><span aria-hidden="true">⌂</span><b>Inicio</b></a><a class="active mobile-nav-main" id="configure-mobile-back" href="panel.html"><span aria-hidden="true">←</span><b>Proyecto</b></a><a href="perfil.html"><span aria-hidden="true">○</span><b>Mi cuenta</b></a></nav>

@@ -816,7 +816,7 @@
   async function fetchTimeout(url,ms=20000){const c=new AbortController(),t=setTimeout(()=>c.abort(),ms);try{return await fetch(url,{signal:c.signal});}finally{clearTimeout(t);}}
   async function loadHostingPlans(){try{const {data,error}=await db.from("client_hosting_plans").select("*").order("sort_order",{ascending:true});if(error)throw error;state.hostingPlans=data||[];}catch(e){state.hostingPlans=[];}}
   function hostingPlanById(id){return state.hostingPlans.find(p=>p.id===id);}
-  function hostingLabel(value){return ({cloudflare:"Incluido",hostinger:"Funciones especiales",propio:"El cliente ya tiene hosting"}[value]||"Incluido");}
+  function hostingLabel(value){return ({cloudflare:"Alojamiento incluido",hostinger:"Plan de hosting",propio:"El cliente ya tiene hosting"}[value]||"Alojamiento incluido");}
   function renderHostingPlans(selectedId){
     const grid=$("#hosting-plans-grid"); if(!grid)return;
     const setupPlan=state.currentSetup?.hosting_plan_id&&!hostingPlanById(selectedId)?state.currentSetup:null;
@@ -833,12 +833,20 @@
     const show=String($("#project-form")?.elements?.hosting_type?.value||"cloudflare")==="hostinger";
     grid.hidden=!show||!cards.length;
   }
+  function syncAddressRadios(addressType,owned){
+    const f=$("#project-form"); if(!f)return;
+    const type=addressType==="dominio"?"dominio":"gratis";
+    const radio=[...f.querySelectorAll('[name="address_type"]')].find(r=>r.value===type&&(r.dataset.owned==="1")===Boolean(owned));
+    if(radio)radio.checked=true;
+    const hidden=f.querySelector('[name="domain_owned"]');
+    if(hidden)hidden.value=radio&&radio.dataset.owned==="1"?"on":"";
+  }
   function applySetupToForm(setup){
     const f=$("#project-form"); if(!f)return;
     const el=f.elements;
     if(setup){
       state.currentSetup=setup;
-      if(el.domain_owned)el.domain_owned.checked=Boolean(setup.domain_owned);
+      syncAddressRadios(setup.address_type||"gratis",Boolean(setup.domain_owned));
       if(el.domain_type_locked)el.domain_type_locked.checked=Boolean(setup.domain_type_locked);
       if(el.domain_value_locked)el.domain_value_locked.checked=Boolean(setup.domain_value_locked);
       if(el.domain_verified_at)el.domain_verified_at.value=setup.domain_verified_at||"";
@@ -859,11 +867,13 @@
     const domainInput=$("#publication-config-domain-label input[name=domain]");
     if(domainInput)domainInput.placeholder=address==="dominio"?"Ej. tunegocio.com":"Ej. tunegocio.pages.dev";
     const owned=f.elements.domain_owned;
-    if(owned){const wrap=owned.closest(".checks");if(wrap)wrap.style.visibility=address==="dominio"?"visible":"hidden";owned.disabled=address!=="dominio";if(address!=="dominio")owned.checked=false;}
+    if(owned){const wrap=owned.closest(".checks");if(wrap)wrap.style.visibility=address==="dominio"?"visible":"hidden";owned.disabled=address!=="dominio";if(address!=="dominio"){owned.checked=false;owned.value="";}}
     const picks=$$("#project-form [name=domain_value_locked]");
-    picks.forEach(p=>{p.disabled=!String(f.elements.domain?.value||"").trim()||address!=="dominio";if(p.disabled)p.checked=false;});
+    picks.forEach(p=>{p.disabled=!String(f.elements.domain?.value||"").trim();if(p.disabled)p.checked=false;});
     const grid=$("#hosting-plans-grid");
     if(grid)grid.hidden=hosting!=="hostinger";
+    const warn=$("#hosting-combo-warn");
+    if(warn)warn.hidden=!(hosting!=="cloudflare"&&address==="gratis");
   }
   async function verifyAdminDomain(){
     const f=$("#project-form"); if(!f)return;
@@ -989,10 +999,103 @@
   }
 
   function setProjectForm(project={}){
-    const f=$("#project-form"),el=f.elements;state.currentProject=project.id?project:null;const savedTab=(project.id?localStorage.getItem(projectTabKey(project.id)):null)||"summary";f.reset();el.id.value=project.id||"";el.source_prospect_id.value=project.source_prospect_id||"";el.name.value=project.name||"";fillClientSelect();el.user_id.value=project.user_id||"";el.project_stage.value=project.project_stage||"Invitación";el.status.value=project.status||"Pendiente de activar cuenta";el.address_type.value=project.address_type||"gratis";el.domain.value=project.domain||"";el.hosting_type.value=project.hosting_type||"cloudflare";el.site_visibility.value=project.site_visibility||"hidden";el.site_url.value=project.site_url||"";el.preview_url.value=project.preview_url||"";el.total_price.value=project.total_price??750;el.deposit_amount.value=project.deposit_amount??375;el.balance_amount.value=project.balance_amount??375;el.payment_method.value=project.payment_method||"Transferencia";el.deposit_paid.checked=Boolean(project.deposit_paid);el.balance_paid.checked=Boolean(project.balance_paid);el.client_note.value=project.client_note||"";$("#project-modal-title").textContent=project.id?project.name:"Nuevo proyecto";setLine("#project-form-status","");setLine("#project-editor-line","");const inv=inviteUrl(project);$("#project-invite-box").hidden=!project.id||Boolean(project.user_id);$("#project-invite-url").textContent=inv||"Guarda el proyecto para generar una invitación.";$("#update-title").value="";$("#update-status").value="";$("#update-description").value="";setProjectTab(savedTab);updateProjectSummary();updateProjectLifecycleUI(project);updateEditorAdminUI(project);updateConfigUI();renderHostingPlans(project.id?state.currentSetup?.hosting_plan_id||"":"");
+    const f=$("#project-form"),el=f.elements;state.currentProject=project.id?project:null;const savedTab=(project.id?localStorage.getItem(projectTabKey(project.id)):null)||"summary";f.reset();el.id.value=project.id||"";el.source_prospect_id.value=project.source_prospect_id||"";el.name.value=project.name||"";fillClientSelect();el.user_id.value=project.user_id||"";el.project_stage.value=project.project_stage||"Invitación";el.status.value=project.status||"Pendiente de activar cuenta";syncAddressRadios(project.address_type||"gratis",Boolean(project.domain_owned));el.domain.value=project.domain||"";el.hosting_type.value=project.hosting_type||"cloudflare";el.site_visibility.value=project.site_visibility||"hidden";el.site_url.value=project.site_url||"";el.preview_url.value=project.preview_url||"";el.total_price.value=project.total_price??750;el.deposit_amount.value=project.deposit_amount??375;el.balance_amount.value=project.balance_amount??375;el.payment_method.value=project.payment_method||"Transferencia";el.deposit_paid.checked=Boolean(project.deposit_paid);el.balance_paid.checked=Boolean(project.balance_paid);el.client_note.value=project.client_note||"";$("#project-modal-title").textContent=project.id?project.name:"Nuevo proyecto";setLine("#project-form-status","");setLine("#project-editor-line","");const inv=inviteUrl(project);$("#project-invite-box").hidden=!project.id||Boolean(project.user_id);$("#project-invite-url").textContent=inv||"Guarda el proyecto para generar una invitación.";$("#update-title").value="";$("#update-status").value="";$("#update-description").value="";setProjectTab(savedTab);updateProjectSummary();updateProjectLifecycleUI(project);updateEditorAdminUI(project);updateConfigUI();renderHostingPlans(project.id?state.currentSetup?.hosting_plan_id||"":"");resetPublishPanel(project);;
   }
 
   async function downloadAdminFile(fileId,fileName){try{const r=await fetch(`/api/project-file?id=${encodeURIComponent(fileId)}`,{headers:{Authorization:`Bearer ${state.session.access_token}`}});if(!r.ok)throw new Error();const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=fileName||"archivo";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch{toast("No pudimos descargar el archivo.");}}
+
+  // ---------- Publicación del sitio ----------
+  const publishState={files:[],publishing:false};
+  function slugifyText(text){return String(text||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9._-]+/g,"-").replace(/^-+|-+$/g,"").slice(0,90);}
+  function resetPublishPanel(project={}){
+    publishState.files=[];
+    const list=$("#publish-files-list");if(list)list.innerHTML="";
+    $$("#publish-folder,#publish-files").forEach(i=>{if(i)i.value="";});
+    const clear=$("#publish-clear-list");if(clear)clear.remove();
+    const repoInput=$("#publish-repo-name");if(repoInput)repoInput.value=project.site_repo_name||slugifyText(project.name||"");
+    const open=$("#publish-open"),copy=$("#publish-copy");if(open)open.hidden=true;if(copy)copy.hidden=true;
+    const result=$("#publish-result");if(result){result.hidden=true;result.innerHTML="";}
+    setLine("#publish-status","");
+  }
+  const publishAllowedExt=/\.(html?|css|js|mjs|json|svg|png|jpe?g|gif|webp|avif|ico|txt|xml|webmanifest|md|woff2?|ttf|otf|eot|pdf|map|mp4|webm|ogg|mp3|wav|zip)$/i;
+  function addPublishFiles(fileList){
+    if(!fileList)return;
+    const all=[...fileList];
+    const allowed=all.filter(f=>publishAllowedExt.test(f.name)&&!f.name.startsWith(".")&&f.size<=25*1024*1024);
+    let added=0;
+    for(const file of allowed){
+      const path=file.webkitRelativePath?file.webkitRelativePath.replace(/\\/g,"/"):file.name;
+      if(!publishState.files.some(f=>f.path===path)){publishState.files.push({file,path});added++;}
+    }
+    renderPublishFiles();
+    const skipped=all.length-allowed.length;
+    setLine("#publish-status",skipped?`Se omitieron ${skipped} archivo(s) no compatibles.`:"");
+    toast(added?`${added} archivo(s) agregados.`:(skipped?"No se agregaron archivos.":""));
+  }
+  function renderPublishFiles(){
+    const list=$("#publish-files-list");if(!list)return;
+    const total=publishState.files.reduce((s,f)=>s+f.file.size,0);
+    const shown=publishState.files.slice(0,60);
+    list.innerHTML=publishState.files.length?`<div class="publish-files-head"><span>${publishState.files.length} archivo(s) · ${(total/1024/1024).toFixed(1)} MB</span><button type="button" class="tiny-btn" id="publish-clear-list">Quitar todos</button></div>${shown.map(f=>`<div class="publish-file-row"><strong>${esc(f.path)}</strong><span>${(f.file.size/1024).toFixed(1)} KB</span></div>`).join("")}${publishState.files.length>60?`<span class="publish-more">+${publishState.files.length-60} archivos más…</span>`:""}`:"";
+    const clear=$("#publish-clear-list");if(clear)clear.addEventListener("click",()=>{publishState.files=[];renderPublishFiles();});
+  }
+  function readPublishFilesAsBase64(){
+    return Promise.all(publishState.files.map(f=>new Promise((resolve,reject)=>{
+      const r=new FileReader();
+      r.onload=()=>resolve({path:f.path,data:String(r.result||"").split(",")[1]||""});
+      r.onerror=()=>reject(new Error("No pudimos leer "+f.path));
+      r.readAsDataURL(f.file);
+    })));
+  }
+  async function publishSite(){
+    if(publishState.publishing)return;
+    const projectId=$("#project-form")?.elements?.id?.value;
+    if(!projectId){toast("Guarda primero el proyecto.");return;}
+    if(!publishState.files.length){setLine("#publish-status","Selecciona los archivos del sitio antes de publicar.","error");return;}
+    const repoName=String($("#publish-repo-name")?.value||"").trim();
+    if(!repoName){setLine("#publish-status","Escribe el nombre del repositorio.","error");return;}
+    const cloudflare=Boolean($("#publish-cf")?.checked);
+    const githubPages=Boolean($("#publish-gh")?.checked);
+    if(!cloudflare&&!githubPages){setLine("#publish-status","Elige al menos una plataforma.","error");return;}
+    publishState.publishing=true;
+    const btn=$("#publish-btn");if(btn){btn.disabled=true;btn.textContent="Publicando…";}
+    setLine("#publish-status","Subiendo archivos y publicando…");
+    try{
+      const files=await readPublishFilesAsBase64();
+      const r=await fetch("/api/publish-site",{method:"POST",headers:{Authorization:`Bearer ${state.session.access_token}`,"Content-Type":"application/json"},body:JSON.stringify({project_id:projectId,repo_name:repoName,cloudflare,github_pages,files})});
+      const data=await r.json().catch(()=>({ok:false,message:"Respuesta inválida del servidor."}));
+      if(!r.ok||!data.ok){const msg=data.message||"No pudimos publicar.";setLine("#publish-status",msg,"error");toast(msg);return;}
+      setLine("#publish-status","¡Publicado!");toast("Sitio publicado correctamente.");
+      const links=[];
+      if(data.results?.cloudflare_url)links.push(["Cloudflare Pages",data.results.cloudflare_url]);
+      if(data.results?.github_pages_url)links.push(["GitHub Pages",data.results.github_pages_url]);
+      const result=$("#publish-result");
+      if(result){result.hidden=false;result.innerHTML=`<div class="publish-result-row"><span>Repositorio</span><a href="${esc(data.results?.repo_url||"#")}" target="_blank" rel="noopener">${esc(data.results?.owner||"")}/${esc(data.results?.repo||repoName)}</a></div>${links.map(([n,u])=>`<div class="publish-result-row"><span>${n}</span><a href="${esc(u)}" target="_blank" rel="noopener">${esc(u)}</a></div>`).join("")}${(data.warnings||[]).map(w=>`<p class="publish-warning">${esc(w)}</p>`).join("")}`;}
+      const primaryUrl=data.results?.cloudflare_url||data.results?.github_pages_url;
+      const open=$("#publish-open"),copy=$("#publish-copy");
+      if(open&&primaryUrl){open.hidden=false;open.onclick=()=>window.open(primaryUrl,"_blank");}
+      if(copy&&primaryUrl){copy.hidden=false;copy.onclick=()=>{navigator.clipboard.writeText(primaryUrl).then(()=>toast("Enlace copiado.")).catch(()=>toast("No pudimos copiar."));};}
+      const p=projectById(projectId);
+      if(p){p.site_repo_owner=data.results?.owner||p.site_repo_owner;p.site_repo_name=data.results?.repo||repoName;p.site_repo_branch=data.results?.branch||"main";p.site_live_url=primaryUrl||p.site_live_url;p.site_publish_provider=cloudflare&&githubPages?"both":cloudflare?"cloudflare":"github_pages";updateEditorAdminUI(p);}
+    }catch(e){
+      setLine("#publish-status","No pudimos publicar: "+(e.message||""),"error");toast("Error al publicar.");
+    }finally{
+      publishState.publishing=false;
+      const btn=$("#publish-btn");if(btn){btn.disabled=false;btn.textContent="Publicar";}
+    }
+  }
+  function initPublishPanel(){
+    const dropzone=$("#publish-dropzone");
+    if(!dropzone)return;
+    $("#publish-pick-folder")?.addEventListener("click",()=>$("#publish-folder")?.click());
+    $("#publish-pick-files")?.addEventListener("click",()=>$("#publish-files")?.click());
+    $("#publish-folder")?.addEventListener("change",e=>addPublishFiles(e.target.files));
+    $("#publish-files")?.addEventListener("change",e=>addPublishFiles(e.target.files));
+    $("#publish-btn")?.addEventListener("click",publishSite);
+    ["dragover","dragenter"].forEach(ev=>dropzone.addEventListener(ev,e=>{e.preventDefault();dropzone.classList.add("dragging");}));
+    ["dragleave","drop"].forEach(ev=>dropzone.addEventListener(ev,e=>{e.preventDefault();dropzone.classList.remove("dragging");}));
+    dropzone.addEventListener("drop",e=>addPublishFiles(e.dataTransfer.files));
+  }
 
   async function loadProjectDetails(id,showDialog=true){
     const p=projectById(id);if(!p)return;
@@ -1067,6 +1170,12 @@
 
   async function saveProject(e){
     e.preventDefault();const f=e.currentTarget,fd=new FormData(f),id=String(fd.get("id")||""),old=projectById(id),userId=String(fd.get("user_id")||"")||null,stage=String(fd.get("project_stage")||"Configuración");
+    const hostingLocked=fd.get("hosting_plan_locked")==="on",hostingTypeForm=String(fd.get("hosting_type")||"cloudflare");
+    if(hostingLocked&&hostingTypeForm==="hostinger"){
+      const planElegido=String(fd.get("hosting_plan_id")||"").trim();
+      const setupPrevio=state.currentSetup&&state.currentSetup.project_id===id?state.currentSetup:null;
+      if(!planElegido&&!setupPrevio?.hosting_plan_id){setLine("#project-form-status","Para fijar el alojamiento primero elige un plan de hosting.","error");return;}
+    }
     const repoFields=$("#project-site-repo-owner")?{site_live_url:String($("#project-site-live-url")?.value||"").trim()||null,site_repo_owner:String($("#project-site-repo-owner")?.value||"").trim()||null,site_repo_name:String($("#project-site-repo-name")?.value||"").trim()||null,site_repo_branch:String($("#project-site-repo-branch")?.value||"").trim()||"main",site_repo_path:String($("#project-site-repo-path")?.value||"").trim()||"/",site_publish_provider:String($("#project-site-publish-provider")?.value||"github_pages"),site_editor_mode:String($("#project-site-editor-mode")?.value||"html_repo")}:{};
     const payload={...repoFields,user_id:userId,name:String(fd.get("name")||"").trim(),project_stage:stage,status:String(fd.get("status")||"").trim()||stage,address_type:String(fd.get("address_type")||"gratis"),domain:String(fd.get("domain")||"").trim()||null,hosting_type:String(fd.get("hosting_type")||"cloudflare"),site_visibility:String(fd.get("site_visibility")||"hidden"),site_url:String(fd.get("site_url")||"").trim()||null,preview_url:String(fd.get("preview_url")||"").trim()||null,total_price:fd.get("total_price")?Number(fd.get("total_price")):null,deposit_amount:fd.get("deposit_amount")?Number(fd.get("deposit_amount")):null,balance_amount:fd.get("balance_amount")?Number(fd.get("balance_amount")):null,payment_method:String(fd.get("payment_method")||"").trim()||null,deposit_paid:fd.get("deposit_paid")==="on",balance_paid:fd.get("balance_paid")==="on",client_note:String(fd.get("client_note")||"").trim()||null,source_prospect_id:String(fd.get("source_prospect_id")||"")||null,updated_at:new Date().toISOString()};
     if(stage==="Revisión"&&!old?.review_ready_at)payload.review_ready_at=new Date().toISOString();if(stage==="Publicado"&&!old?.published_at)payload.published_at=new Date().toISOString();
@@ -1081,6 +1190,14 @@
     const setupAnterior=state.currentSetup&&state.currentSetup.project_id===saved.id?state.currentSetup:null;
     const addressType=String(fd.get("address_type")||"gratis");
     const hostingType=String(fd.get("hosting_type")||"cloudflare");
+    if(hostingType!=="cloudflare"&&addressType!=="dominio"){
+      setLine("#project-form-status","Este alojamiento requiere dominio personalizado. Elige primero uno en Dirección.","error");
+      return;
+    }
+    if(hostingType==="hostinger"&&fd.get("hosting_plan_locked")==="on"&&!String(fd.get("hosting_plan_id")||"").trim()){
+      setLine("#project-form-status","Elige primero el plan de hosting para poder fijarlo.","error");
+      return;
+    }
     const rawDomain=String(fd.get("domain")||"").trim();
     const isDomain=addressType==="dominio";
     const siteName=isDomain?null:normalizeSiteName(rawDomain.replace(/\.pages\.dev$/,""));
@@ -1143,6 +1260,7 @@
   $("#save-editor-repo")?.addEventListener("click",saveEditorRepoConfig);
   $("#cancel-editor-access")?.addEventListener("click",cancelEditorAccess);
   $$("[data-project-tab]").forEach(b=>b.addEventListener("click",()=>setProjectTab(b.dataset.projectTab)));
+  initPublishPanel();
   $$("[data-prospect-stage]").forEach(b=>b.addEventListener("click",()=>setProspectStage(b.dataset.prospectStage)));
   ["user_id","project_stage","site_visibility","total_price"].forEach(name=>$("#project-form")?.elements?.[name]?.addEventListener("input",updateProjectSummary));
   ["user_id","project_stage","site_visibility"].forEach(name=>$("#project-form")?.elements?.[name]?.addEventListener("change",updateProjectSummary));
@@ -1150,10 +1268,16 @@
   $("#project-form")?.addEventListener("change",e=>{
     const t=e.target;
     if(t&&(t.name==="address_type"||t.name==="hosting_type"||t.name==="domain")){
-      if(t.name==="domain"){$$("#project-form [name=domain_value_locked]").forEach(p=>{p.disabled=!String(t.value||"").trim()||String($("#project-form [name=address_type]")?.value||"gratis")!=="dominio";if(p.disabled)p.checked=false;});}
+      if(t.name==="address_type"){const hid=$("#project-form [name=domain_owned]");if(hid)hid.value=t.dataset.owned==="1"?"on":"";}
+      if(t.name==="domain"){$$("#project-form [name=domain_value_locked]").forEach(p=>{p.disabled=!String(t.value||"").trim();if(p.disabled)p.checked=false;});}
       updateConfigUI();
     }
     if(t&&t.name==="hosting_type"){if(t.value!=="hostinger"){const r=$("#project-form [name=hosting_plan_id]");if(r)r.checked=false;}renderHostingPlans($("#project-form [name=hosting_plan_id]:checked")?.value||"");}
+    if(t&&t.name==="hosting_plan_locked"&&t.checked){
+      const ht=$("#project-form [name=hosting_type]")?.value||"cloudflare";
+      const plan=$("#project-form [name=hosting_plan_id]:checked")?.value||"";
+      if(ht==="hostinger"&&!plan){t.checked=false;toast("Elige primero el plan de hosting para poder fijarlo.");}
+    }
   });
   $$("#project-form [name=domain_value_locked]").forEach(p=>p.addEventListener("change",()=>{if(p.checked&&!String($("#project-form [name=domain]")?.value||"").trim())p.checked=false;}));
   $("#prospect-search")?.addEventListener("input",e=>{rememberCrmUiState({prospectSearch:e.currentTarget.value});renderProspects();});
