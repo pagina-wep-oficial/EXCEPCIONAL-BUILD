@@ -56,13 +56,35 @@
   <article class="content-card" id="payment-card" hidden><div class="card-heading"><div><h2>Pagos acordados</h2><p>Solo mostramos lo que ya acordaste con nosotros.</p></div></div><div class="payments-grid" id="project-payments"></div></article>
 
   <article class="content-card" id="project-actions-card" hidden><div class="card-heading"><div><h2>¿Qué necesitas ahora?</h2><p>Estas opciones aparecen cuando tu página ya está publicada o en revisión.</p></div></div><div class="actions-grid" id="project-actions"></div></article>
+  <article class="content-card" id="project-upgrades-card" hidden>
+    <div class="card-heading"><div><h2>Mejora tu presencia en internet</h2><p>Si quieres una direccion mas profesional o una base mas flexible, aqui puedes pedirlo.</p></div></div>
+    <div class="actions-grid" id="project-upgrades-list"></div>
+  </article>
   <article class="content-card editor-project-card" id="project-editor-card" hidden></article>
+  <article class="content-card" id="project-store-card" hidden></article>
   <article class="content-card"><div class="card-heading"><div><h2>Avances del proyecto</h2><p>Lo que hemos registrado sobre la creación y entrega de tu proyecto.</p></div></div><div class="timeline" id="project-timeline"></div></article>
 
   <article class="content-card" id="project-requests-card"><div class="card-heading"><div><h2>Solicitudes y cambios</h2><p>Aquí puedes ver lo que nos has pedido y en qué etapa va cada solicitud.</p></div></div><div class="request-section-head"><h3>Activas</h3><small id="project-requests-active-count"></small></div><div class="request-client-list" id="project-requests-active"></div><div class="request-client-list request-client-list-hidden" id="project-requests-active-more" hidden></div><button class="button button-light request-more-button" id="project-requests-active-toggle" type="button" hidden></button><details class="request-history" id="project-requests-history" hidden><summary id="project-requests-history-summary">Ver historial de solicitudes</summary><div class="request-client-list request-client-list-history" id="project-requests-closed"></div><div class="request-client-list request-client-list-history request-client-list-hidden" id="project-requests-closed-more" hidden></div><button class="button button-light request-more-button" id="project-requests-closed-toggle" type="button" hidden></button></details></article>
 </div></main>
 
 <dialog id="request-dialog"><div class="dialog-body"><div class="dialog-head"><div><p class="eyebrow">Pedir un cambio</p><h2 id="request-title">¿Qué necesitas?</h2></div><button class="dialog-close" type="button" data-dialog-close aria-label="Cerrar">×</button></div><form class="portal-form" id="request-form"><input type="hidden" name="request_type"><label><span>Explícanos brevemente</span><textarea name="message" rows="5" required placeholder="Ej. Quiero cambiar el horario y agregar tres fotos nuevas."></textarea></label><p class="form-status" id="request-status"></p><div class="dialog-actions"><button class="button button-light" type="button" data-dialog-close>Cancelar</button><button class="button button-primary" type="submit">Enviar solicitud</button></div></form></div></dialog>
+<dialog id="upgrade-domain-dialog">
+  <div class="dialog-body">
+    <div class="dialog-head">
+      <div><p class="eyebrow">Dominio propio</p><h2>Elige tu dominio</h2></div>
+      <button class="dialog-close" type="button" id="upgrade-domain-close" aria-label="Cerrar">×</button>
+    </div>
+    <form class="portal-form" id="upgrade-domain-form">
+      <label><span>Nombre del dominio</span><input id="upgrade-domain-input" name="desired_domain" placeholder="ej. mipizzeria.com" autocomplete="off"></label>
+      <p class="form-status" id="upgrade-domain-price-line"></p>
+      <p class="form-status" id="upgrade-domain-status">Escribe un dominio y pulsa Verificar.</p>
+      <div class="dialog-actions">
+        <button class="button button-light" type="button" id="upgrade-domain-check">Verificar</button>
+        <button class="button button-primary" type="submit" id="upgrade-domain-submit" disabled>Quiero este dominio</button>
+      </div>
+    </form>
+  </div>
+</dialog>
 
 <nav class="mobile-nav" aria-label="Navegación principal"><a class="active" href="panel.html"><span aria-hidden="true">⌂</span><b>Inicio</b></a><a class="mobile-nav-main" href="https://wa.me/529811332914?text=Hola%2C%20necesito%20ayuda%20en%20mi%20proyecto." target="_blank" rel="noopener"><span aria-hidden="true">✦</span><b>Ayuda</b></a><a href="perfil.html"><span aria-hidden="true">○</span><b>Mi cuenta</b></a></nav>
 <script src="supabase-config.js"></script><script src="supabase-client.js"></script><script src="portal.js"></script>

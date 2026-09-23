@@ -7,6 +7,8 @@
   const WHATSAPP = "529811332914";
   const CLAIM_KEY = "eb_project_claim";
   const CONSULTAR_ENDPOINT = "https://scaebulgcuvqpucondws.supabase.co/functions/v1/consultar-dominio";
+  // Enlace de afiliado de Hostinger: pegar aqui el enlace completo ?aff= cuando este aprobado.
+  const HOSTINGER_AFFILIATE_URL = "";
   let liveChannel = null;
   let liveRefreshTimer = 0;
   let liveRefreshBusy = false;
@@ -135,17 +137,15 @@ function nextStepText(project) {
     const i=stageIndex(project);
     return ["Configurar ahora","Completar información","Ver avance","Revisar página","Abrir proyecto"][i] || "Abrir proyecto";
   }
-  function publicSiteHref(project, mode="published", page="inicio") {
-    return `site-view.html?project=${encodeURIComponent(project.id)}&mode=${encodeURIComponent(mode)}&page=${encodeURIComponent(page)}`;
-  }
-
   function siteAction(project, label) {
     if(project.site_visibility === "public") {
-      const href = project.site_url || publicSiteHref(project, "published", "inicio");
+      const href = String(project.site_url||"").trim();
+      if(!href) return "";
       return `<a class="button button-primary" href="${safe(href)}" target="_blank" rel="noopener">${safe(label||"Abrir mi página")} →</a>`;
     }
     if(project.site_visibility === "preview") {
-      const href = project.preview_url || publicSiteHref(project, "published", "inicio");
+      const href = String(project.preview_url||"").trim();
+      if(!href) return "";
       return `<a class="button button-primary" href="${safe(href)}" target="_blank" rel="noopener">${safe(label||"Ver avance")} →</a>`;
     }
     return "";
@@ -182,9 +182,10 @@ function nextStepText(project) {
     if(expired||/vencido|expired|pausado|paused|cancelado/.test(raw)) return {status:"expired",ends};
     return {status:"none",ends:""};
   }
+  function canClientSeeEditor(project) {
+    return Boolean(project?.editor_visible_to_client);
+  }
   function editorLaunchHref(project) {
-    const external=String(project?.editor_launch_url||"").trim();
-    if(external) return external;
     return `editor-v2.html?project=${encodeURIComponent(project.id)}`;
   }
   function stopLiveUpdates(){
@@ -491,11 +492,20 @@ function nextStepText(project) {
       return JSON.stringify({a:row.address_type||"",d:row.domain||"",s:row.site_name||"",o:row.domain_owned||false,v:row.domain_verified_at||"",f:row.domain_first_year??null,r:row.domain_renewal??null,h:row.hosting_type||"",p:row.hosting_plan_id||"",pn:row.hosting_plan_name||"",pf:row.hosting_plan_features||[],hf:row.hosting_first_year??null,hr:row.hosting_renewal??null,c:(row.hosting_currency==="MXN"?null:row.hosting_currency)||"",n:row.special_features_note||"",tl:row.domain_type_locked||false,vl:row.domain_value_locked||false,hl:row.hosting_plan_locked||false});
     }
     const setupLockSig=()=>({domain_type_locked:setup?.domain_type_locked||false,domain_value_locked:setup?.domain_value_locked||false,hosting_plan_locked:setup?.hosting_plan_locked||false});
+    function renderConfigureSummaryHeader(){
+      const price=Number(project.total_price||0);
+      const nameEl=$("#configure-project-name"),priceEl=$("#configure-price"),payEl=$("#configure-payment");
+      if(nameEl)nameEl.textContent=project.name||"Proyecto";
+      if(priceEl)priceEl.textContent=price>0?money(price):"Acordado";
+      if(payEl)payEl.textContent=project.payment_method||"—";
+    }
     let persistedSig=setupSig(setup);
     startLiveUpdates(`portal-configure-${id}`,[{table:"client_projects",filter:`id=eq.${id}`},{table:"client_project_setup",filter:`project_id=eq.${id}`}],(payload,spec)=>{
       if(spec.table==="client_project_setup"){
-        const sig=setupSig(payload?.new||null);
-        if(sig&&sig===persistedSig)return;
+        // Esta tabla la edita el propio cliente en esta pagina.
+        // Recargar aqui destruia lo que el usuario estaba escribiendo
+        // (se perdia el texto del campo y el plan "saltaba" a otro).
+        return;
       }
       location.reload();
     });
@@ -558,6 +568,17 @@ function nextStepText(project) {
       const confirm=$("#setup-confirm-choice");
       confirm.textContent=owned?"Usar este dominio":buy?"Elegir este dominio":"Usar este enlace";
       refreshConfirmButton();
+      // Solo cuando el VALOR (el link que usara el cliente) esta fijado se
+      // ocultan helpers, notas, textarea y los botones de verificar/elegir.
+      // Si solo el TIPO esta fijado, el cliente si puede escribir, verificar y elegir.
+      const locked=lockValue;
+      if(locked){
+        checkBtn.hidden=true;
+        $("#setup-name-help").hidden=true;
+        $("#setup-owned-note").hidden=true;
+        $("#setup-note-address-wrap").hidden=true;
+        confirm.hidden=true;
+      }
     }
     function refreshConfirmButton(){
       const ok=addressReady();
@@ -573,18 +594,32 @@ function nextStepText(project) {
       const box=$("#setup-hosting-plans");
       if(configureState.hostingChoice!=="hostinger"){box.innerHTML="";return;}
       if(!hostingPlans.length){box.innerHTML=`<p class="empty-inline">El equipo aun no cargo planes. Puedes continuar y lo confirmamos por WhatsApp.</p>`;return;}
+      // Plan ya fijado por el equipo: solo se muestra la tarjeta del plan elegido
+      // con su precio; sin radios de otros planes ni enlace de afiliado.
+      if(lockHosting&&configureState.selectedPlanId){
+        const plan=currentPlan();
+        if(plan){
+          box.innerHTML=`<div class="hosting-plan-card hosting-plan-card--locked"><span><b>${safe(plan.name)}</b><small>${safe(plan.description||"")}</small><em>Primer año ${money(plan.first_year)} · Renovacion ${money(plan.renewal||plan.first_year)}</em>${Array.isArray(plan.features)&&plan.features.length?`<ul>${plan.features.slice(0,4).map(f=>`<li>${safe(f)}</li>`).join("")}</ul>`:""}</span></div>`;
+          return;
+        }
+      }
       box.innerHTML=hostingPlans.map(plan=>{
         const checked=plan.id===configureState.selectedPlanId?"checked":"";
         const disabled=lockHosting?"disabled":"";
         const features=Array.isArray(plan.features)?plan.features:[];
-        return `<label class="hosting-plan-card"><input type="radio" name="hosting_plan_id" value="${safe(plan.id)}" ${checked} ${disabled}><span><b>${safe(plan.name)}</b><small>${safe(plan.description||"")}</small><em>Primer año ${money(plan.first_year)} · Renovacion ${money(plan.renewal||plan.first_year)}</em>${features.length?`<ul>${features.slice(0,4).map(f=>`<li>${safe(f)}</li>`).join("")}</ul>`:""}</span></label>`;
+        const affLink=HOSTINGER_AFFILIATE_URL?`<a class="hosting-affiliate-link" href="${HOSTINGER_AFFILIATE_URL}" target="_blank" rel="noopener noreferrer">Contratar en Hostinger con descuento &rarr;</a>`:"";
+        return `<div class="hosting-plan-block"><label class="hosting-plan-card"><input type="radio" name="hosting_plan_id" value="${safe(plan.id)}" ${checked} ${disabled}><span><b>${safe(plan.name)}</b><small>${safe(plan.description||"")}</small><em>Primer año ${money(plan.first_year)} · Renovacion ${money(plan.renewal||plan.first_year)}</em>${features.length?`<ul>${features.slice(0,4).map(f=>`<li>${safe(f)}</li>`).join("")}</ul>`:""}</span></label>${affLink}</div>`;
       }).join("");
     }
     function reflectHostingChoice(){
       const {hostingChoice,addressChoice}=configureState;
       $("#setup-hosting-plans").hidden=hostingChoice!=="hostinger";
       renderHostingPlans();
-      $("#setup-note-hosting-wrap").hidden=hostingChoice!=="propio";
+      // Nota opcional del cliente sobre hosting.
+      // Si el equipo fijo "ya tiene hosting", el cliente NO puede cambiar de opcion
+      // pero SI puede escribir su nota (datos/accesos de su hosting).
+      // En los otros modos FIJADOS (incluido/plan) la nota no aplica y se oculta.
+      $("#setup-note-hosting-wrap").hidden=lockHosting&&hostingChoice!=="propio";
       $("#setup-own-hosting-msg").hidden=hostingChoice!=="propio";
       const badCombo=hostingChoice!=="cloudflare"&&addressChoice==="gratis";
       const combo=$("#setup-invalid-combo");
@@ -622,16 +657,25 @@ function nextStepText(project) {
       return true;
     }
     function applyLocks(){
-      $$('[name="address_type"]',form).forEach(el=>el.disabled=lockType);
+      // El tipo queda fijo si se fijo el tipo o (para coherencia) si ya hay un valor fijado,
+      // porque ese link pertenece a un tipo concreto y no debe poder cambiarse.
+      $$('[name="address_type"]',form).forEach(el=>el.disabled=lockType||lockValue);
       $$('[name="hosting_type"]',form).forEach(el=>el.disabled=lockHosting);
       input.disabled=lockValue;
       checkBtn.disabled=lockValue;
       $$('[name="hosting_plan_id"]',form).forEach(el=>el.disabled=lockHosting);
-      $("#domain-type-lock-note").hidden=!lockType;
+      $("#domain-type-lock-note").hidden=!(lockType||lockValue);
+      if(lockType||lockValue){
+        $("#domain-type-lock-note").textContent=lockValue
+          ?"Esto ya fue acordado con el equipo. Si necesitas cambiarlo, escribenos por WhatsApp."
+          :"El tipo de enlace ya fue decidido por el equipo. Puedes escribir, verificar y elegir el enlace aqui.";
+      }
       $("#domain-value-lock-note").hidden=!lockValue;
       $("#hosting-lock-note").hidden=!lockHosting;
       $("#setup-note-address").disabled=lockValue;
-      $("#setup-note-hosting").disabled=lockHosting;
+      // Con "ya tiene hosting" fijado el cliente puede escribir su nota; en los
+      // demas modos fijados la nota queda fuera (y ademas no se muestra).
+      $("#setup-note-hosting").disabled=lockHosting&&configureState.hostingChoice!=="propio";
     }
     function renderSetupSummary(){
       const {addressChoice,hostingChoice}=configureState;
@@ -655,6 +699,12 @@ function nextStepText(project) {
       if((hostingChoice==="hostinger"||hostingChoice==="propio")&&addressChoice==="gratis")return;
       const isDomain=addressChoice!=="gratis";
       const current=isDomain?normalizeDomain(input.value):normalizeSiteName(input.value);
+      // No persistir un cambio de tipo de direccion hasta que haya un valor
+      // verificado (o dominio valido en "ya tengo"). Evita que el plan
+      // "salte" solo al recargar o al guardar a medias.
+      const typeChanged=isDomain!==(setup?.address_type==="dominio");
+      const confirmedValue=addressChoice==="owned"?!!current:(!!configureState.verifiedValue&&configureState.verifiedValue===current);
+      if(typeChanged&&!confirmedValue)return;
       const plan=hostingChoice==="hostinger"?(currentPlan()||setup):null;
       const nota=String(form.elements.special_features_note?.value||"").trim();
       const notaH=String(form.elements.special_features_note_extra?.value||"").trim();
@@ -690,11 +740,17 @@ function nextStepText(project) {
       const v=initialAddress==="dominio"?normalizeDomain(input.value):normalizeSiteName(input.value);
       if(v)configureState.verifiedValue=v;
     }
-    if(configureState.addressChoice==="dominio"&&setup?.domain_first_year!=null)configureState.domainPrice={first_period_price:Number(setup.domain_first_year)*100,price:Number(setup.domain_renewal||setup.domain_first_year)*100,currency:"MXN"};
+    if(configureState.addressChoice==="dominio"&&setup?.domain_first_year!=null){
+      configureState.domainPrice={first_period_price:Number(setup.domain_first_year)*100,price:Number(setup.domain_renewal||setup.domain_first_year)*100,currency:"MXN"};
+      const first=Number(setup.domain_first_year||0),renew=Number(setup.domain_renewal||setup.domain_first_year||0);
+      $("#setup-domain-first").textContent=money(first);
+      $("#setup-domain-renew").textContent=money(renew);
+    }
     const nota=setup?.special_features_note||"";
     if(configureState.addressChoice==="owned")$("#setup-note-address").value=nota;
-    if(configureState.hostingChoice==="propio")$("#setup-note-hosting").value=nota;
-    applyLocks(); reflectAddressChoice(); reflectHostingChoice(); setStep("address"); form.hidden=false;
+    // La nota de hosting se restaura siempre (antes solo si elegia "ya tengo hosting").
+    if($("#setup-note-hosting"))$("#setup-note-hosting").value=nota;
+    applyLocks(); reflectAddressChoice(); reflectHostingChoice(); setStep("address"); form.hidden=false; renderConfigureSummaryHeader();
 
     $$('[name="address_type"]',form).forEach(el=>el.addEventListener("change",()=>{
       if(!el.checked)return;
@@ -703,7 +759,7 @@ function nextStepText(project) {
       configureState.addressChoice=next;
       configureState.verifiedValue="";configureState.domainPrice=null;
       $("#setup-domain-prices").hidden=true;setStatus("#setup-domain-status","");
-      reflectAddressChoice();renderSetupSummary();scheduleSetupSave();
+      reflectAddressChoice();renderSetupSummary();
     }));
     $$('[name="hosting_type"]',form).forEach(el=>el.addEventListener("change",()=>{
       if(!el.checked)return;
@@ -791,11 +847,11 @@ function nextStepText(project) {
   }
 
   const requestLabels={
-    cambio:{title:"Solicitar un cambio",help:"Dinos qué quieres corregir antes de publicar.",publicTitle:"Cambio solicitado"},
-    mantenimiento:{title:"Solicitar mantenimiento",help:"Revisar un problema o algo que dejó de funcionar.",publicTitle:"Mantenimiento solicitado"},
-    actualizar:{title:"Actualizar mi página",help:"Cambiar textos, fotos, horarios, productos o precios.",publicTitle:"Actualización solicitada"},
-    dominio:{title:"Quiero un dominio propio",help:"Cambiar el enlace gratuito por una dirección profesional.",publicTitle:"Dominio solicitado"},
-    hosting:{title:"Necesito funciones especiales",help:"Agregar sistema, usuarios, base de datos u otras funciones.",publicTitle:"Funciones especiales solicitadas"},
+    cambio:{title:"Solicitar un cambio",help:"Dinos que quieres corregir antes de publicar.",publicTitle:"Cambio solicitado"},
+    mantenimiento:{title:"Solicitar mantenimiento",help:"Revisar un problema o algo que dejo de funcionar.",publicTitle:"Mantenimiento solicitado"},
+    actualizar:{title:"Actualizar mi pagina",help:"Cambiar textos, fotos, horarios, productos o precios.",publicTitle:"Actualizacion solicitada"},
+    dominio:{title:"Quiero un dominio propio",help:"Cambiar el enlace gratuito por una direccion profesional.",publicTitle:"Dominio solicitado"},
+    hosting:{title:"Quiero mejorar mi alojamiento",help:"Pasar del alojamiento incluido a una opcion mas profesional.",publicTitle:"Mejora de alojamiento solicitada"},
     mejorar:{title:"Mejorar mi proyecto",help:"Agregar nuevas secciones o funciones.",publicTitle:"Mejora solicitada"}
   };
   function requestStateMeta(value=""){
@@ -844,13 +900,14 @@ function nextStepText(project) {
     const loadProject=async()=>{const {data,error}=await db.from("client_projects").select("*").eq("id",id).single();if(error)throw error;project=data;};
     await loadProject();
     const results=await Promise.all([
-db.from("client_requests").select("*").eq("project_id",id).order("created_at",{ascending:false}),
+      db.from("client_requests").select("*").eq("project_id",id).order("created_at",{ascending:false}),
+      db.from("client_project_setup").select("*").eq("project_id",id).maybeSingle(),
       db.from("client_project_briefs").select("*").eq("project_id",id).maybeSingle(),
       db.from("client_project_files").select("*").eq("project_id",id).order("created_at",{ascending:false})
     ]);
     for(const r of results) if(r.error) throw r.error;
-    let requests=results[0].data||[], brief=results[1].data, files=results[2].data||[];
-    startLiveUpdates(`portal-project-${id}`,[{table:"client_projects",filter:`id=eq.${id}`},{table:"client_requests",filter:`project_id=eq.${id}`}],async(payload,spec)=>{
+    let requests=results[0].data||[], setup=results[1].data||null, brief=results[2].data, files=results[3].data||[];
+    startLiveUpdates(`portal-project-${id}`,[{table:"client_projects",filter:`id=eq.${id}`},{table:"client_project_setup",filter:`project_id=eq.${id}`},{table:"client_requests",filter:`project_id=eq.${id}`}],async(payload,spec)=>{
       if(spec.table==="client_requests"){
         const event=payload?.eventType||payload?.event||"*";
         const row=payload?.new||null;
@@ -893,14 +950,14 @@ db.from("client_requests").select("*").eq("project_id",id).order("created_at",{a
     if(pos===1){focus.innerHTML=`<div class="focus-icon">2</div><div><span>Lo que sigue</span><h2>Envíanos la información de tu negocio</h2><p>Completa lo que puedas y sube las fotos o archivos que quieras usar.</p></div><a class="button button-primary" href="#informacion">Comenzar →</a>`;briefCard.hidden=false;briefCard.id="informacion";}
     if(pos===2){focus.innerHTML=`<div class="focus-icon done">✓</div><div><span>Información recibida</span><h2>Estamos preparando tu página</h2><p>Por ahora no necesitas hacer nada. Te avisaremos cuando tengamos una vista lista.</p></div><button class="button button-light" id="show-brief-again" type="button">Ver lo que envié</button>`;briefCard.hidden=true;setTimeout(()=>$("#show-brief-again")?.addEventListener("click",()=>{briefCard.hidden=false;briefCard.scrollIntoView({behavior:"smooth"});}),0);}
     if(pos===3){focus.innerHTML=`<div class="focus-icon">3</div><div><span>Lista para revisar</span><h2>Mira tu página antes de publicarla</h2><p>Revísala con calma. Si quieres cambiar algo, envíanos una solicitud.</p></div>${siteAction(project,"Ver vista previa")||"<span class=\"muted-box\">La vista previa estará disponible en cuanto la activemos.</span>"}`;actionsCard.hidden=false;}
-    if(pos===4){focus.innerHTML=`<div class="focus-icon done">✓</div><div><span>${isMaint?"Mantenimiento activo":"Proyecto publicado"}</span><h2>${isMaint?"Tu página está en mantenimiento":"Tu página ya está en internet"}</h2><p>${isMaint?"Tu sitio web está en mantenimiento.":"Puedes compartirla y pedir cambios o mantenimiento cuando lo necesites."}</p></div>${siteAction(project,"Abrir mi página")||""}`;actionsCard.hidden=false;}
+    if(pos===4){focus.innerHTML=`<div class="focus-icon done">✓</div><div><span>${isMaint?"Mantenimiento activo":"Proyecto publicado"}</span><h2>${isMaint?"Tu página está en mantenimiento":"Tu página ya está en internet"}</h2><p>${isMaint?"Tu sitio web está en mantenimiento.":"Puedes compartirla y pedir cambios o mantenimiento cuando lo necesites."}</p></div>${siteAction(project,"Abrir mi página")||"<span class=\"muted-box\">La URL pública todavía no está configurada.</span>"}`;actionsCard.hidden=false;}
     }
 
     const hasPayments=[project.total_price,project.deposit_amount,project.balance_amount].some(v=>v!=null&&v!=="");
     if(!archivedState&&hasPayments){$("#payment-card").hidden=false;$("#project-payments").innerHTML=`<div class="payment-box"><span>Total acordado</span><strong>${money(project.total_price)}</strong><small>${safe(project.payment_method||"")}</small></div><div class="payment-box"><span>Anticipo</span><strong>${money(project.deposit_amount)}</strong><em class="payment-state ${project.deposit_paid?"paid":""}">${project.deposit_paid?"Pagado":"Pendiente"}</em></div><div class="payment-box"><span>Saldo final</span><strong>${money(project.balance_amount)}</strong><em class="payment-state ${project.balance_paid?"paid":""}">${project.balance_paid?"Pagado":"Pendiente"}</em></div>`;}
 
     const editorCard=$("#project-editor-card");
-    if(editorCard && !archivedState && /^publicado$/.test(stageKey(project))){
+    if(editorCard && !archivedState && /^publicado$/.test(stageKey(project)) && canClientSeeEditor(project)){
       const access=editorAccessState(project);
       const active=access.status==="active";
       const expired=access.status==="expired";
@@ -913,7 +970,7 @@ db.from("client_requests").select("*").eq("project_id",id).order("created_at",{a
           <span class="editor-badge active">Activo${access.ends?` hasta ${date(access.ends)}`:""}</span>
         </div>
         <div class="editor-active-box">
-          <a class="button button-primary" href="${safe(editorLaunchHref(project))}" target="_blank" rel="noopener">Abrir editor</a>
+          <a class="button button-primary" href="${safe(editorLaunchHref(project))}">Abrir editor</a>
           <a class="button button-light" href="${editorSupportHref(project,profile)}" target="_blank" rel="noopener">Ayuda con suscripcion</a>
         </div>
         <div class="editor-flow-note"><b>OK</b><span>Mientras el acceso este activo, este boton abre la herramienta de edicion de este sitio.</span></div>`:`
@@ -928,6 +985,13 @@ db.from("client_requests").select("*").eq("project_id",id).order("created_at",{a
     } else if(editorCard){
       editorCard.hidden=true;
     }
+
+    const storeCard=$("#project-store-card");
+    const storeEnabled=project?.site_mode==="presentation_store"||project?.store_enabled===true;
+    if(storeCard&&!archivedState&&storeEnabled&&/^publicado$/.test(stageKey(project))){
+      storeCard.hidden=false;
+      storeCard.innerHTML=`<div class="card-heading"><div><p class="eyebrow">Tienda en línea</p><h2>Administra tus productos y pedidos</h2><p>Agrega productos, controla existencias y revisa pedidos desde ITM Void.</p></div></div><div class="row-actions"><a class="button button-primary" href="https://itm-void-excepcional.pages.dev/tienda-admin.html?project=${encodeURIComponent(id)}" target="_blank" rel="noopener">Administrar tienda</a><a class="button button-light" href="https://itm-void-excepcional.pages.dev/tienda-config.html?project=${encodeURIComponent(id)}" target="_blank" rel="noopener">Configuración</a></div>`;
+    } else if(storeCard) storeCard.hidden=true;
 
     const briefForm=$("#project-brief-form"); if(briefForm && !archivedState){
       briefFields.forEach(n=>{if(briefForm.elements[n])briefForm.elements[n].value=brief?.[n]||"";});
@@ -985,9 +1049,169 @@ db.from("client_requests").select("*").eq("project_id",id).order("created_at",{a
     }
     if(actionsCard&&!actionsCard.hidden && !archivedState){
       const types=pos===3?["cambio"]:["actualizar","mantenimiento","mejorar"];
-      if(pos===4&&project.address_type==="gratis")types.push("dominio"); if(pos===4&&project.hosting_type==="cloudflare")types.push("hosting");
       $("#project-actions").innerHTML=types.map(t=>`<button class="action-card" type="button" data-request-type="${t}"><b>${requestLabels[t].title}</b><span>${requestLabels[t].help}</span></button>`).join("");
     }
+
+    const upgradesCard=$("#project-upgrades-card");
+    const upgradesList=$("#project-upgrades-list");
+    const domainDialog=$("#upgrade-domain-dialog");
+    const domainForm=$("#upgrade-domain-form");
+    const domainInput=$("#upgrade-domain-input");
+    const domainStatus=$("#upgrade-domain-status");
+    const domainPriceLine=$("#upgrade-domain-price-line");
+    const domainSubmit=$("#upgrade-domain-submit");
+    const domainCheck=$("#upgrade-domain-check");
+    const domainClose=$("#upgrade-domain-close");
+
+    const hasDomainOffer=Boolean(setup?.offer_domain_enabled)&&String(setup?.address_type||project.address_type||"gratis")==="gratis";
+    const hasHostingOffer=Boolean(setup?.offer_hosting_enabled)&&String(setup?.hosting_type||project.hosting_type||"cloudflare")==="cloudflare";
+
+    const domainOfferPrice=setup?.offer_domain_price!=null?Number(setup.offer_domain_price):(setup?.domain_first_year!=null?Number(setup.domain_first_year):null);
+    const hostingOfferPrice=setup?.offer_hosting_price!=null?Number(setup.offer_hosting_price):(setup?.hosting_first_year!=null?Number(setup.hosting_first_year):null);
+
+    const domainOfferNote=String(setup?.offer_domain_note||"Pasa de un enlace gratuito a un dominio propio mas profesional.").trim();
+    const hostingOfferNote=String(setup?.offer_hosting_note||"Mejora el alojamiento de tu pagina para una base mas flexible.").trim();
+
+    let selectedUpgradeDomain="";
+    let selectedUpgradeDomainPrice=domainOfferPrice;
+
+    const openUpgradeWhatsapp=(kind,extraLines=[])=>{
+      const text=[
+        `Hola, soy ${profile.full_name}.`,
+        `Proyecto: ${project.name}.`,
+        `Proyecto ID: ${project.id}.`,
+        kind==="dominio"?"Quiero contratar un dominio propio.":"Quiero mejorar el alojamiento de mi pagina.",
+        ...extraLines.filter(Boolean)
+      ].join("\n");
+      location.assign(`https://wa.me/${WHATSAPP}?text=${encodeURIComponent(text)}`);
+    };
+
+    const resetDomainOfferDialog=()=>{
+      selectedUpgradeDomain="";
+      selectedUpgradeDomainPrice=domainOfferPrice;
+      if(domainForm)domainForm.reset();
+      if(domainStatus){domainStatus.textContent="Escribe un dominio y pulsa Verificar.";domainStatus.className="form-status";}
+      if(domainPriceLine){domainPriceLine.textContent=domainOfferPrice!=null?`Precio mostrado: ${money(domainOfferPrice)} al ano.`:"";domainPriceLine.className="form-status";}
+      if(domainSubmit)domainSubmit.disabled=true;
+    };
+
+    if(upgradesCard&&upgradesList&&!archivedState&&pos===4&&(hasDomainOffer||hasHostingOffer)){
+      const items=[];
+      if(hasDomainOffer){
+        items.push(`<button class="action-card" type="button" data-upgrade-action="domain"><b>Consigue tu dominio propio</b><span>${safe(domainOfferNote)}</span><small>${domainOfferPrice!=null?`Desde ${safe(money(domainOfferPrice))} al ano`:"Cotizacion manual"}</small></button>`);
+      }
+      if(hasHostingOffer){
+        items.push(`<button class="action-card" type="button" data-upgrade-action="hosting"><b>Mejora tu alojamiento</b><span>${safe(hostingOfferNote)}</span><small>${hostingOfferPrice!=null?`Desde ${safe(money(hostingOfferPrice))} al ano`:"Cotizacion manual"}</small></button>`);
+      }
+      upgradesCard.hidden=false;
+      upgradesList.innerHTML=items.join("");
+    }else if(upgradesCard){
+      upgradesCard.hidden=true;
+      if(upgradesList)upgradesList.innerHTML="";
+    }
+
+    domainClose?.addEventListener("click",()=>domainDialog?.close());
+    domainDialog?.addEventListener("close",resetDomainOfferDialog);
+
+    domainCheck?.addEventListener("click",async()=>{
+      const normalized=normalizeDomain(domainInput?.value||"");
+      selectedUpgradeDomain="";
+      if(domainSubmit)domainSubmit.disabled=true;
+      if(!normalized){
+        if(domainStatus){domainStatus.textContent="Escribe un dominio valido. Ejemplo: tunegocio.com";domainStatus.className="form-status error";}
+        return;
+      }
+      if(domainStatus){domainStatus.textContent="Verificando dominio...";domainStatus.className="form-status";}
+      try{
+        const result=await checkName(normalized,true);
+        selectedUpgradeDomainPrice=result.price!=null?Number(result.price):domainOfferPrice;
+        if(result.availability==="free"){
+          selectedUpgradeDomain=normalized;
+          if(domainStatus){domainStatus.textContent=`${normalized} esta disponible.`;domainStatus.className="form-status success";}
+          if(domainPriceLine){domainPriceLine.textContent=selectedUpgradeDomainPrice!=null?`Precio mostrado: ${money(selectedUpgradeDomainPrice)} al ano.`:"Precio por confirmar por WhatsApp.";domainPriceLine.className="form-status";}
+          if(domainSubmit)domainSubmit.disabled=false;
+          if(domainInput)domainInput.value=normalized;
+          return;
+        }
+        if(result.availability==="taken"){
+          if(domainStatus){domainStatus.textContent=`${normalized} ya esta ocupado. Prueba otro.`;domainStatus.className="form-status error";}
+        }else{
+          if(domainStatus){domainStatus.textContent="No pudimos confirmar disponibilidad. Intenta de nuevo.";domainStatus.className="form-status error";}
+        }
+      }catch(err){
+        if(domainStatus){domainStatus.textContent=friendlyError(err,"No pudimos verificar el dominio.");domainStatus.className="form-status error";}
+      }
+    });
+
+    domainForm?.addEventListener("submit",async e=>{
+      e.preventDefault();
+      if(!selectedUpgradeDomain){
+        if(domainStatus){domainStatus.textContent="Primero verifica un dominio disponible.";domainStatus.className="form-status error";}
+        return;
+      }
+      const b=domainSubmit;
+      if(b)b.disabled=true;
+      if(domainStatus){domainStatus.textContent="Enviando solicitud...";domainStatus.className="form-status";}
+      try{
+        const detailLines=[
+          `Dominio elegido: ${selectedUpgradeDomain}`,
+          selectedUpgradeDomainPrice!=null?`Precio mostrado: ${money(selectedUpgradeDomainPrice)} al ano.`:"",
+          domainOfferNote?`Oferta visible: ${domainOfferNote}`:""
+        ].filter(Boolean);
+        const payload={
+          project_id:id,
+          user_id:session.user.id,
+          request_type:"dominio",
+          message:detailLines.join(" "),
+          status:"Nueva",
+          admin_title:"Dominio solicitado",
+          admin_summary:`El cliente quiere ${selectedUpgradeDomain}${selectedUpgradeDomainPrice!=null?` por ${money(selectedUpgradeDomainPrice)} al ano`:""}.`
+        };
+        const {error}=await db.from("client_requests").insert(payload);
+        if(error)throw error;
+        domainDialog?.close();
+        openUpgradeWhatsapp("dominio",detailLines);
+      }catch(err){
+        if(domainStatus){domainStatus.textContent=friendlyError(err,"No pudimos enviar la solicitud.");domainStatus.className="form-status error";}
+        if(b)b.disabled=false;
+      }
+    });
+
+    upgradesList?.addEventListener("click",async e=>{
+      const btn=e.target.closest("[data-upgrade-action]");
+      if(!btn)return;
+      const kind=btn.dataset.upgradeAction;
+      if(kind==="domain"){
+        resetDomainOfferDialog();
+        domainDialog?.showModal();
+        return;
+      }
+      if(kind==="hosting"){
+        const detailLines=[
+          hostingOfferPrice!=null?`Precio mostrado: ${money(hostingOfferPrice)} al ano.`:"",
+          hostingOfferNote?`Oferta visible: ${hostingOfferNote}`:""
+        ].filter(Boolean);
+        if(!confirm(`Se enviara una solicitud para mejorar el alojamiento${hostingOfferPrice!=null?` por ${money(hostingOfferPrice)} al ano`:""}.`))return;
+        btn.disabled=true;
+        try{
+          const payload={
+            project_id:id,
+            user_id:session.user.id,
+            request_type:"hosting",
+            message:detailLines.join(" ")||"Quiero mejorar el alojamiento de mi pagina.",
+            status:"Nueva",
+            admin_title:"Mejora de alojamiento solicitada",
+            admin_summary:`El cliente quiere mejorar el alojamiento${hostingOfferPrice!=null?` por ${money(hostingOfferPrice)} al ano`:""}.`
+          };
+          const {error}=await db.from("client_requests").insert(payload);
+          if(error)throw error;
+          openUpgradeWhatsapp("hosting",detailLines);
+        }catch(err){
+          alert(friendlyError(err,"No pudimos enviar la solicitud."));
+          btn.disabled=false;
+        }
+      }
+    });
 
     const baseTimeline=projectBaseTimeline(project);
     $("#project-timeline").innerHTML=baseTimeline.length?baseTimeline.map(item=>`<article class="timeline-item"><h3>${safe(item.title)}</h3><p>${safe(item.description||"")}</p><time>${date(item.dateValue)}</time></article>`).join(""):`<article class="timeline-item"><h3>Proyecto creado</h3><p>Tu proyecto fue registrado correctamente.</p><time>${date(project.created_at)}</time></article>`;
@@ -1089,47 +1313,6 @@ db.from("client_requests").select("*").eq("project_id",id).order("created_at",{a
     });
   }
 
-  async function initEditor() {
-    const {session,profile}=await loadContext(); const id=getParam("project"); if(!id){location.replace("panel.html");return;}
-    const [{data:project,error},{data:brief,error:briefErr}]=await Promise.all([
-      db.from("client_projects").select("*").eq("id",id).single(),
-      db.from("client_project_briefs").select("*").eq("project_id",id).maybeSingle()
-    ]);
-    if(error||briefErr) throw error||briefErr;
-    startLiveUpdates(`portal-editor-${id}`,[{table:"client_projects",filter:`id=eq.${id}`}],async()=>location.reload());
-    const access=editorAccessState(project);
-    if(access.status!=="active"){
-      location.replace(`proyecto.html?id=${encodeURIComponent(id)}`);
-      return;
-    }
-    $("#editor-back-link").href=`proyecto.html?id=${encodeURIComponent(id)}`;
-    $("#editor-project-title").textContent=project.name||"Editor de tu sitio";
-    $("#editor-project-copy").textContent=project.domain?`Editando ${project.domain}`:"Haz cambios basicos sin esperar soporte.";
-    $("#editor-access-badge").textContent=access.ends?`Activo hasta ${date(access.ends)}`:"Activo";
-
-    const form=$("#editor-demo-form");
-    if(form){
-      form.headline.value=brief?.business_name||project.name||"";
-      form.description.value=brief?.business_description||"";
-      form.items.value=brief?.products_services||"";
-      form.schedule.value=brief?.schedule_text||"";
-      form.phone.value=brief?.public_phone||profile.phone||"";
-      form.address.value=brief?.address_text||"";
-      const syncPreview=()=>{
-        $("#editor-preview-title").textContent=form.headline.value||project.name||"Tu negocio";
-        $("#editor-preview-description").textContent=form.description.value||"Aqui se vera el texto principal del sitio.";
-      };
-      form.addEventListener("input",syncPreview);
-      syncPreview();
-    }
-    $$("[data-editor-section]").forEach(btn=>btn.addEventListener("click",()=>{
-      const target=btn.dataset.editorSection;
-      $$("[data-editor-section]").forEach(b=>b.classList.toggle("active",b===btn));
-      $$("[data-editor-panel]").forEach(panel=>panel.hidden=panel.dataset.editorPanel!==target);
-    }));
-    $("#editor-save-demo")?.addEventListener("click",()=>setStatus("#editor-save-status","Esta pantalla ya esta lista. Falta conectar el guardado real.","success"));
-  }
-
   async function start(){
     try{
       if(page==="access")await initAccess();
@@ -1138,7 +1321,6 @@ db.from("client_requests").select("*").eq("project_id",id).order("created_at",{a
       else if(page==="profile")await initProfile();
       else if(page==="configure")await initConfigure();
       else if(page==="project")await initProject();
-      else if(page==="editor")await initEditor();
     }catch(error){
       if(["AUTH_REDIRECT","PROFILE_REDIRECT"].includes(error.message))return;
       console.error(error);const msg=friendlyError(error,"No pudimos cargar esta información. Intenta nuevamente.");
