@@ -4,7 +4,7 @@
   const page = document.body?.dataset.portalPage;
   const portal = window.EBPortal || { configured:false, configError:"El portal no está disponible." };
   const db = portal.client;
-  const WHATSAPP = "529811332914";
+  const WHATSAPP = "525629767176";
   const CLAIM_KEY = "eb_project_claim";
   const CONSULTAR_ENDPOINT = "https://scaebulgcuvqpucondws.supabase.co/functions/v1/consultar-dominio";
   // Enlace de afiliado de Hostinger: pegar aqui el enlace completo ?aff= cuando este aprobado.

@@ -4,9 +4,9 @@
   const portal=window.EBPortal||{};
   const db=portal.client;
   const crmPage=document.body?.dataset.crmPage||"dashboard";
-  const WHATSAPP="529811332914";
+  const WHATSAPP="525629767176";
   const PROD_ORIGIN=(location.protocol.startsWith("http")&&!['localhost','127.0.0.1'].includes(location.hostname))?location.origin:"https://excepcional-build.pages.dev";
-  const state={session:null,rol:null,prospects:[],trash:[],clients:[],projects:[],requests:[],users:[],currentProject:null,currentProspect:null,currentClient:null,hostingPlans:[],currentSetup:null};
+  const state={session:null,rol:null,permissions:{},prospects:[],trash:[],clients:[],projects:[],requests:[],users:[],settings:[],currentProject:null,currentProspect:null,currentClient:null,hostingPlans:[],currentSetup:null,projectStorageAudit:{},projectStorageBusy:{}};
   let crmRealtimeChannel=null;
   let crmRefreshTimer=0;
   let crmLiveBusy=false;
@@ -18,6 +18,8 @@
   const money=(v)=>v==null||v===""||Number.isNaN(Number(v))?"—":new Intl.NumberFormat("es-MX",{style:"currency",currency:"MXN"}).format(Number(v));
   const fmtDate=(v)=>v?new Intl.DateTimeFormat("es-MX",{day:"numeric",month:"short",year:"numeric"}).format(new Date(v)):"—";
   const localDate=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;};
+  const fmtDateTime=(v)=>v?new Intl.DateTimeFormat("es-MX",{day:"numeric",month:"short",year:"numeric",hour:"numeric",minute:"2-digit"}).format(new Date(v)):"—";
+  const fmtBytes=(v)=>{const bytes=Number(v||0);if(!Number.isFinite(bytes)||bytes<=0)return"0 B";const units=["B","KB","MB","GB","TB"];let size=bytes,idx=0;while(size>=1024&&idx<units.length-1){size/=1024;idx++;}const digits=size>=100||idx===0?0:(size>=10?1:2);return`${size.toFixed(digits)} ${units[idx]}`;};
   const waNumber=(phone)=>{const d=digits(phone);return d.startsWith("52")?d:`52${d}`;};
   const clientById=(id)=>state.clients.find(c=>c.id===id);
   const projectById=(id)=>state.projects.find(p=>p.id===id);
@@ -58,19 +60,95 @@
   const projectTabKey=(id)=>`eb_project_tab_${id||"new"}`;
   let prospectStage="new";
 
+  const DEFAULT_PERMISSIONS={
+    dashboard:true,
+    prospects:true,
+    invited:false,
+    clients:false,
+    projects:false,
+    project_admin:false,
+    editor_any:false,
+    storage_cleanup:false,
+    requests:false,
+    users:false,
+    settings:false,
+    trash:true
+  };
+
+  function defaultPermissionsForRole(role="asesor"){
+    return role==="administrador"
+      ?{
+        dashboard:true,
+        prospects:true,
+        invited:true,
+        clients:true,
+        projects:true,
+        project_admin:true,
+        editor_any:true,
+        storage_cleanup:true,
+        requests:true,
+        users:true,
+        settings:true,
+        trash:true
+      }
+      :{...DEFAULT_PERMISSIONS};
+  }
+  function normalizePermissionsLocal(role="asesor",raw={}){
+    const base={...defaultPermissionsForRole(role),...(raw&&typeof raw==="object"?raw:{})};
+    if(role!=="administrador") return {...DEFAULT_PERMISSIONS};
+    if(!base.projects){
+      base.project_admin=false;
+      base.editor_any=false;
+      base.storage_cleanup=false;
+    }else if(!base.project_admin){
+      base.editor_any=false;
+      base.storage_cleanup=false;
+    }
+    return base;
+  }
+  function hasPerm(key){return Boolean(state.permissions?.[key]);}
+  function canManageUsers(){return state.rol==="administrador"&&hasPerm("users");}
+  function canViewSettings(){return state.rol==="administrador"&&hasPerm("settings");}
+  function canProjectAdmin(){return state.rol==="administrador"&&hasPerm("project_admin");}
+  function allowedCrmViews(){
+    const out=["dashboard"];
+    if(hasPerm("prospects")) out.push("prospects");
+    if(hasPerm("invited")) out.push("invited");
+    if(hasPerm("clients")) out.push("clients","client-detail");
+    if(hasPerm("projects")) out.push("projects");
+    if(hasPerm("requests")) out.push("requests");
+    if(canManageUsers()) out.push("users");
+    if(canViewSettings()) out.push("settings");
+    if(hasPerm("trash")) out.push("trash");
+    return out;
+  }
+  function applyPermissionUi(){
+    const allowed=new Set(allowedCrmViews());
+    $$(".crm-nav [data-view]").forEach(btn=>{
+      btn.hidden=!allowed.has(btn.dataset.view);
+    });
+    $$("[data-view-panel]").forEach(panel=>{
+      const view=panel.dataset.viewPanel;
+      if(view==="dashboard"){panel.hidden=false;return;}
+      panel.hidden=!allowed.has(view);
+    });
+    const showClientProjects=hasPerm("clients")||hasPerm("projects");
+    $$('[data-prospect-stage="projects"], [data-prospect-panel="projects"]').forEach(el=>{
+      el.hidden=!showClientProjects;
+    });
+  }
+
   function readCrmUiState(){
     try{return JSON.parse(localStorage.getItem(CRM_UI_KEY)||"{}")||{};}
     catch{return {};}
   }
-  function getSavedCrmUi(role){
+  function getSavedCrmUi(){
     const saved=readCrmUiState();
     const requestedView=getParam("view");
     const requestedClient=getParam("client");
     const fallbackView=localStorage.getItem(CRM_VIEW_KEY)||"dashboard";
     const rawView=requestedView||saved.view||fallbackView||"dashboard";
-    const allowed=role==="administrador"
-      ?["dashboard","prospects","invited","clients","client-detail","projects","requests","users","trash"]
-      :["dashboard","prospects","trash"];
+    const allowed=allowedCrmViews();
     return {
       view:allowed.includes(rawView)?rawView:"dashboard",
       clientId:requestedClient||saved.clientId||"",
@@ -157,36 +235,60 @@
       $("#view-subtitle").textContent="Vista dedicada para administrar solo a este cliente.";
       return;
     }
-    const meta={dashboard:["Resumen","Vista general del negocio."],prospects:["Prospectos","Personas interesadas que todavía no han aceptado."],invited:["Clientes invitados","Aceptaron trabajar contigo y están pendientes de activar su cuenta."],clients:["Clientes","Personas que ya activaron su cuenta."],projects:["Proyectos","Control de producción, pagos y publicación."],requests:["Solicitudes","Cambios y mantenimiento pedidos por clientes."],users:["Usuarios","Cuentas con acceso al CRM y sus permisos."],trash:["Papelera","Prospectos eliminados que puedes restaurar o borrar definitivamente."]}[name]||["CRM",""];
+    const meta={dashboard:["Resumen","Vista general del negocio."],prospects:["Prospectos","Personas interesadas que todavía no han aceptado."],invited:["Clientes invitados","Aceptaron trabajar contigo y están pendientes de activar su cuenta."],clients:["Clientes","Personas que ya activaron su cuenta."],projects:["Proyectos","Control de producción, pagos y publicación."],requests:["Solicitudes","Cambios y mantenimiento pedidos por clientes."],users:["Usuarios","Cuentas con acceso al CRM y sus permisos."],settings:["Configuración","Opciones internas de Excepcional Build."],trash:["Papelera","Prospectos eliminados que puedes restaurar o borrar definitivamente."]}[name]||["CRM",""];
     $("#view-title").textContent=meta[0];$("#view-subtitle").textContent=meta[1];
   }
-  function resolveInitialView(role){
-    return getSavedCrmUi(role).view;
+  async function loadCrmProfile(){
+    const {data,error}=await db.rpc("crm_mi_perfil");
+    if(error) throw error;
+    if(!data?.rol) return null;
+    return {
+      rol:data.rol==="administrador"?"administrador":"asesor",
+      permisos:normalizePermissionsLocal(data.rol,data.permisos||{})
+    };
   }
-  async function checkAdmin(){const {data,error}=await db.rpc("mi_rol_crm");if(error)throw error;return data==="administrador"?data:"asesor";}
-  async function showSession(session){
+async function showSession(session){
     state.session=session;
     if(!session){stopCrmRealtime();$("#crm-login").hidden=false;$("#crm-app").hidden=true;document.body.classList.remove("crm-booting");return;}
     try{
-      const rol=await checkAdmin();
-      if(!rol){setLine("#crm-login-status","Esta cuenta no tiene acceso al CRM. Si crees que debería tenerlo, pídeselo al administrador.","error");$("#crm-login").hidden=false;$("#crm-app").hidden=true;document.body.classList.remove("crm-booting");return;}
-      state.rol=rol;
+      const profile=await loadCrmProfile();
+      if(!profile){
+        setLine("#crm-login-status","Esta cuenta no tiene acceso al CRM. Si crees que debería tenerlo, pídeselo al administrador.","error");
+        $("#crm-login").hidden=false;
+        $("#crm-app").hidden=true;
+        document.body.classList.remove("crm-booting");
+        return;
+      }
+      state.rol=profile.rol;
+      state.permissions=profile.permisos||normalizePermissionsLocal(profile.rol,{});
       startCrmRealtime();
-      const esAdmin=rol==="administrador";
-      $$(".admin-only").forEach(el=>el.hidden=!esAdmin);
-      $("#crm-login").hidden=true;$("#crm-app").hidden=false;if($("#admin-email"))$("#admin-email").textContent=session.user.email||"";if($("#admin-name"))$("#admin-name").textContent=session.user.user_metadata?.full_name||session.user.email?.split("@")[0]||"Administrador";if($("#admin-rol"))$("#admin-rol").textContent=esAdmin?"Administrador":"Asesor";
+      applyPermissionUi();
+      $("#crm-login").hidden=true;
+      $("#crm-app").hidden=false;
+      if($("#admin-email"))$("#admin-email").textContent=session.user.email||"";
+      if($("#admin-name"))$("#admin-name").textContent=session.user.user_metadata?.full_name||session.user.email?.split("@")[0]||"Administrador";
+      if($("#admin-rol"))$("#admin-rol").textContent=state.rol==="administrador"?"Administrador":"Asesor";
       document.body.classList.remove("crm-booting");
-      if(crmPage==="project-admin"){ await loadAll(false); await initProjectAdminPage(); return; }
-      const savedUi=getSavedCrmUi(rol);
+
+      if(crmPage==="project-admin"){
+        if(!canProjectAdmin()){
+          setLine("#crm-login-status","Esta cuenta no tiene permiso para administrar proyectos.","error");
+          $("#crm-login").hidden=false;
+          $("#crm-app").hidden=true;
+          return;
+        }
+        await loadAll(false);
+        await initProjectAdminPage();
+        return;
+      }
+
+      const savedUi=getSavedCrmUi();
       setView(savedUi.view,false);
       await loadAll(false);
       applyCrmUi(savedUi);
       renderAll();
-      if(state.rol==="administrador")await loadUsers();
+      if(canManageUsers())await loadUsers();
       if(savedUi.view==="client-detail"){
-        // Nunca restaurar el detalle de cliente al volver/recargar: Chrome puede
-        // descartar y recargar la pestaña en segundo plano, y el usuario aparecería
-        // dentro del detalle de un cliente sin saber cómo llegó. Se restaura la lista.
         state.currentClient=null;
         setView("clients",false);
         rememberCrmUiState({view:"clients",clientId:""});
@@ -194,20 +296,55 @@
         rememberCrmUiState({view:savedUi.view,clientId:""});
       }
       return;
-    }
-    catch(err){setLine("#crm-login-status","No pudimos comprobar tus permisos.","error");$("#crm-login").hidden=false;$("#crm-app").hidden=true;document.body.classList.remove("crm-booting");}
+    }catch(err){setLine("#crm-login-status","No pudimos comprobar tus permisos.","error");$("#crm-login").hidden=false;$("#crm-app").hidden=true;document.body.classList.remove("crm-booting");}
   }
   async function loadAll(render=true){
-    const results=await Promise.all([
-      db.from("prospectos").select("*").order("creado_en",{ascending:false}),
-      db.from("client_profiles").select("*").order("created_at",{ascending:false}),
-      db.from("client_projects").select("*").order("created_at",{ascending:false}),
-      db.from("client_requests").select("*").order("created_at",{ascending:false})
-    ]);
-    for(const r of results)if(r.error)throw r.error;
-    const all=results[0].data||[];state.prospects=all.filter(p=>!p.borrado_en);state.trash=all.filter(p=>p.borrado_en);state.clients=results[1].data||[];state.projects=results[2].data||[];state.requests=results[3].data||[];
+    const loadProspects=hasPerm("prospects")||hasPerm("trash");
+    const loadClients=hasPerm("clients");
+    const loadProjects=hasPerm("projects")||hasPerm("project_admin")||hasPerm("editor_any");
+    const loadRequests=hasPerm("requests");
+
+    const prospectsR=loadProspects
+      ?await db.from("prospectos").select("*").order("creado_en",{ascending:false})
+      :{data:[],error:null};
+
+    const clientsR=loadClients
+      ?await db.from("client_profiles").select("*").order("created_at",{ascending:false})
+      :{data:[],error:null};
+
+    const projectsR=loadProjects
+      ?await db.from("client_projects").select("*").order("created_at",{ascending:false})
+      :{data:[],error:null};
+
+    const requestsR=loadRequests
+      ?await db.from("client_requests").select("*").order("created_at",{ascending:false})
+      :{data:[],error:null};
+
+    for(const r of [prospectsR,clientsR,projectsR,requestsR]) if(r.error) throw r.error;
+
+    const allProspects=prospectsR.data||[];
+    state.prospects=hasPerm("prospects")?allProspects.filter(p=>!p.borrado_en):[];
+    state.trash=hasPerm("trash")?allProspects.filter(p=>p.borrado_en):[];
+    state.clients=clientsR.data||[];
+    state.projects=projectsR.data||[];
+    state.requests=requestsR.data||[];
+
+    if(canViewSettings()){
+      try{
+        const r=await db.from("crm_settings").select("*");
+        if(!r.error) state.settings=r.data||[];
+        else state.settings=[];
+      }catch(_){state.settings=[];}
+    }else{
+      state.settings=[];
+    }
+
     await loadHostingPlans();
-    if(render){renderAll();if(state.rol==="administrador")await loadUsers();}
+
+    if(render){
+      renderAll();
+      if(canManageUsers()) await loadUsers();
+    }
   }
   function patchCollection(list,row,event,key="id"){
     const oldId=row?.old?.[key];
@@ -271,8 +408,8 @@
           const currentId=state.currentProject?.id||getParam("id");
           if(currentId) await loadProjectDetails(currentId,false);
           else await initProjectAdminPage();
-          if(state.rol==="administrador") await loadUsers();
-          return;
+if(canManageUsers()) await loadUsers();
+      return;
         }
         await loadAll();
         const projectModal=$("#project-modal");
@@ -325,7 +462,7 @@
     crmRealtimeChannel=channel;
     channel.subscribe();
   }
-  function renderAll(){renderDashboard();renderProspects();renderTrash();renderInvited();renderClients();renderClientDetail();renderProjects();renderRequests();fillClientSelect();}
+  function renderAll(){renderDashboard();renderProspects();renderTrash();renderInvited();renderClients();renderClientDetail();renderProjects();renderRequests();fillClientSelect();renderSettings();updateSettingsBanner();}
 
   function renderDashboard(){
     const active=state.prospects.filter(p=>{
@@ -397,16 +534,16 @@
   async function deleteProspectForever(id){const p=state.trash.find(x=>String(x.id)===String(id));if(!p)return;if(!confirm(`¿Borrar "${p.negocio}" definitivamente? Esta acción no se puede deshacer.`))return;const {error}=await db.from("prospectos").delete().eq("id",id);if(error){toast("No pudimos borrar el prospecto.");return;}state.trash=state.trash.filter(x=>String(x.id)!==String(id));renderAll();toast("Prospecto borrado permanentemente.");}
   async function emptyTrash(){if(!state.trash.length)return;if(!confirm(`¿Vaciar la papelera? Se borrarán ${state.trash.length} prospectos definitivamente.`))return;const ids=state.trash.map(p=>p.id);const {error}=await db.from("prospectos").delete().in("id",ids);if(error){toast("No pudimos vaciar la papelera.");return;}state.trash=[];renderAll();toast("Papelera vaciada.");}
 
-  async function loadUsers(){const {data,error}=await db.rpc("crm_listar_usuarios");if(error)throw error;state.users=data||[];renderUsers();}
+  async function loadUsers(){const {data,error}=await db.rpc("crm_listar_usuarios");if(error)throw error;state.users=(data||[]).map(u=>({...u,permisos:normalizePermissionsLocal(u.rol,u.permisos||{})}));renderUsers();}
   function renderUsers(){
     const rows=$("#user-rows");if(!rows)return;
     const me=state.session?.user?.email||"";
-    const puedoAdmin=state.rol==="administrador";
+    const puedoAdmin=canManageUsers();
     rows.innerHTML=state.users.map(u=>{
       const esAdmin=u.rol==="administrador",esAsesor=u.rol==="asesor",esCliente=!esAdmin&&!esAsesor;const esYo=String(u.email).toLowerCase()===String(me).toLowerCase();
       const rolBadge=esAdmin?`<span class="badge orange">Administrador</span>`:esAsesor?`<span class="badge blue">Asesor</span>`:`<span class="badge yellow">Cliente</span>`;
       const estado=esCliente?`<span class="badge">Sin acceso</span>`:`<span class="badge ${u.activo?"green":"red"}">${u.activo?"Activo":"Desactivado"}</span>`;
-      const acciones=esYo?`<span class="sub">Tú</span>`:(!puedoAdmin?`<span class="sub">Solo lectura</span>`:(esCliente?`<div class="row-actions"><button class="tiny-btn green" data-grant-user="${esc(u.email)}" data-grant-rol="asesor">Dar acceso como asesor</button><button class="tiny-btn orange" data-grant-user="${esc(u.email)}" data-grant-rol="administrador">Hacer administrador</button></div>`:`<div class="row-actions"><select class="control user-rol-select" data-user-email="${esc(u.email)}" data-user-rol="${esc(u.rol)}" ${u.activo?"":"disabled"}><option value="asesor" ${u.rol==="asesor"?"selected":""}>Asesor</option><option value="administrador" ${u.rol==="administrador"?"selected":""}>Administrador</option></select><button class="tiny-btn ${u.activo?"danger":"green"}" data-toggle-user="${esc(u.email)}">${u.activo?"Desactivar":"Activar"}</button><button class="tiny-btn danger" data-delete-user="${esc(u.email)}">Quitar del CRM</button></div>`));
+      const acciones=esYo?`<span class="sub">Tú</span>`:(!puedoAdmin?`<span class="sub">Solo lectura</span>`:(esCliente?`<div class="row-actions"><button class="tiny-btn green" data-grant-user="${esc(u.email)}" data-grant-rol="asesor">Dar acceso como asesor</button><button class="tiny-btn orange" data-grant-user="${esc(u.email)}" data-grant-rol="administrador">Hacer administrador</button></div>`:`<div class="row-actions"><select class="control user-rol-select" data-user-email="${esc(u.email)}" ${u.activo?"":"disabled"}><option value="asesor" ${u.rol==="asesor"?"selected":""}>Asesor</option><option value="administrador" ${u.rol==="administrador"?"selected":""}>Administrador</option></select><button class="tiny-btn" data-open-user-permissions="${esc(u.email)}">Permisos</button><button class="tiny-btn ${u.activo?"danger":"green"}" data-toggle-user="${esc(u.email)}">${u.activo?"Desactivar":"Activar"}</button><button class="tiny-btn danger" data-delete-user="${esc(u.email)}">Quitar del CRM</button></div>`));
       return `<tr><td><strong>${esc(u.nombre||u.email)}</strong>${u.nombre?`<span class="sub">${esc(u.email)}</span>`:""}<span class="sub">${esYo?"Cuenta actual":""}</span></td><td>${rolBadge}</td><td>${estado}</td><td>${acciones}</td></tr>`;
     }).join("");
     $("#user-empty").hidden=state.users.length>0;
@@ -417,7 +554,7 @@
     if(!email||!nombre){setLine("#user-status","Escribe el correo y el nombre de la persona.","error");return;}
     const b=e.currentTarget.querySelector('button[type="submit"]');b.disabled=true;setLine("#user-status","Guardando…");
     try{
-      const res=await db.rpc("crm_agregar_usuario",{p_email:email,p_nombre:nombre,p_rol:rol});
+      const res=await db.rpc("crm_agregar_usuario",{p_email:email,p_nombre:nombre,p_rol:rol,p_permisos:defaultPermissionsForRole(rol)});
       if(res.error)throw res.error;
       if(res.data==="NO_EXISTE"){setLine("#user-status","Ese correo todavía no tiene cuenta. Pídele a la persona que entre una vez con Google al portal para crearla, y después la agregas aquí.","error");return;}
       $("#user-email").value="";$("#user-name").value="";setLine("#user-status","Usuario guardado con permiso "+(rol==="administrador"?"administrador":"asesor")+".","success");
@@ -426,17 +563,21 @@
     finally{b.disabled=false;}
   }
   async function changeUserRole(email,rol){
-    if(!email||!rol)return;
-    const res=await db.rpc("crm_actualizar_usuario",{p_email:email,p_rol:rol,p_activo:true});
+    const current=userByEmail(email);
+    if(!current||!rol)return;
+    const permisos=normalizePermissionsLocal(rol,current.permisos||defaultPermissionsForRole(rol));
+    const res=await db.rpc("crm_actualizar_usuario",{p_email:email,p_rol:rol,p_activo:current.activo,p_permisos:permisos});
     if(res.error){toast(res.error.message||"No pudimos cambiar el permiso.");return;}
-    toast("Permiso actualizado.");await loadUsers();
+    toast("Permiso actualizado.");
+    await loadUsers();
   }
   async function toggleUser(email,activo){
-    const current=state.users.find(u=>String(u.email).toLowerCase()===String(email).toLowerCase());
+    const current=userByEmail(email);
     if(!current)return;
-    const res=await db.rpc("crm_actualizar_usuario",{p_email:email,p_rol:current.rol,p_activo:activo});
+    const res=await db.rpc("crm_actualizar_usuario",{p_email:email,p_rol:current.rol,p_activo:activo,p_permisos:current.permisos||defaultPermissionsForRole(current.rol)});
     if(res.error){toast(res.error.message||"No pudimos cambiar el estado.");return;}
-    toast(activo?"Usuario activado.":"Usuario desactivado.");await loadUsers();
+    toast(activo?"Usuario activado.":"Usuario desactivado.");
+    await loadUsers();
   }
   async function removeUser(email){
     if(!confirm(`¿Quitar a ${email} del CRM? Podrá seguir siendo cliente, pero ya no entrará al CRM.`))return;
@@ -445,9 +586,183 @@
     toast("Usuario quitado del CRM.");await loadUsers();
   }
   async function grantUser(email,rol){
-    const res=await db.rpc("crm_registrar_usuario",{p_email:email,p_rol:rol});
+    const res=await db.rpc("crm_registrar_usuario",{p_email:email,p_rol:rol,p_permisos:defaultPermissionsForRole(rol)});
     if(res.error){toast(res.error.message||"No pudimos darle acceso.");return;}
-    toast(`Acceso otorgado como ${rol==="administrador"?"administrador":"asesor"}.`);await loadUsers();
+    toast(`Acceso otorgado como ${rol==="administrador"?"administrador":"asesor"}.`);
+    await loadUsers();
+  }
+
+  function userByEmail(email){
+    return state.users.find(u=>String(u.email).toLowerCase()===String(email).toLowerCase())||null;
+  }
+
+  function openUserPermissions(email){
+    const user=userByEmail(email);
+    if(!user)return;
+    const form=$("#user-permissions-form");
+    const perms=normalizePermissionsLocal(user.rol,user.permisos||{});
+    form.elements.email.value=user.email||"";
+    form.elements.rol.value=user.rol||"asesor";
+    form.elements.activo.value=user.activo?"1":"0";
+    form.elements.perm_dashboard.checked=!!perms.dashboard;
+    form.elements.perm_prospects.checked=!!perms.prospects;
+    form.elements.perm_invited.checked=!!perms.invited;
+    form.elements.perm_clients.checked=!!perms.clients;
+    form.elements.perm_projects.checked=!!perms.projects;
+    form.elements.perm_project_admin.checked=!!perms.project_admin;
+    form.elements.perm_editor_any.checked=!!perms.editor_any;
+    form.elements.perm_storage_cleanup.checked=!!perms.storage_cleanup;
+    form.elements.perm_requests.checked=!!perms.requests;
+    form.elements.perm_users.checked=!!perms.users;
+    form.elements.perm_settings.checked=!!perms.settings;
+    form.elements.perm_trash.checked=!!perms.trash;
+    setLine("#user-permissions-status","");
+    $("#user-permissions-modal").showModal();
+  }
+
+  function readUserPermissionsForm(){
+    const f=$("#user-permissions-form");
+    return normalizePermissionsLocal(f.elements.rol.value,{
+      dashboard:f.elements.perm_dashboard.checked,
+      prospects:f.elements.perm_prospects.checked,
+      invited:f.elements.perm_invited.checked,
+      clients:f.elements.perm_clients.checked,
+      projects:f.elements.perm_projects.checked,
+      project_admin:f.elements.perm_project_admin.checked,
+      editor_any:f.elements.perm_editor_any.checked,
+      storage_cleanup:f.elements.perm_storage_cleanup.checked,
+      requests:f.elements.perm_requests.checked,
+      users:f.elements.perm_users.checked,
+      settings:f.elements.perm_settings.checked,
+      trash:f.elements.perm_trash.checked
+    });
+  }
+
+  async function saveUserPermissions(e){
+    e.preventDefault();
+    const f=e.currentTarget;
+    const email=f.elements.email.value;
+    const rol=f.elements.rol.value;
+    const activo=f.elements.activo.value==="1";
+    const permisos=readUserPermissionsForm();
+    const btn=f.querySelector('button[type="submit"]');
+    btn.disabled=true;
+    setLine("#user-permissions-status","Guardando…");
+    try{
+      const res=await db.rpc("crm_actualizar_usuario",{p_email:email,p_rol:rol,p_activo:activo,p_permisos:permisos});
+      if(res.error) throw res.error;
+      setLine("#user-permissions-status","Permisos guardados.","success");
+      $("#user-permissions-modal").close();
+      await loadUsers();
+    }catch(err){
+      setLine("#user-permissions-status",err.message||"No pudimos guardar los permisos.","error");
+    }finally{
+      btn.disabled=false;
+    }
+  }
+
+  function settingsRow(){return (state.settings||[]).find(s=>s.key==="supabase_access_token")||null;}
+  function tokenExpiry(row){
+    const saved=row?.updated_at?new Date(row.updated_at).getTime():Date.now();
+    const expires=saved+30*86400000;
+    return {saved,expires,remaining:Math.ceil((expires-Date.now())/86400000)};
+  }
+  function renderSettings(){
+    const box=$("#settings-token-status");
+    if(!box||!canViewSettings())return;
+    const row=settingsRow();
+    if(!row||!row.value){
+      box.innerHTML=`<div class="empty" style="text-align:left;padding:12px">No hay token guardado todavía. Genera uno en <strong>supabase.com → Account → Access tokens</strong> y pégalo abajo.</div>`;
+      return;
+    }
+    const info=tokenExpiry(row);
+    const masked=`sbp_…${String(row.value).slice(-6)}`;
+    let level="green",label="",short="";
+    if(info.remaining<=0){level="red";label="Token EXPIRADO";short="EXPIRADO";}
+    else if(info.remaining===0){level="red";label="Token expira HOY";short="HOY";}
+    else if(info.remaining===1){level="orange";label="Token expira mañana";short="1 día";}
+    else if(info.remaining<=3){level="yellow";label=`Token expira en ${info.remaining} días`;short=`${info.remaining} días`;}
+    else{label=`Token válido · ${info.remaining} días`;short=`${info.remaining} días`;}
+    box.innerHTML=`<div class="mini-item"><div><strong>${label}</strong><span class="sub">Guardado: ${fmtDate(new Date(info.saved).toISOString())}</span><span class="sub">Caduca: ${fmtDate(new Date(info.expires).toISOString())}</span><span class="sub">Token actual: ${esc(masked)} <small>(solo el final se muestra)</small></span></div><span class="badge ${level}">${short}</span></div>`;
+  }
+  function updateSettingsBanner(){
+    const banner=$("#dashboard-token-banner");
+    if(!banner)return;
+    if(!canViewSettings()){banner.hidden=true;return;}
+    const row=settingsRow(),info=row?.value?tokenExpiry(row):null;
+    const txt=$("#dashboard-token-banner-text");
+    if(!info||info.remaining>3){banner.hidden=true;return;}
+    const label=info.remaining<=0?"El token de Supabase EXPIRÓ. Cambia el token en Configuración.":info.remaining===0?"El token de Supabase expira HOY. Cambia el token en Configuración.":info.remaining===1?"El token de Supabase expira mañana. Configúralo hoy en Configuración.":`El token de Supabase expira en ${info.remaining} días. Actualízalo en Configuración.`;
+    txt.textContent=label;
+    banner.className="token-banner "+(info.remaining<=1?"red":"yellow");
+    banner.hidden=false;
+  }
+  async function saveSettingsToken(e){
+    e.preventDefault();
+    const input=$("#settings-token-input"),raw=String(input.value||"").trim();
+    if(raw.length<20){setLine("#settings-token-status-line","Ese valor no parece un token de Supabase (empieza con sbp_).","error");return;}
+    const btn=e.currentTarget.querySelector('button[type="submit"]');btn.disabled=true;
+    setLine("#settings-token-status-line","Guardando…");
+    try{
+      const {data,error}=await db.from("crm_settings").upsert({key:"supabase_access_token",value:raw,updated_at:new Date().toISOString()},{onConflict:"key"}).select().single();
+      if(error)throw error;
+      const now=new Date().toISOString();
+      const existing=settingsRow();
+      if(existing){existing.value=raw;existing.updated_at=now;}
+      else state.settings=(state.settings||[]).concat([{key:"supabase_access_token",value:raw,updated_at:now}]);
+      if(data)Object.assign(data instanceof Object?data:{},data||{});
+      input.value="";$("#settings-token-show").checked=false;input.type="password";
+      renderSettings();updateSettingsBanner();
+      setLine("#settings-token-status-line","Token guardado. Caducará 30 días después de hoy.","success");
+    }catch(err){setLine("#settings-token-status-line",err.message||"No pudimos guardar el token.","error");}
+    finally{btn.disabled=false;}
+  }
+  async function verifySettingsToken(){
+    const row=settingsRow();
+    if(!row?.value){setLine("#settings-token-status-line","Primero guarda un token para poder comprobarlo.","error");return;}
+    const btn=$("#settings-token-verify");btn.disabled=true;
+    setLine("#settings-token-status-line","Comprobando validez…");
+    try{
+      const r=await fetch("/api/verificar-sb-token",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:row.value})});
+      const data=await r.json().catch(()=>({}));
+      if(data?.ok)setLine("#settings-token-status-line",`Token válido ✓ (acceso a ${data.count??0} proyecto${(data.count??0)===1?"":"s"}).`,"success");
+      else if(data?.error==="expirado")setLine("#settings-token-status-line","El token expiró (401). Genera uno nuevo en supabase.com y cámbialo aquí.","error");
+      else if(data?.error==="invalido")setLine("#settings-token-status-line","Supabase rechazó el token. Verifícalo y vuelve a guardarlo.","error");
+      else setLine("#settings-token-status-line","No pudimos comprobar la validez ahora. Reintenta en unos minutos.","error");
+    }catch(_){setLine("#settings-token-status-line","No pudimos comprobar la validez ahora. Revisa tu conexión.","error");}
+    finally{btn.disabled=false;}
+  }
+  async function loadSettings(){
+    try{
+      const r=await db.from("crm_settings").select("*");
+      if(r&&!r.error)state.settings=r.data||[];
+    }catch(_){state.settings=state.settings||[];}
+    renderSettings();updateSettingsBanner();
+    loadGithubQuota();
+  }
+  async function loadGithubQuota(){
+    const box=$("#settings-github-quota");
+    if(!box||!canViewSettings())return;
+    box.innerHTML=`<div class="empty" style="text-align:left;padding:12px">Consultando el tanque de GitHub…</div>`;
+    try{
+      const r=await fetch("/api/repo-quota");
+      const data=await r.json().catch(()=>null);
+      if(!data){box.innerHTML=`<div class="empty" style="text-align:left;padding:12px">No pudimos consultar el estado.</div>`;return;}
+      if(!data.token_configured){box.innerHTML=`<div class="empty" style="text-align:left;padding:12px">No hay GITHUB_TOKEN configurado en Cloudflare Pages. Sin él no se puede publicar ni leer repos.</div>`;return;}
+      if(!data.token_valid){
+        box.innerHTML=`<div class="mini-item"><div><strong>Token de GitHub EXPIRADO o inválido</strong><span class="sub">Genera uno nuevo en github.com → Settings → Developer settings → Tokens y actualízalo en las variables de Cloudflare Pages.</span></div><span class="badge red">EXPIRADO</span></div>`;
+        return;
+      }
+      const remaining=Number(data.remaining||0),limit=Number(data.limit||5000);
+      const pct=limit>0?Math.round((remaining/limit)*100):0;
+      let level="green",short="Sano";
+      if(pct<=10){level="red";short="Crítico";}
+      else if(pct<=30){level="yellow";short="Bajo";}
+      const reset=data.reset_in_minutes!=null?`Se liberan más peticiones en ${data.reset_in_minutes} min.`:"";
+      box.innerHTML=`<div class="mini-item"><div><strong>${esc(String(remaining))} de ${esc(String(limit))} peticiones disponibles (${pct}%)</strong><span class="sub">Usadas esta hora: ${esc(String(data.used??0))}</span><span class="sub">${esc(reset)}</span><span class="sub">El token está vivo y con acceso ✓</span></div><span class="badge ${level}">${short}</span></div>`;
+    }catch(_){
+      box.innerHTML=`<div class="empty" style="text-align:left;padding:12px">No pudimos consultar el estado. Revisa tu conexión.</div>`;
+    }
   }
 
   function renderInvited(){
@@ -457,7 +772,28 @@
 
   function renderClients(){
     const q=$("#client-search")?.value.toLowerCase().trim()||"";const visible=state.clients.filter(c=>`${c.full_name} ${c.email} ${c.phone} ${c.location}`.toLowerCase().includes(q));
-    $("#clients-grid").innerHTML=visible.length?visible.map(c=>{const projects=projectsForClient(c.id),published=projects.filter(p=>p.site_visibility==="public").length,avatar=c.avatar_url?`<img src="${esc(c.avatar_url)}" alt="">`:esc((c.full_name||c.email||"EB").split(/\s+/).map(x=>x[0]).join("").slice(0,2).toUpperCase()),wa=c.phone?`https://wa.me/${waNumber(c.phone)}`:"";return `<article class="client-card"><div class="client-card-top"><div class="client-avatar">${avatar}</div><div><h3>${esc(c.full_name||"Cliente")}</h3><p>${esc(c.email||"")}</p></div></div><div class="client-meta"><div><span>WhatsApp</span><strong>${esc(c.phone||"—")}</strong></div><div><span>Ubicación</span><strong>${esc(c.location||"—")}</strong></div><div><span>Proyectos</span><strong>${projects.length}</strong></div><div><span>Publicados</span><strong>${published}</strong></div></div><div class="row-actions" style="margin-top:12px">${wa?`<a class="link-btn" href="${wa}" target="_blank" rel="noopener">WhatsApp</a>`:""}<button class="tiny-btn" data-open-client="${c.id}">Ver cliente</button></div></article>`}).join(""):`<div class="empty">Todavía no hay clientes con cuenta activa.</div>`;
+    $("#clients-grid").innerHTML=visible.length?visible.map(c=>{const projects=projectsForClient(c.id),published=projects.filter(p=>p.site_visibility==="public").length,avatar=c.avatar_url?`<img src="${esc(c.avatar_url)}" alt="">`:esc((c.full_name||c.email||"EB").split(/\s+/).map(x=>x[0]).join("").slice(0,2).toUpperCase()),wa=c.phone?`https://wa.me/${waNumber(c.phone)}`:"";return `<article class="client-card"><div class="client-card-top"><div class="client-avatar">${avatar}</div><div><h3>${esc(c.full_name||"Cliente")}</h3><p>${esc(c.email||"")}</p></div><div class="client-card-menu"><button class="card-menu-btn" type="button" data-client-menu-btn="${esc(c.id)}" aria-label="Opciones del cliente" aria-expanded="false">⋮</button><div class="card-menu-pop" hidden><button type="button" class="card-menu-item danger" data-delete-client="${esc(c.id)}">Eliminar cliente…</button></div></div></div><div class="client-meta"><div><span>WhatsApp</span><strong>${esc(c.phone||"—")}</strong></div><div><span>Ubicación</span><strong>${esc(c.location||"—")}</strong></div><div><span>Proyectos</span><strong>${projects.length}</strong></div><div><span>Publicados</span><strong>${published}</strong></div></div><div class="row-actions" style="margin-top:12px">${wa?`<a class="link-btn" href="${wa}" target="_blank" rel="noopener">WhatsApp</a>`:""}<button class="tiny-btn" data-open-client="${c.id}">Ver cliente</button></div></article>`}).join(""):`<div class="empty">Todavía no hay clientes con cuenta activa.</div>`;
+  }
+
+  async function deleteClient(id){
+    const c=clientById(id);
+    if(!c)return;
+    const projects=projectsForClient(id);
+    const aviso=projects.length?`\n\nBORRARÁ también ${projects.length} proyecto(s) con sus páginas, archivos y fotos.`:"";
+    if(!confirm(`¿Eliminar este cliente por completo?\n\n${esc(c.full_name||c.email||"Cliente")}\n${esc(c.email||"")}${aviso}\n\nSu cuenta de Google seguirá existiendo: si vuelve a entrar, empezará de nuevo como cliente nuevo. Esta acción no se puede deshacer.`))return;
+    if(!confirm("¿Confirmas la eliminación definitiva de este cliente y todos sus datos?"))return;
+    const res=await db.rpc("crm_eliminar_cliente",{p_email:c.email});
+    if(res.error){toast(res.error.message||"No pudimos eliminar al cliente.");return;}
+    let out=null;
+    try{out=res.data?JSON.parse(res.data):null;}catch(_){out=null;}
+    if(!out||out.result!=="OK"){toast("No pudimos eliminar al cliente.");return;}
+    if(Array.isArray(out.paths)&&out.paths.length){
+      try{
+        const {error}=await db.storage.from("site-images").remove(out.paths);
+        if(error)throw error;
+      }catch(_){toast("Cliente eliminado, pero no pudimos borrar algunas fotos.");}
+    }
+    toast("Cliente eliminado por completo.");await loadAll();
   }
 
   function renderClientDetail(){
@@ -529,9 +865,9 @@
     return ({
       cambio:"Cambio",
       mantenimiento:"Mantenimiento",
-      actualizar:"Actualización",
+      actualizar:"Actualizacion",
       dominio:"Dominio",
-      hosting:"Funciones especiales",
+      hosting:"Mejora de alojamiento",
       mejorar:"Mejora"
     })[String(value||"").toLowerCase()]||value||"Solicitud";
   }
@@ -725,11 +1061,248 @@
     $("#project-summary-visibility").textContent=projectVisibilityLabel(form.elements.site_visibility.value);
     $("#project-summary-payment").textContent=money(form.elements.total_price.value||0);
   }
+  const STORAGE_BUCKET="site-images";
+
+  function storagePublicPrefix(){
+    const base=String(window.EB_SUPABASE_CONFIG?.url||"").replace(/\/+$/,"");
+    return base?`${base}/storage/v1/object/public/${STORAGE_BUCKET}/`:"";
+  }
+
+  function escapeRegExp(value=""){
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+  }
+
+  function storagePublicPathFromString(raw){
+    const value=String(raw||"").trim();
+    if(!value)return"";
+    const prefix=storagePublicPrefix();
+    const normalized=value.startsWith("//")?`https:${value}`:value;
+    try{
+      const url=new URL(normalized,location.origin);
+      const marker=`/storage/v1/object/public/${STORAGE_BUCKET}/`;
+      const idx=url.pathname.indexOf(marker);
+      if(idx<0)return"";
+      return decodeURIComponent(url.pathname.slice(idx+marker.length)).replace(/^\/+/,"");
+    }catch{
+      if(prefix&&value.startsWith(prefix)){
+        return decodeURIComponent(value.slice(prefix.length)).split(/[?#]/)[0].replace(/^\/+/,"");
+      }
+      return"";
+    }
+  }
+
+  function collectStorageRefsFromValue(value,refs=new Map()){
+    const prefix=storagePublicPrefix();
+    if(!value||!prefix)return refs;
+    const re=new RegExp(`${escapeRegExp(prefix)}[^"'\\s)<>]+`,"g");
+    const visit=(current)=>{
+      if(current==null)return;
+      if(typeof current==="string"){
+        const hits=current.match(re)||[];
+        hits.forEach(hit=>{
+          const path=storagePublicPathFromString(hit);
+          if(path)refs.set(path,(refs.get(path)||0)+1);
+        });
+        const direct=storagePublicPathFromString(current);
+        if(direct)refs.set(direct,(refs.get(direct)||0)+1);
+        return;
+      }
+      if(Array.isArray(current)){current.forEach(visit);return;}
+      if(typeof current==="object")Object.values(current).forEach(visit);
+    };
+    visit(value);
+    return refs;
+  }
+
+  async function listProjectStorageObjects(projectId,prefix=projectId,out=[]){
+    let offset=0;
+    while(true){
+      const {data,error}=await db.storage.from(STORAGE_BUCKET).list(prefix,{limit:100,offset,sortBy:{column:"name",order:"asc"}});
+      if(error)throw error;
+      const rows=Array.isArray(data)?data:[];
+      for(const row of rows){
+        if(!row?.name)continue;
+        const fullPath=`${prefix}/${row.name}`.replace(/\/+/g,"/");
+        if(row.id==null&&!row.metadata){
+          await listProjectStorageObjects(projectId,fullPath,out);
+          continue;
+        }
+        const size=Number(row?.metadata?.size??row?.metadata?.contentLength??row?.size??0)||0;
+        const {data:publicData}=db.storage.from(STORAGE_BUCKET).getPublicUrl(fullPath);
+        out.push({
+          name:row.name,
+          path:fullPath,
+          url:publicData?.publicUrl||"",
+          size,
+          createdAt:row.created_at||row.createdAt||"",
+          updatedAt:row.updated_at||row.last_accessed_at||row.created_at||""
+        });
+      }
+      if(rows.length<100)break;
+      offset+=rows.length;
+    }
+    return out;
+  }
+
+  function storageReasonLabels(meta){
+    const out=[];
+    if(meta.repoDraft)out.push(`Repo borrador (${meta.repoDraft})`);
+    return out;
+  }
+
+  function selectedProjectStoragePaths(){
+    return $$('[data-storage-path]:checked',$("#project-storage-list")).map(input=>input.dataset.storagePath).filter(Boolean);
+  }
+
+  function updateProjectStorageButtons(){
+    const projectId=state.currentProject?.id||"";
+    const audit=state.projectStorageAudit[projectId]||null;
+    const selected=selectedProjectStoragePaths();
+    const selectedBtn=$("#project-storage-delete-selected");
+    const unusedBtn=$("#project-storage-delete-unused");
+    if(selectedBtn){
+      selectedBtn.disabled=!audit?.safeDelete||!selected.length;
+      selectedBtn.textContent=selected.length?`Borrar seleccionados (${selected.length})`:"Borrar seleccionados";
+    }
+    if(unusedBtn){
+      unusedBtn.disabled=!audit?.safeDelete||!audit?.candidateFiles;
+      unusedBtn.textContent=audit?.candidateFiles?`Borrar candidatos (${audit.candidateFiles})`:"Borrar candidatos";
+    }
+  }
+
+  function renderProjectStorageAudit(audit){
+    const summary=$("#project-storage-summary"),count=$("#project-storage-count"),list=$("#project-storage-list");
+    if(!summary||!count||!list)return;
+    summary.innerHTML=`<article class="storage-stat-card"><span>Total en Supabase</span><strong>${fmtBytes(audit.totalBytes)}</strong><small>${audit.totalFiles} archivo${audit.totalFiles===1?"":"s"} del editor dentro de Supabase.</small></article><article class="storage-stat-card"><span>En uso</span><strong>${fmtBytes(audit.usedBytes)}</strong><small>${audit.usedFiles} archivo${audit.usedFiles===1?"":"s"} con referencias activas.</small></article><article class="storage-stat-card"><span>Candidatos</span><strong>${fmtBytes(audit.candidateBytes)}</strong><small>${audit.candidateFiles} archivo${audit.candidateFiles===1?"":"s"} sin referencias actuales.</small></article><article class="storage-stat-card"><span>Estado</span><strong>${audit.safeDelete?"Listo para limpiar":"Análisis incompleto"}</strong><small>${audit.safeDelete?`Última revisión: ${fmtDateTime(audit.scannedAt)}.`:"No borres hasta resolver los avisos del análisis."}</small></article>`;
+    count.textContent=audit.totalFiles?`${audit.totalFiles} archivo${audit.totalFiles===1?"":"s"}`:"";
+    list.innerHTML=audit.files.length?audit.files.map(file=>`<div class="storage-file-row ${file.used?"used":"candidate"}"><label class="storage-file-check">${audit.safeDelete&&!file.used?`<input type="checkbox" data-storage-path="${esc(file.path)}">`:`<input type="checkbox" disabled>`}</label><div class="storage-file-main"><div class="storage-file-title"><strong title="${esc(file.path)}">${esc(file.name)}</strong><span class="storage-pill ${file.used?"used":"candidate"}">${file.used?"En uso":"Candidato"}</span></div><div class="storage-file-meta"><span>${fmtBytes(file.size)}</span><span>${fmtDateTime(file.updatedAt||file.createdAt)}</span><span>${esc(file.reasons.join(" · ")||"Sin referencias actuales")}</span></div></div><div class="storage-file-actions">${file.url?`<a class="tiny-btn" href="${file.url}" target="_blank" rel="noopener">Abrir</a>`:""}</div></div>`).join(""):`<div class="storage-empty">No hay archivos del editor en Supabase para este proyecto.</div>`;
+    updateProjectStorageButtons();
+  }
+
+  function resetProjectStoragePanel(project={}){
+    const summary=$("#project-storage-summary"),count=$("#project-storage-count"),list=$("#project-storage-list");
+    if(!summary||!count||!list)return;
+    const audit=project?.id?state.projectStorageAudit[project.id]:null;
+    if(audit){renderProjectStorageAudit(audit);return;}
+    summary.innerHTML=`<article class="storage-stat-card"><span>Total en Supabase</span><strong>—</strong><small>Abre Analizar para revisar este proyecto.</small></article><article class="storage-stat-card"><span>En uso</span><strong>—</strong><small>Se llena al terminar el análisis.</small></article><article class="storage-stat-card"><span>Candidatos</span><strong>—</strong><small>Archivos sin referencias actuales.</small></article><article class="storage-stat-card"><span>Estado</span><strong>Sin análisis</strong><small>La limpieza manual se habilita solo cuando el análisis termina completo.</small></article>`;
+    count.textContent="";
+    list.innerHTML=project?.id?`<div class="storage-empty">Abre este apartado y pulsa Analizar.</div>`:`<div class="storage-empty">Guarda el proyecto primero.</div>`;
+    setLine("#project-storage-line",project?.id?"Aquí verás el consumo del editor en Supabase y los candidatos a limpieza.":"Guarda el proyecto para poder analizar su almacenamiento.");
+    updateProjectStorageButtons();
+  }
+
+  async function analyzeProjectStorage(force=false){
+    const project=state.currentProject;
+    if(!project?.id)return;
+    if(state.projectStorageBusy[project.id])return;
+    if(!force&&state.projectStorageAudit[project.id]){
+      renderProjectStorageAudit(state.projectStorageAudit[project.id]);
+      return;
+    }
+    state.projectStorageBusy[project.id]=true;
+    setLine("#project-storage-line","Analizando almacenamiento del editor…");
+    try{
+      const warnings=[];
+      let repoDrafts=[];
+
+      try{
+        const repoResult=await db.from("client_site_repo_drafts").select("page_path,edited_html,original_html,elements,updated_at,published_at").eq("project_id",project.id);
+        if(repoResult.error)throw repoResult.error;
+        repoDrafts=repoResult.data||[];
+      }catch(err){
+        warnings.push("No se pudieron revisar los borradores del modo repo.");
+        console.error("storage repo drafts",err);
+      }
+
+      const refMeta=new Map();
+      const register=(bucket,value)=>{
+        const hits=collectStorageRefsFromValue(value,new Map());
+        hits.forEach((count,path)=>{
+          const current=refMeta.get(path)||{repoDraft:0};
+          current[bucket]=(current[bucket]||0)+count;
+          refMeta.set(path,current);
+        });
+      };
+
+      repoDrafts.forEach(row=>{
+        register("repoDraft",row.edited_html);
+        register("repoDraft",row.original_html);
+        register("repoDraft",row.elements||{});
+      });
+
+      const files=(await listProjectStorageObjects(project.id)).map(file=>{
+        const meta=refMeta.get(file.path)||{repoDraft:0};
+        const reasons=storageReasonLabels(meta);
+        return {...file,used:Boolean(reasons.length),reasons};
+      }).sort((a,b)=>{
+        if(a.used!==b.used)return a.used?1:-1;
+        return (b.size||0)-(a.size||0);
+      });
+
+      const totalBytes=files.reduce((sum,file)=>sum+file.size,0);
+      const usedFiles=files.filter(file=>file.used);
+      const candidateFiles=files.filter(file=>!file.used);
+      const audit={
+        projectId:project.id,
+        scannedAt:new Date().toISOString(),
+        warnings,
+        safeDelete:!warnings.length,
+        files,
+        totalFiles:files.length,
+        totalBytes,
+        usedFiles:usedFiles.length,
+        usedBytes:usedFiles.reduce((sum,file)=>sum+file.size,0),
+        candidateFiles:candidateFiles.length,
+        candidateBytes:candidateFiles.reduce((sum,file)=>sum+file.size,0)
+      };
+
+      state.projectStorageAudit[project.id]=audit;
+      renderProjectStorageAudit(audit);
+      setLine("#project-storage-line",warnings.length?`Análisis terminado con avisos: ${warnings.join(" ")}`:`Análisis terminado. Ya puedes revisar y limpiar candidatos.` ,warnings.length?"error":"success");
+    }catch(err){
+      console.error("analyze project storage",err);
+      setLine("#project-storage-line",err?.message||"No pudimos analizar el almacenamiento del editor.","error");
+    }finally{
+      delete state.projectStorageBusy[project.id];
+    }
+  }
+
+  async function ensureProjectStorageAudit(force=false){
+    const project=state.currentProject;
+    if(!project?.id)return;
+    if(force||!state.projectStorageAudit[project.id]){
+      await analyzeProjectStorage(true);
+      return;
+    }
+    renderProjectStorageAudit(state.projectStorageAudit[project.id]);
+  }
+
+  async function deleteProjectStoragePaths(paths){
+    const project=state.currentProject;
+    const list=(paths||[]).filter(Boolean);
+    if(!project?.id||!list.length)return;
+    const audit=state.projectStorageAudit[project.id];
+    if(!audit?.safeDelete){
+      setLine("#project-storage-line","El análisis no está completo. No borres archivos hasta resolver los avisos.","error");
+      return;
+    }
+    if(!confirm(`¿Borrar ${list.length} archivo(s) de Supabase para ${project.name||"este proyecto"}? Esta acción no se puede deshacer.`))return;
+    setLine("#project-storage-line",`Borrando ${list.length} archivo(s)…`);
+    const {error}=await db.storage.from(STORAGE_BUCKET).remove(list);
+    if(error){
+      setLine("#project-storage-line",error.message||"No pudimos borrar los archivos.","error");
+      return;
+    }
+    delete state.projectStorageAudit[project.id];
+    setLine("#project-storage-line",`${list.length} archivo(s) borrados.`,"success");
+    await ensureProjectStorageAudit(true);
+  }
   function setProjectTab(name="summary"){
     const projectId=state.currentProject?.id||$("#project-form")?.elements?.id?.value||"new";
     try{ localStorage.setItem(projectTabKey(projectId),name); }catch{}
     $$("[data-project-tab]").forEach(btn=>btn.classList.toggle("active",btn.dataset.projectTab===name));
     $$("[data-project-panel]").forEach(panel=>panel.classList.toggle("active",panel.dataset.projectPanel===name));
+    if(name==="storage")ensureProjectStorageAudit();
   }
   function setProspectStage(name="new",persist=true){
     prospectStage=name;
@@ -772,43 +1345,51 @@
   }
   function editorAdminError(error){
     const text=String(error?.message||"");
-    if(/editor_enabled|editor_access_status|editor_access_starts_at|editor_access_ends_at|editor_plan_months|editor_price_mxn|editor_launch_url|site_repo_owner|site_repo_name|site_repo_branch|site_repo_path|site_live_url|site_publish_provider|site_editor_mode/i.test(text)) return "Falta configurar los campos del editor/repositorio en Supabase. Ejecuta la migración del editor y vuelve a intentar.";
+    if(/editor_enabled|editor_visible_to_client|editor_access_status|editor_access_starts_at|editor_access_ends_at|editor_plan_months|editor_price_mxn|editor_launch_url|site_repo_owner|site_repo_name|site_repo_branch|site_repo_path|site_live_url|site_publish_provider|site_editor_mode/i.test(text)) return "Falta configurar los campos del editor/repositorio en Supabase. Ejecuta la migracion del editor y vuelve a intentar.";
     return error?.message||"No pudimos actualizar el editor.";
   }
+  function currentEditorVisibleValue(project){
+    const field=$("#project-editor-visible");
+    return field ? Boolean(field.checked) : Boolean(project?.editor_visible_to_client);
+  }
   function updateEditorAdminUI(project){
-    const badge=$("#project-editor-badge"),status=$("#project-editor-status"),dates=$("#project-editor-dates"),url=$("#project-editor-url"),copy=$("#project-editor-copy");
-    if(!badge||!status||!dates||!url||!copy)return;
+    const badge=$("#project-editor-badge"),status=$("#project-editor-status"),dates=$("#project-editor-dates"),copy=$("#project-editor-copy");
+    if(!badge||!status||!dates||!copy)return;
     const access=editorState(project);
-    url.value=project?.editor_launch_url||"";
-    const liveUrl=$("#project-site-live-url"),owner=$("#project-site-repo-owner"),repo=$("#project-site-repo-name"),branch=$("#project-site-repo-branch"),path=$("#project-site-repo-path"),provider=$("#project-site-publish-provider"),mode=$("#project-site-editor-mode");
+    const visible=currentEditorVisibleValue(project);
+    const visibleToggle=$("#project-editor-visible"),visibleNote=$("#project-editor-visible-note");
+    const liveUrl=$("#project-site-live-url"),owner=$("#project-site-repo-owner"),repo=$("#project-site-repo-name"),branch=$("#project-site-repo-branch"),path=$("#project-site-repo-path"),provider=$("#project-site-publish-provider");
+    if(visibleToggle)visibleToggle.checked=visible;
+    if(visibleNote)visibleNote.textContent=visible?"Visible para el cliente. Vera planes o el boton Abrir editor segun su acceso.":"Oculto para el cliente. No vera planes ni boton del editor.";
     if(liveUrl)liveUrl.value=project?.site_live_url||project?.site_url||"";
     if(owner)owner.value=project?.site_repo_owner||"";
     if(repo)repo.value=project?.site_repo_name||"";
     if(branch)branch.value=project?.site_repo_branch||"main";
     if(path)path.value=project?.site_repo_path||"/";
     if(provider)provider.value=project?.site_publish_provider||"github_pages";
-    if(mode)mode.value=project?.site_editor_mode||"html_repo";
+
     if(access.status==="active"){
-      badge.className="badge green";
-      badge.textContent="Activo";
-      status.textContent="Editor activo";
+      badge.className=visible?"badge green":"badge";
+      badge.textContent=visible?"Activo":"Activo oculto";
+      status.textContent=visible?"Editor activo":"Editor activo pero oculto";
       dates.textContent=`Activo hasta ${fmtDate(access.ends)}${project?.editor_plan_months?` · ${project.editor_plan_months} mes${project.editor_plan_months===1?"":"es"}`:""}`;
-      copy.textContent="El cliente ya puede entrar a su editor. Si guardas una URL externa, el botón del portal abrirá ese servicio.";
+      copy.textContent=visible?"El cliente ya puede entrar al editor de su sitio.":"El acceso esta activo, pero la herramienta sigue oculta para el cliente.";
       return;
     }
     if(access.status==="expired"){
-      badge.className="badge red";
-      badge.textContent="Vencido";
-      status.textContent="Acceso vencido";
-      dates.textContent=access.ends?`Venció el ${fmtDate(access.ends)}.`:"El acceso del editor ya no está activo.";
-      copy.textContent="Puedes renovarlo con un plan nuevo o dejarlo vencido para que el cliente vuelva a ver los planes.";
+      badge.className=visible?"badge red":"badge";
+      badge.textContent=visible?"Vencido":"Vencido oculto";
+      status.textContent=visible?"Acceso vencido":"Acceso vencido y oculto";
+      dates.textContent=access.ends?`Venció el ${fmtDate(access.ends)}.`:"El acceso del editor ya no esta activo.";
+      copy.textContent=visible?"Puedes renovarlo con un plan nuevo o dejarlo vencido para que el cliente vea los planes.":"La herramienta esta oculta. Si luego la muestras, el cliente vera los planes para renovarla.";
       return;
     }
+
     badge.className="badge";
-    badge.textContent="No activo";
-    status.textContent="Sin acceso activo";
-    dates.textContent="Todavía no tiene acceso al editor.";
-    copy.textContent="Actívalo por tiempo y decide a qué editor entrará el cliente.";
+    badge.textContent=visible?"Visible sin acceso":"Oculto";
+    status.textContent=visible?"Sin acceso activo":"Herramienta oculta";
+    dates.textContent=visible?"El cliente vera los planes del editor, pero todavia no tiene acceso activo.":"El cliente no vera esta herramienta.";
+    copy.textContent=visible?"El cliente ya ve los planes del editor. Activalo cuando quieras.":"Activa 'Mostrar herramienta editor al cliente' para que aparezca en su portal.";
   }
   const CONSULTAR_ENDPOINT="https://scaebulgcuvqpucondws.supabase.co/functions/v1/consultar-dominio";
   function normalizeSiteName(raw){let v=String(raw||"").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");v=v.replace(/^[a-z]+:\/\//,"").replace(/^www\./,"").split(/[/?#]/)[0].replace(/\s+/g,"-").replace(/[^a-z0-9-]/g,"").replace(/^-+|-+$/g,"");return v.slice(0,63);}
@@ -851,12 +1432,24 @@
       if(el.domain_value_locked)el.domain_value_locked.checked=Boolean(setup.domain_value_locked);
       if(el.domain_verified_at)el.domain_verified_at.value=setup.domain_verified_at||"";
       if(el.hosting_plan_locked)el.hosting_plan_locked.checked=Boolean(setup.hosting_plan_locked);
-      if(el.domain)el.domain.value=setup.address_type==="dominio"?(setup.domain||""):(setup.site_name?`${setup.site_name}.pages.dev`:"" );
-  const status=$("#verify-domain-status");if(status) status.textContent=setup.domain_verified_at?`Dominio verificado (${fmtDate(setup.domain_verified_at)})`:"";
+      if(el.domain)el.domain.value=setup.address_type==="dominio"?(setup.domain||""):(setup.site_name?`${setup.site_name}.pages.dev`:"");
+      if(el.offer_domain_enabled)el.offer_domain_enabled.checked=Boolean(setup.offer_domain_enabled);
+      if(el.offer_domain_price)el.offer_domain_price.value=setup.offer_domain_price??"";
+      if(el.offer_domain_note)el.offer_domain_note.value=setup.offer_domain_note||"";
+      if(el.offer_hosting_enabled)el.offer_hosting_enabled.checked=Boolean(setup.offer_hosting_enabled);
+      if(el.offer_hosting_price)el.offer_hosting_price.value=setup.offer_hosting_price??"";
+      if(el.offer_hosting_note)el.offer_hosting_note.value=setup.offer_hosting_note||"";
+      const status=$("#verify-domain-status");if(status) status.textContent=setup.domain_verified_at?`Dominio verificado (${fmtDate(setup.domain_verified_at)})`:"";
       renderHostingPlans(setup.hosting_plan_id||"");
     }else{
       state.currentSetup=null;
       if($("#verify-domain-status"))$("#verify-domain-status").textContent="";
+      if(el.offer_domain_enabled)el.offer_domain_enabled.checked=false;
+      if(el.offer_domain_price)el.offer_domain_price.value="";
+      if(el.offer_domain_note)el.offer_domain_note.value="";
+      if(el.offer_hosting_enabled)el.offer_hosting_enabled.checked=false;
+      if(el.offer_hosting_price)el.offer_hosting_price.value="";
+      if(el.offer_hosting_note)el.offer_hosting_note.value="";
       renderHostingPlans("");
     }
     updateConfigUI();
@@ -896,16 +1489,6 @@
     }catch(_){status.textContent="No pudimos verificar. Revisa que el formato sea correcto.";}
   }
 
-  async function saveEditorLaunchUrl(){
-    const project=state.currentProject,url=String($("#project-editor-url")?.value||"").trim()||null;
-    if(!project?.id)return;
-    setLine("#project-editor-line","Guardando URL del editor…");
-    const {data,error}=await db.from("client_projects").update({editor_launch_url:url,updated_at:new Date().toISOString()}).eq("id",project.id).select().single();
-    if(error){setLine("#project-editor-line",editorAdminError(error),"error");return;}
-    syncProjectState(data);
-    setLine("#project-editor-line","URL del editor guardada.","success");
-    toast("URL del editor guardada.");
-  }
   async function saveEditorRepoConfig(){
     const project=state.currentProject;
     if(!project?.id)return;
@@ -916,7 +1499,8 @@
       site_repo_branch:String($("#project-site-repo-branch")?.value||"").trim()||"main",
       site_repo_path:String($("#project-site-repo-path")?.value||"").trim()||"/",
       site_publish_provider:String($("#project-site-publish-provider")?.value||"github_pages"),
-      site_editor_mode:String($("#project-site-editor-mode")?.value||"html_repo"),
+      editor_visible_to_client:currentEditorVisibleValue(project),
+      site_editor_mode:"html_repo",
       updated_at:new Date().toISOString()
     };
     setLine("#project-editor-line","Guardando configuración del repo...");
@@ -933,7 +1517,16 @@
     const ends=new Date(now);
     ends.setMonth(ends.getMonth()+Number(months));
     setLine("#project-editor-line",`Activando editor por ${months} mes${months===1?"":"es"}…`);
-    const payload={editor_enabled:true,editor_access_status:"activo",editor_access_starts_at:now.toISOString(),editor_access_ends_at:ends.toISOString(),editor_plan_months:Number(months),editor_price_mxn:Number(price),updated_at:new Date().toISOString()};
+    const payload={
+      editor_enabled:true,
+      editor_visible_to_client:currentEditorVisibleValue(project),
+      editor_access_status:"activo",
+      editor_access_starts_at:now.toISOString(),
+      editor_access_ends_at:ends.toISOString(),
+      editor_plan_months:Number(months),
+      editor_price_mxn:Number(price),
+      updated_at:new Date().toISOString()
+    };
     const {data,error}=await db.from("client_projects").update(payload).eq("id",project.id).select().single();
     if(error){setLine("#project-editor-line",editorAdminError(error),"error");return;}
     syncProjectState(data);
@@ -945,7 +1538,7 @@
     if(!project?.id)return;
     if(!confirm(`¿Quitar el acceso al editor de ${project.name||"este proyecto"}?`))return;
     setLine("#project-editor-line","Cancelando acceso al editor…");
-    const {data,error}=await db.from("client_projects").update({editor_enabled:false,editor_access_status:"cancelado",updated_at:new Date().toISOString()}).eq("id",project.id).select().single();
+    const {data,error}=await db.from("client_projects").update({editor_enabled:false,editor_visible_to_client:currentEditorVisibleValue(project),editor_access_status:"cancelado",updated_at:new Date().toISOString()}).eq("id",project.id).select().single();
     if(error){setLine("#project-editor-line",editorAdminError(error),"error");return;}
     syncProjectState(data);
     setLine("#project-editor-line","Acceso del editor cancelado.","success");
@@ -999,7 +1592,12 @@
   }
 
   function setProjectForm(project={}){
-    const f=$("#project-form"),el=f.elements;state.currentProject=project.id?project:null;const savedTab=(project.id?localStorage.getItem(projectTabKey(project.id)):null)||"summary";f.reset();el.id.value=project.id||"";el.source_prospect_id.value=project.source_prospect_id||"";el.name.value=project.name||"";fillClientSelect();el.user_id.value=project.user_id||"";el.project_stage.value=project.project_stage||"Invitación";el.status.value=project.status||"Pendiente de activar cuenta";syncAddressRadios(project.address_type||"gratis",Boolean(project.domain_owned));el.domain.value=project.domain||"";el.hosting_type.value=project.hosting_type||"cloudflare";el.site_visibility.value=project.site_visibility||"hidden";el.site_url.value=project.site_url||"";el.preview_url.value=project.preview_url||"";el.total_price.value=project.total_price??750;el.deposit_amount.value=project.deposit_amount??375;el.balance_amount.value=project.balance_amount??375;el.payment_method.value=project.payment_method||"Transferencia";el.deposit_paid.checked=Boolean(project.deposit_paid);el.balance_paid.checked=Boolean(project.balance_paid);el.client_note.value=project.client_note||"";$("#project-modal-title").textContent=project.id?project.name:"Nuevo proyecto";setLine("#project-form-status","");setLine("#project-editor-line","");const inv=inviteUrl(project);$("#project-invite-box").hidden=!project.id||Boolean(project.user_id);$("#project-invite-url").textContent=inv||"Guarda el proyecto para generar una invitación.";$("#update-title").value="";$("#update-status").value="";$("#update-description").value="";setProjectTab(savedTab);updateProjectSummary();updateProjectLifecycleUI(project);updateEditorAdminUI(project);updateConfigUI();renderHostingPlans(project.id?state.currentSetup?.hosting_plan_id||"":"");resetPublishPanel(project);;
+    const f=$("#project-form"),el=f.elements;state.currentProject=project.id?project:null;const savedTab=(project.id?localStorage.getItem(projectTabKey(project.id)):null)||"summary";f.reset();el.id.value=project.id||"";el.source_prospect_id.value=project.source_prospect_id||"";el.name.value=project.name||"";fillClientSelect();el.user_id.value=project.user_id||"";el.project_stage.value=project.project_stage||"Invitación";el.status.value=project.status||"Pendiente de activar cuenta";syncAddressRadios(project.address_type||"gratis",Boolean(project.domain_owned));el.domain.value=project.domain||"";el.hosting_type.value=project.hosting_type||"cloudflare";el.site_visibility.value=project.site_visibility||"hidden";el.site_url.value=project.site_url||"";el.preview_url.value=project.preview_url||"";el.total_price.value=project.total_price??750;el.deposit_amount.value=project.deposit_amount??375;el.balance_amount.value=project.balance_amount??375;el.payment_method.value=project.payment_method||"Transferencia";el.deposit_paid.checked=Boolean(project.deposit_paid);el.balance_paid.checked=Boolean(project.balance_paid);el.client_note.value=project.client_note||"";$("#project-modal-title").textContent=project.id?project.name:"Nuevo proyecto";setLine("#project-form-status","");setLine("#project-editor-line","");const inv=inviteUrl(project);$("#project-invite-box").hidden=!project.id||Boolean(project.user_id);$("#project-invite-url").textContent=inv||"Guarda el proyecto para generar una invitación.";$("#update-title").value="";$("#update-status").value="";$("#update-description").value="";setProjectTab(savedTab);updateProjectSummary();updateProjectLifecycleUI(project);updateEditorAdminUI(project);resetProjectStoragePanel(project);updateConfigUI();renderHostingPlans(project.id?state.currentSetup?.hosting_plan_id||"":"");resetPublishPanel(project);
+    // Restaura la configuracion (setup) al formulario: la opcion "ya tiene dominio",
+    // los candados y el plan. Sin esto, al guardar/abrir el formulario se repintaba
+    // con la opcion equivocada por un instante (parpadeo), porque client_projects
+    // no guarda domain_owned ni los candados: viven en client_project_setup.
+    if(state.currentSetup&&state.currentSetup.project_id===project.id)applySetupToForm(state.currentSetup);
   }
 
   async function downloadAdminFile(fileId,fileName){try{const r=await fetch(`/api/project-file?id=${encodeURIComponent(fileId)}`,{headers:{Authorization:`Bearer ${state.session.access_token}`}});if(!r.ok)throw new Error();const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=fileName||"archivo";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch{toast("No pudimos descargar el archivo.");}}
@@ -1101,10 +1699,14 @@
     const p=projectById(id);if(!p)return;
     if(!p.user_id&&!p.claim_token){const token=crypto.randomUUID();const {data}=await db.from("client_projects").update({claim_token:token}).eq("id",id).select().single();if(data)Object.assign(p,data);}
     await ensureInvite(p);
-    setProjectForm(p);$("#project-setup-admin-content").innerHTML="<span>Cargando…</span>";$("#project-brief-admin-content").innerHTML="<span>Cargando…</span>";$("#project-files-admin").innerHTML="<span>Cargando…</span>";
+    $("#project-setup-admin-content").innerHTML="<span>Cargando…</span>";$("#project-brief-admin-content").innerHTML="<span>Cargando…</span>";$("#project-files-admin").innerHTML="<span>Cargando…</span>";
     const [setupR,briefR,filesR]=await Promise.all([db.from("client_project_setup").select("*").eq("project_id",id).maybeSingle(),db.from("client_project_briefs").select("*").eq("project_id",id).maybeSingle(),db.from("client_project_files").select("*").eq("project_id",id).order("created_at",{ascending:false})]);
     const setup=setupR.data,brief=briefR.data,files=filesR.data||[];
     state.currentSetup=setup||null;
+    // Repintar el formulario solo hasta tener la configuracion: asi la opcion
+    // "ya tiene dominio", los candados y el plan aparecen desde el primer momento
+    // (antes se marcaba la opcion equivocada y luego daba un salto).
+    setProjectForm(p);
     applySetupToForm(setup||null);
     const hostingPlanName=setup?.hosting_plan_id?(setup?.hosting_plan_name||"Plan elegido"):(setup?.hosting_type==="hostinger"?"Plan pendiente de definir":null);
     const lockedRows=[setup?.domain_type_locked&&["Tipo de dirección fijo","Sí"],setup?.domain_value_locked&&["Dirección fija","Sí"],setup?.hosting_plan_locked&&["Alojamiento fijo","Sí"]].filter(Boolean);
@@ -1176,8 +1778,9 @@
       const setupPrevio=state.currentSetup&&state.currentSetup.project_id===id?state.currentSetup:null;
       if(!planElegido&&!setupPrevio?.hosting_plan_id){setLine("#project-form-status","Para fijar el alojamiento primero elige un plan de hosting.","error");return;}
     }
-    const repoFields=$("#project-site-repo-owner")?{site_live_url:String($("#project-site-live-url")?.value||"").trim()||null,site_repo_owner:String($("#project-site-repo-owner")?.value||"").trim()||null,site_repo_name:String($("#project-site-repo-name")?.value||"").trim()||null,site_repo_branch:String($("#project-site-repo-branch")?.value||"").trim()||"main",site_repo_path:String($("#project-site-repo-path")?.value||"").trim()||"/",site_publish_provider:String($("#project-site-publish-provider")?.value||"github_pages"),site_editor_mode:String($("#project-site-editor-mode")?.value||"html_repo")}:{};
-    const payload={...repoFields,user_id:userId,name:String(fd.get("name")||"").trim(),project_stage:stage,status:String(fd.get("status")||"").trim()||stage,address_type:String(fd.get("address_type")||"gratis"),domain:String(fd.get("domain")||"").trim()||null,hosting_type:String(fd.get("hosting_type")||"cloudflare"),site_visibility:String(fd.get("site_visibility")||"hidden"),site_url:String(fd.get("site_url")||"").trim()||null,preview_url:String(fd.get("preview_url")||"").trim()||null,total_price:fd.get("total_price")?Number(fd.get("total_price")):null,deposit_amount:fd.get("deposit_amount")?Number(fd.get("deposit_amount")):null,balance_amount:fd.get("balance_amount")?Number(fd.get("balance_amount")):null,payment_method:String(fd.get("payment_method")||"").trim()||null,deposit_paid:fd.get("deposit_paid")==="on",balance_paid:fd.get("balance_paid")==="on",client_note:String(fd.get("client_note")||"").trim()||null,source_prospect_id:String(fd.get("source_prospect_id")||"")||null,updated_at:new Date().toISOString()};
+    const repoFields=$("#project-site-repo-owner")?{site_live_url:String($("#project-site-live-url")?.value||"").trim()||null,site_repo_owner:String($("#project-site-repo-owner")?.value||"").trim()||null,site_repo_name:String($("#project-site-repo-name")?.value||"").trim()||null,site_repo_branch:String($("#project-site-repo-branch")?.value||"").trim()||"main",site_repo_path:String($("#project-site-repo-path")?.value||"").trim()||"/",site_publish_provider:String($("#project-site-publish-provider")?.value||"github_pages"),site_editor_mode:"html_repo"}:{};
+    const editorVisibilityFields=$("#project-editor-visible")?{editor_visible_to_client:Boolean($("#project-editor-visible").checked)}:{};
+    const payload={...repoFields,...editorVisibilityFields,user_id:userId,name:String(fd.get("name")||"").trim(),project_stage:stage,status:String(fd.get("status")||"").trim()||stage,address_type:String(fd.get("address_type")||"gratis"),domain:String(fd.get("domain")||"").trim()||null,hosting_type:String(fd.get("hosting_type")||"cloudflare"),site_visibility:String(fd.get("site_visibility")||"hidden"),site_url:String(fd.get("site_url")||"").trim()||null,preview_url:String(fd.get("preview_url")||"").trim()||null,total_price:fd.get("total_price")?Number(fd.get("total_price")):null,deposit_amount:fd.get("deposit_amount")?Number(fd.get("deposit_amount")):null,balance_amount:fd.get("balance_amount")?Number(fd.get("balance_amount")):null,payment_method:String(fd.get("payment_method")||"").trim()||null,deposit_paid:fd.get("deposit_paid")==="on",balance_paid:fd.get("balance_paid")==="on",client_note:String(fd.get("client_note")||"").trim()||null,source_prospect_id:String(fd.get("source_prospect_id")||"")||null,updated_at:new Date().toISOString()};
     if(stage==="Revisión"&&!old?.review_ready_at)payload.review_ready_at=new Date().toISOString();if(stage==="Publicado"&&!old?.published_at)payload.published_at=new Date().toISOString();
     setLine("#project-form-status","Guardando…");const result=id?await db.from("client_projects").update(payload).eq("id",id).select().single():(async()=>{const {data,error}=await db.from("client_projects").insert({...payload,claim_token:null,accepted_at:new Date().toISOString()}).select().single();if(!error&&data&&!userId){const {data:updated}=await db.from("client_projects").update({claim_token:crypto.randomUUID()}).eq("id",data.id).select().single();if(updated)Object.assign(data,updated);await ensureInvite(data);}return {data,error};})();
     if(result.error){setLine("#project-form-status",result.error.message||"No pudimos guardar.","error");return;}
@@ -1217,7 +1820,27 @@
     }else{
       plan={hosting_plan_id:setupAnterior.hosting_plan_id||null,hosting_plan_name:setupAnterior.hosting_plan_name||null,hosting_plan_features:setupAnterior.hosting_plan_features||null,hosting_first_year:setupAnterior.hosting_first_year??null,hosting_renewal:setupAnterior.hosting_renewal??null,hosting_currency:setupAnterior.hosting_currency||"MXN"};
     }
-    const payload={project_id:saved.id,user_id:saved.user_id||setupAnterior?.user_id||null,address_type:addressType,site_name:siteName,domain,domain_owned:isDomain&&fd.get("domain_owned")==="on",domain_type_locked:fd.get("domain_type_locked")==="on",domain_value_locked:fd.get("domain_value_locked")==="on"&&!!(siteName||domain),domain_verified_at:String(fd.get("domain_verified_at")||"")||setupAnterior?.domain_verified_at||null,hosting_type:hostingType,hosting_plan_locked:fd.get("hosting_plan_locked")==="on",...plan,updated_at:new Date().toISOString()};
+    const payload={
+      project_id:saved.id,
+      user_id:saved.user_id||setupAnterior?.user_id||null,
+      address_type:addressType,
+      site_name:siteName,
+      domain,
+      domain_owned:isDomain&&fd.get("domain_owned")==="on",
+      domain_type_locked:fd.get("domain_type_locked")==="on",
+      domain_value_locked:fd.get("domain_value_locked")==="on"&&!!(siteName||domain),
+      domain_verified_at:String(fd.get("domain_verified_at")||"")||setupAnterior?.domain_verified_at||null,
+      hosting_type:hostingType,
+      hosting_plan_locked:fd.get("hosting_plan_locked")==="on",
+      offer_domain_enabled:fd.get("offer_domain_enabled")==="on",
+      offer_domain_price:fd.get("offer_domain_price")?Number(fd.get("offer_domain_price")):null,
+      offer_domain_note:String(fd.get("offer_domain_note")||"").trim()||null,
+      offer_hosting_enabled:fd.get("offer_hosting_enabled")==="on",
+      offer_hosting_price:fd.get("offer_hosting_price")?Number(fd.get("offer_hosting_price")):null,
+      offer_hosting_note:String(fd.get("offer_hosting_note")||"").trim()||null,
+      ...plan,
+      updated_at:new Date().toISOString()
+    };
     const {data,error}=await db.from("client_project_setup").upsert(payload,{onConflict:"project_id"}).select().single();
     if(error&&!/locked|fijad|configuraci/i.test(error.message||"")){setLine("#project-form-status",`El proyecto se guardó, pero no la configuración: ${error.message}`,"error");return;}
     if(data)state.currentSetup=data;
@@ -1256,9 +1879,18 @@
   $("#project-form")?.addEventListener("submit",saveProject);$$('[data-close-project]').forEach(b=>b.addEventListener("click",()=>$("#project-modal").close()));$("#new-project")?.addEventListener("click",()=>{state.currentSetup=null;setProjectForm({project_stage:"Invitación",status:"Pendiente de activar cuenta",site_visibility:"hidden",total_price:750,deposit_amount:375,balance_amount:375,payment_method:"Transferencia"});$("#project-setup-admin-content").innerHTML="<span>Sin configuración.</span>";$("#project-brief-admin-content").innerHTML="<span>Sin información.</span>";$("#project-files-admin").innerHTML="<span>No hay archivos.</span>";$("#project-modal").showModal();});
   $("#copy-project-invite")?.addEventListener("click",()=>state.currentProject&&copyInvite(state.currentProject.id));$("#whatsapp-project-invite")?.addEventListener("click",()=>state.currentProject&&sendInvite(state.currentProject.id));$("#renew-project-invite")?.addEventListener("click",renewInvite);$("#cancel-project-invite")?.addEventListener("click",()=>state.currentProject&&cancelInvite(state.currentProject.id));$("#archive-project-cancel")?.addEventListener("click",()=>archiveProjectState("cancel"));$("#archive-project-discontinue")?.addEventListener("click",()=>archiveProjectState("discontinue"));$("#restore-project")?.addEventListener("click",restoreArchivedProject);$("#delete-project-permanently")?.addEventListener("click",()=>deleteProjectPermanently());$("#add-project-update")?.addEventListener("click",addUpdate);
   $$("[data-editor-activate]").forEach(b=>b.addEventListener("click",()=>activateEditorAccess(Number(b.dataset.editorActivate),Number(b.dataset.editorPrice))));
-  $("#save-editor-url")?.addEventListener("click",saveEditorLaunchUrl);
   $("#save-editor-repo")?.addEventListener("click",saveEditorRepoConfig);
   $("#cancel-editor-access")?.addEventListener("click",cancelEditorAccess);
+  $("#project-storage-refresh")?.addEventListener("click",()=>ensureProjectStorageAudit(true));
+  $("#project-storage-delete-selected")?.addEventListener("click",()=>deleteProjectStoragePaths(selectedProjectStoragePaths()));
+  $("#project-storage-delete-unused")?.addEventListener("click",()=>{
+  const audit=state.projectStorageAudit[state.currentProject?.id||""];
+  const paths=(audit?.files||[]).filter(file=>!file.used).map(file=>file.path);
+  deleteProjectStoragePaths(paths);
+});
+$("#project-storage-list")?.addEventListener("change",e=>{
+  if(e.target?.matches("[data-storage-path]"))updateProjectStorageButtons();
+});
   $$("[data-project-tab]").forEach(b=>b.addEventListener("click",()=>setProjectTab(b.dataset.projectTab)));
   initPublishPanel();
   $$("[data-prospect-stage]").forEach(b=>b.addEventListener("click",()=>setProspectStage(b.dataset.prospectStage)));
@@ -1295,7 +1927,8 @@
   $("#trash-rows")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.restoreProspect)restoreProspect(t.dataset.restoreProspect);if(t.dataset.deleteProspectForever)deleteProspectForever(t.dataset.deleteProspectForever);});
   $("#invited-grid")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.copyInvite)copyInvite(t.dataset.copyInvite);if(t.dataset.sendInvite)sendInvite(t.dataset.sendInvite);if(t.dataset.openProject)openProject(t.dataset.openProject);if(t.dataset.cancelInvite)cancelInvite(t.dataset.cancelInvite);});
   $("#project-rows")?.addEventListener("click",e=>{const t=e.target;if(t.dataset.openProject)openProject(t.dataset.openProject);if(t.dataset.copyInvite)copyInvite(t.dataset.copyInvite);if(t.dataset.openClient)openClient(t.dataset.openClient);});
-  $("#clients-grid")?.addEventListener("click",e=>{const id=e.target.dataset.openClient;if(!id)return;openClient(id);});
+  $("#clients-grid")?.addEventListener("click",e=>{const t=e.target;const id=t.dataset.openClient;if(id){openClient(id);return;}if(t.dataset.clientMenuBtn){document.querySelectorAll(".card-menu-pop").forEach(p=>{p.hidden=true;});const pop=t.closest(".client-card-menu")?.querySelector(".card-menu-pop");if(pop)pop.hidden=!pop.hidden;return;}if(t.dataset.deleteClient){deleteClient(t.dataset.deleteClient);return;}});
+  document.addEventListener("click",e=>{if(!e.target.closest(".card-menu-pop")&&!e.target.closest("[data-client-menu-btn]"))document.querySelectorAll(".card-menu-pop").forEach(p=>{p.hidden=true;});});
   $("#client-detail-projects")?.addEventListener("click",e=>{const t=e.target,id=t.dataset.openProject;if(id)openProject(id);if(t.dataset.restoreProject)restoreArchivedProject(t.dataset.restoreProject);if(t.dataset.deleteProject)deleteProjectPermanently(t.dataset.deleteProject);});
   $("#client-detail-actions")?.addEventListener("click",e=>{if(e.target.dataset.openClients)setView("clients");});
   $("#client-detail-back")?.addEventListener("click",()=>setView("clients"));
@@ -1317,8 +1950,28 @@
   $("#request-board")?.addEventListener("change",async e=>{const id=e.target.dataset.requestStatus;if(!id)return;const current=state.requests.find(x=>String(x.id)===String(id));const previousStatus=requestNormalizedStatus(current?.status||"Nueva");const status=requestNormalizedStatus(e.target.value);const payload={status,updated_at:new Date().toISOString()};if(status==="Completada")payload.completed_at=new Date().toISOString();if(status!=="Completada")payload.completed_at=null;const {data,error}=await db.from("client_requests").update(payload).eq("id",id).select().single();if(error){toast("No pudimos actualizar la solicitud.");return;}if(previousStatus!==status){try{await registerRequestUpdate(data);}catch(_){toast("La solicitud cambió, pero no pudimos registrar el avance.");}}const r=state.requests.find(x=>String(x.id)===String(id));if(r)Object.assign(r,data);renderDashboard();renderRequests();toast("Solicitud actualizada.");});
   $("#dashboard-next-actions")?.addEventListener("click",e=>{if(e.target.dataset.copyInvite)copyInvite(e.target.dataset.copyInvite);});
   $("#crm-user-form")?.addEventListener("submit",addUser);
-  $("#user-rows")?.addEventListener("click",async e=>{const t=e.target;if(t.dataset.toggleUser){const u=state.users.find(x=>String(x.email).toLowerCase()===String(t.dataset.toggleUser).toLowerCase());if(u)await toggleUser(u.email,!u.activo);}if(t.dataset.deleteUser)await removeUser(t.dataset.deleteUser);if(t.dataset.grantUser)await grantUser(t.dataset.grantUser,t.dataset.grantRol);});
-  $("#user-rows")?.addEventListener("change",async e=>{const t=e.target;if(t.dataset.userEmail)await changeUserRole(t.dataset.userEmail,t.value);});
+  $("#user-rows")?.addEventListener("click",async e=>{
+    const t=e.target;
+    if(t.dataset.openUserPermissions){openUserPermissions(t.dataset.openUserPermissions);return;}
+    if(t.dataset.toggleUser){
+      const u=userByEmail(t.dataset.toggleUser);
+      if(u) await toggleUser(u.email,!u.activo);
+      return;
+    }
+    if(t.dataset.deleteUser){await removeUser(t.dataset.deleteUser);return;}
+    if(t.dataset.grantUser){await grantUser(t.dataset.grantUser,t.dataset.grantRol);return;}
+  });
+  $("#user-rows")?.addEventListener("change",async e=>{
+    const t=e.target;
+    if(t.dataset.userEmail) await changeUserRole(t.dataset.userEmail,t.value);
+  });
+  $("#user-permissions-form")?.addEventListener("submit",saveUserPermissions);
+  $$('[data-close-user-permissions]').forEach(b=>b.addEventListener("click",()=>$("#user-permissions-modal").close()));
+  $("#crm-token-form")?.addEventListener("submit",saveSettingsToken);
+  $("#settings-token-verify")?.addEventListener("click",verifySettingsToken);
+  $("#settings-github-refresh")?.addEventListener("click",()=>{setLine("#settings-github-status-line","");loadGithubQuota();});
+  $("#settings-token-show")?.addEventListener("change",e=>{$("#settings-token-input").type=e.target.checked?"text":"password";});
+  $("#dashboard-token-banner")?.addEventListener("click",()=>setView("settings"));
   document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")refreshCrmLive().catch(err=>console.error("crm visibility refresh",err));});
   window.addEventListener("pagehide",stopCrmRealtime);
 

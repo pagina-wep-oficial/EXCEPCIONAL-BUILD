@@ -10,8 +10,13 @@ async function projectAccess(request, env, projectId) {
   if (!user) return null;
 
   const { url, key } = supabaseConfig(env);
-  const endpoint = `${url}/rest/v1/client_projects?id=eq.${encodeURIComponent(projectId)}&user_id=eq.${encodeURIComponent(user.id)}&select=*`;
-  const response = await fetch(endpoint, { headers: { apikey: key, Authorization: bearer(request) } });
+  const endpoint = `${url}/rest/v1/client_projects?id=eq.${encodeURIComponent(projectId)}&select=*`;
+  const response = await fetch(endpoint, {
+    headers: {
+      apikey: key,
+      Authorization: bearer(request)
+    }
+  });
   if (!response.ok) return null;
 
   const rows = await response.json();

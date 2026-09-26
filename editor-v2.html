@@ -20,16 +20,19 @@
       <div class="editor-topbar-main">
         <a class="editor-back-link" id="editor-v2-back" href="panel.html">← Volver al proyecto</a>
         <div>
-          <p class="editor-eyebrow">Editor autogestionable</p>
+          <p class="editor-eyebrow">Editor visual</p>
           <h1 id="editor-v2-project-name">Editor de tu sitio</h1>
-          <p id="editor-v2-project-copy">Edita por páginas, revisa en vista previa y publica cuando estés listo.</p>
+          <p id="editor-v2-project-copy">Edita lo que ves, revisa los cambios y publícalos cuando estés listo.</p>
         </div>
       </div>
 
       <div class="editor-topbar-actions">
         <span class="editor-mode-badge" id="editor-v2-mode-badge">Modo edición</span>
+        <button class="button button-light editor-history-btn" id="editor-v2-undo" type="button" aria-label="Deshacer el último cambio" title="Deshacer el último cambio (Ctrl+Z)" disabled>← Deshacer</button>
+        <button class="button button-light editor-history-btn" id="editor-v2-redo" type="button" aria-label="Rehacer el cambio deshecho" title="Rehacer el cambio deshecho (Ctrl+Shift+Z)" disabled>→ Rehacer</button>
         <button class="button button-light" id="editor-v2-save" type="button">Guardar borrador</button>
-        <button class="button button-light" id="editor-v2-reset" type="button">Restablecer</button>
+        <button class="button button-light" id="editor-v2-base" type="button" title="Volver a la versión base guardada del proyecto">Usar versión base</button>
+        <button class="button button-light" id="editor-v2-reset" type="button" title="Descartar los cambios no publicados de esta página">Restablecer página</button>
         <button class="button button-light" id="editor-v2-preview" type="button">Vista previa</button>
         <button class="button button-primary" id="editor-v2-publish" type="button">Publicar cambios</button>
       </div>
@@ -41,7 +44,7 @@
       <aside class="editor-sidebar" id="editor-v2-sidebar">
         <div class="editor-sidebar-empty" id="editor-v2-sidebar-empty">
           <strong>Toca algo editable</strong>
-          <p>Haz clic en un texto, imagen o botón dentro de la página para editarlo.</p>
+          <p>Selecciona un texto, imagen o botón dentro de la página para cambiarlo.</p>
         </div>
 
         <form class="editor-form" id="editor-v2-form" hidden>
@@ -59,12 +62,18 @@
       <section class="editor-canvas-wrap editor-inline-wrap">
         <div class="editor-canvas-toolbar">
           <strong id="editor-v2-current-page">Página</strong>
-          <span id="editor-v2-current-state">Haz clic sobre la página para editar lo que ves.</span>
+          <span id="editor-v2-current-state">Selecciona un elemento de la página para editarlo.</span>
         </div>
 
         <nav class="editor-preview-nav" id="editor-v2-preview-nav" hidden></nav>
 
         <div class="editor-inline-frame-wrap">
+          <div class="editor-frame-loading" id="editor-v2-frame-loading" role="status" aria-live="polite">
+            <div class="editor-frame-loading-card">
+              <span class="editor-frame-spinner" aria-hidden="true"></span>
+              <p id="editor-v2-frame-loading-text">Cargando contenido…</p>
+            </div>
+          </div>
           <iframe
             id="editor-v2-frame"
             class="editor-inline-frame"
@@ -75,18 +84,50 @@
       </section>
     </section>
 
-    <p class="form-status" id="editor-v2-status"></p>
+    <p class="form-status" id="editor-v2-status" aria-live="polite"></p>
+    <div class="editor-alert-stack" id="editor-v2-alert-stack" aria-live="assertive">
+      <section class="editor-alert editor-alert-error" id="editor-v2-error-card" role="alert" hidden>
+        <div class="editor-alert-copy">
+          <strong id="editor-v2-error-title">No pudimos completar esta acción</strong>
+          <p id="editor-v2-error-text">Inténtalo de nuevo en un momento.</p>
+        </div>
+        <button class="editor-alert-close" id="editor-v2-error-close" type="button" aria-label="Cerrar aviso">×</button>
+      </section>
+    </div>
   </main>
 
   <div class="editor-modal-backdrop" id="editor-v2-confirm" hidden>
     <div class="editor-modal" role="dialog" aria-modal="true" aria-labelledby="editor-v2-confirm-title">
-      <p class="editor-eyebrow">Último paso</p>
-      <h2 id="editor-v2-confirm-title">¿Estás seguro de publicar los cambios?</h2>
-      <p class="editor-modal-copy">Al publicar, tu sitio web se actualizará con los cambios que hiciste.</p>
-      <p class="editor-modal-note" id="editor-v2-confirm-note">Los cambios se verán en tu página en unos 2 minutos.</p>
+      <p class="editor-eyebrow">Confirmación</p>
+      <h2 id="editor-v2-confirm-title">¿Quieres publicar estos cambios?</h2>
+      <p class="editor-modal-copy">Tu página se actualizará con lo que editaste.</p>
+      <p class="editor-modal-note" id="editor-v2-confirm-note">Los cambios pueden tardar un momento en verse.</p>
       <div class="editor-modal-actions">
         <button class="button button-light" id="editor-v2-confirm-cancel" type="button">Cancelar</button>
         <button class="button button-primary" id="editor-v2-confirm-ok" type="button">Sí, publicar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="editor-modal-backdrop" id="editor-photo-modal" hidden>
+    <div class="editor-modal editor-photo-modal" role="dialog" aria-modal="true" aria-labelledby="editor-photo-title">
+      <p class="editor-eyebrow">Ajuste de imagen</p>
+      <h2 id="editor-photo-title">Ajustar imagen</h2>
+      <p class="editor-modal-copy">Mueve la imagen para elegir qué parte se muestra. Usa dos dedos o la rueda del mouse para acercar o alejar.</p>
+      <div class="editor-photo-stage" id="editor-photo-stage">
+        <canvas id="editor-photo-canvas"></canvas>
+        <div class="editor-photo-mask" id="editor-photo-mask"></div>
+      </div>
+      <div class="editor-photo-tools" role="group" aria-label="Controles de la foto">
+        <button type="button" class="button button-small" id="editor-photo-zoom-in">Zoom +</button>
+        <button type="button" class="button button-small" id="editor-photo-zoom-out">Zoom −</button>
+        <button type="button" class="button button-small" id="editor-photo-rotate-left">Girar izq.</button>
+        <button type="button" class="button button-small" id="editor-photo-rotate-right">Girar der.</button>
+        <button type="button" class="button button-small" id="editor-photo-reset">Restablecer</button>
+      </div>
+      <div class="editor-modal-actions">
+        <button class="button button-light" id="editor-photo-cancel" type="button">Cancelar</button>
+        <button class="button button-primary" id="editor-photo-apply" type="button">Guardar</button>
       </div>
     </div>
   </div>

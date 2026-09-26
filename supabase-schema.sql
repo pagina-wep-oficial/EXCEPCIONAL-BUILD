@@ -30,6 +30,7 @@ create table if not exists public.client_projects (
   hosting_type text not null default 'cloudflare',
   quote_ref text,
   editor_enabled boolean not null default false,
+  editor_visible_to_client boolean not null default false,
   editor_access_status text,
   editor_access_starts_at timestamptz,
   editor_access_ends_at timestamptz,
@@ -264,6 +265,7 @@ alter table if exists public.client_projects
   add column if not exists claimed_at timestamptz,
   add column if not exists published_at timestamptz,
   add column if not exists editor_enabled boolean not null default false,
+  add column if not exists editor_visible_to_client boolean not null default false,
   add column if not exists editor_access_status text,
   add column if not exists editor_access_starts_at timestamptz,
   add column if not exists editor_access_ends_at timestamptz,
@@ -550,6 +552,12 @@ create table if not exists public.client_project_setup (
   domain_renewal numeric(12,2),
   hosting_type text not null default 'cloudflare',
   special_features_note text,
+  offer_domain_enabled boolean not null default false,
+  offer_domain_price numeric(12,2),
+  offer_domain_note text,
+  offer_hosting_enabled boolean not null default false,
+  offer_hosting_price numeric(12,2),
+  offer_hosting_note text,
   completed_at timestamptz,
   updated_at timestamptz not null default now(),
   constraint client_project_setup_address_check check (address_type in ('gratis','dominio')),
@@ -557,6 +565,12 @@ create table if not exists public.client_project_setup (
 );
 
 alter table public.client_project_setup add column if not exists domain_owned boolean not null default false;
+alter table public.client_project_setup add column if not exists offer_domain_enabled boolean not null default false;
+alter table public.client_project_setup add column if not exists offer_domain_price numeric(12,2);
+alter table public.client_project_setup add column if not exists offer_domain_note text;
+alter table public.client_project_setup add column if not exists offer_hosting_enabled boolean not null default false;
+alter table public.client_project_setup add column if not exists offer_hosting_price numeric(12,2);
+alter table public.client_project_setup add column if not exists offer_hosting_note text;
 
 alter table public.client_project_setup enable row level security;
 grant select, insert, update, delete on public.client_project_setup to authenticated;

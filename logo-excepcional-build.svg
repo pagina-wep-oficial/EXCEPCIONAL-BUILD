@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 128" role="img" aria-labelledby="title desc">
+  <title id="title">Excepcional Build</title>
+  <desc id="desc">Logotipo de Excepcional Build con tres barras ascendentes en verde lima y naranja.</desc>
+  <g transform="translate(10 10)">
+    <rect width="108" height="108" rx="27" fill="#132a26"/>
+    <g transform="translate(25 25) rotate(-2 29 29)">
+      <rect x="0" y="39" width="13" height="20" rx="5" fill="#d8eb82"/>
+      <rect x="22" y="25" width="13" height="34" rx="5" fill="#d8eb82"/>
+      <rect x="44" y="0" width="13" height="59" rx="5" fill="#f36b3f"/>
+    </g>
+  </g>
+  <text x="145" y="81" fill="#132a26" font-family="Manrope, DM Sans, Arial, sans-serif" font-size="38" font-weight="800" letter-spacing="4">EXCEPCIONAL BUILD</text>
+</svg>

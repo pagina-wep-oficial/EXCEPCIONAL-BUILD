@@ -1,6 +1,6 @@
 // Excepcional Build · página pública
 // El flujo privado de clientes vive en portal.js.
-const BUSINESS_WHATSAPP = "529811332914";
+const BUSINESS_WHATSAPP = "525629767176";
 const PROSPECT_ENDPOINT = "https://scaebulgcuvqpucondws.supabase.co/functions/v1/registrar-prospecto";
 
 const menuButton = document.querySelector(".menu-button");
