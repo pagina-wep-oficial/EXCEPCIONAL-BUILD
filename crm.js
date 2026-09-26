@@ -1356,7 +1356,9 @@ if(canManageUsers()) await loadUsers();
     const badge=$("#project-editor-badge"),status=$("#project-editor-status"),dates=$("#project-editor-dates"),copy=$("#project-editor-copy");
     if(!badge||!status||!dates||!copy)return;
     const access=editorState(project);
-    const visible=currentEditorVisibleValue(project);
+    // La interfaz debe reflejar el valor confirmado por Supabase, no el valor
+    // temporal que pudiera conservar la casilla antes de terminar la recarga.
+    const visible=Boolean(project?.editor_visible_to_client);
     const visibleToggle=$("#project-editor-visible"),visibleNote=$("#project-editor-visible-note");
     const liveUrl=$("#project-site-live-url"),owner=$("#project-site-repo-owner"),repo=$("#project-site-repo-name"),branch=$("#project-site-repo-branch"),path=$("#project-site-repo-path"),provider=$("#project-site-publish-provider");
     if(visibleToggle)visibleToggle.checked=visible;
