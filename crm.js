@@ -1492,6 +1492,7 @@ if(canManageUsers()) await loadUsers();
   async function saveEditorRepoConfig(){
     const project=state.currentProject;
     if(!project?.id)return;
+    const editorVisible=Boolean($("#project-editor-visible")?.checked);
     const payload={
       site_live_url:String($("#project-site-live-url")?.value||"").trim()||null,
       site_repo_owner:String($("#project-site-repo-owner")?.value||"").trim()||null,
@@ -1499,14 +1500,14 @@ if(canManageUsers()) await loadUsers();
       site_repo_branch:String($("#project-site-repo-branch")?.value||"").trim()||"main",
       site_repo_path:String($("#project-site-repo-path")?.value||"").trim()||"/",
       site_publish_provider:String($("#project-site-publish-provider")?.value||"github_pages"),
-      editor_visible_to_client:currentEditorVisibleValue(project),
+      editor_visible_to_client:editorVisible,
       site_editor_mode:"html_repo",
       updated_at:new Date().toISOString()
     };
     setLine("#project-editor-line","Guardando configuración del repo...");
     const {data,error}=await db.from("client_projects").update(payload).eq("id",project.id).select().single();
     if(error){setLine("#project-editor-line",editorAdminError(error),"error");return;}
-    syncProjectState(data);
+    syncProjectState({...data,editor_visible_to_client:editorVisible});
     setLine("#project-editor-line","Configuración del repo guardada.","success");
     toast("Repo del sitio guardado.");
   }
@@ -1517,9 +1518,10 @@ if(canManageUsers()) await loadUsers();
     const ends=new Date(now);
     ends.setMonth(ends.getMonth()+Number(months));
     setLine("#project-editor-line",`Activando editor por ${months} mes${months===1?"":"es"}…`);
+    const editorVisible=Boolean($("#project-editor-visible")?.checked);
     const payload={
       editor_enabled:true,
-      editor_visible_to_client:currentEditorVisibleValue(project),
+      editor_visible_to_client:editorVisible,
       editor_access_status:"activo",
       editor_access_starts_at:now.toISOString(),
       editor_access_ends_at:ends.toISOString(),
@@ -1529,7 +1531,7 @@ if(canManageUsers()) await loadUsers();
     };
     const {data,error}=await db.from("client_projects").update(payload).eq("id",project.id).select().single();
     if(error){setLine("#project-editor-line",editorAdminError(error),"error");return;}
-    syncProjectState(data);
+    syncProjectState({...data,editor_visible_to_client:editorVisible});
     setLine("#project-editor-line",`Editor activado por ${months} mes${months===1?"":"es"}.`,"success");
     toast("Editor activado.");
   }
@@ -1538,9 +1540,10 @@ if(canManageUsers()) await loadUsers();
     if(!project?.id)return;
     if(!confirm(`¿Quitar el acceso al editor de ${project.name||"este proyecto"}?`))return;
     setLine("#project-editor-line","Cancelando acceso al editor…");
-    const {data,error}=await db.from("client_projects").update({editor_enabled:false,editor_visible_to_client:currentEditorVisibleValue(project),editor_access_status:"cancelado",updated_at:new Date().toISOString()}).eq("id",project.id).select().single();
+    const editorVisible=Boolean($("#project-editor-visible")?.checked);
+    const {data,error}=await db.from("client_projects").update({editor_enabled:false,editor_visible_to_client:editorVisible,editor_access_status:"cancelado",updated_at:new Date().toISOString()}).eq("id",project.id).select().single();
     if(error){setLine("#project-editor-line",editorAdminError(error),"error");return;}
-    syncProjectState(data);
+    syncProjectState({...data,editor_visible_to_client:editorVisible});
     setLine("#project-editor-line","Acceso del editor cancelado.","success");
     toast("Editor cancelado.");
   }
