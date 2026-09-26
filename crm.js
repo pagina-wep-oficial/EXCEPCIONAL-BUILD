@@ -1787,7 +1787,17 @@ if(canManageUsers()) await loadUsers();
     if(stage==="Revisión"&&!old?.review_ready_at)payload.review_ready_at=new Date().toISOString();if(stage==="Publicado"&&!old?.published_at)payload.published_at=new Date().toISOString();
     setLine("#project-form-status","Guardando…");const result=id?await db.from("client_projects").update(payload).eq("id",id).select().single():(async()=>{const {data,error}=await db.from("client_projects").insert({...payload,claim_token:null,accepted_at:new Date().toISOString()}).select().single();if(!error&&data&&!userId){const {data:updated}=await db.from("client_projects").update({claim_token:crypto.randomUUID()}).eq("id",data.id).select().single();if(updated)Object.assign(data,updated);await ensureInvite(data);}return {data,error};})();
     if(result.error){setLine("#project-form-status",result.error.message||"No pudimos guardar.","error");return;}
-    const saved=result.data,idx=state.projects.findIndex(p=>p.id===saved.id);if(idx>=0)state.projects[idx]=saved;else state.projects.unshift(saved);
+    let saved=result.data;
+    // Guardado explícito: la casilla del editor debe sobrevivir a la recarga
+    // en tiempo real y no depender de que el primer update devuelva el campo.
+    if(id&&$("#project-editor-visible")){
+      const editorVisible=Boolean($("#project-editor-visible").checked);
+      const visibilityResult=await db.from("client_projects").update({editor_visible_to_client:editorVisible,updated_at:new Date().toISOString()}).eq("id",id).select().single();
+      if(visibilityResult.error){setLine("#project-form-status",visibilityResult.error.message||"No pudimos guardar la visibilidad del editor.","error");return;}
+      saved=visibilityResult.data||saved;
+      if(Boolean(saved.editor_visible_to_client)!==editorVisible){setLine("#project-form-status","Supabase no confirmó la visibilidad del editor.","error");return;}
+    }
+    const idx=state.projects.findIndex(p=>p.id===saved.id);if(idx>=0)state.projects[idx]=saved;else state.projects.unshift(saved);
     if(saved.source_prospect_id)await db.from("prospectos").update({client_user_id:userId,client_project_id:saved.id}).eq("id",saved.source_prospect_id).then(()=>{});
     await saveProjectSetup(saved,fd);
     setProjectForm(saved);if(crmPage!=="project-admin")renderAll();renderClientDetail();setLine("#project-form-status","Proyecto guardado.","success");toast("Proyecto actualizado.");
