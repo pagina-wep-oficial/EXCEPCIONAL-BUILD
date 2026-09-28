@@ -181,7 +181,6 @@ function nextStepText(project) {
     const whatsappHref=`https://wa.me/?text=${encodeURIComponent(shareText)}`;
     card.hidden=false;
     card.innerHTML=`
-      <div class="public-site-compact-head"><span class="eyebrow">Estado: Publicada</span></div>
       <div class="public-site-link-box">
         <span class="public-site-link-label">Enlace para compartir</span>
         <input class="public-site-link-input" type="text" value="${safe(href)}" readonly aria-label="Enlace público de tu página">
