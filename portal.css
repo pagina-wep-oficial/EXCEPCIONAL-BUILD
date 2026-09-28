@@ -412,3 +412,14 @@ dialog{width:min(590px,calc(100% - 36px));margin:auto;border-radius:24px}.dialog
 .project-card-footer .owner-tag,.project-card-footer .mine-tag{order:0}
 .project-card-footer>span:not(.owner-tag):not(.mine-tag){margin-left:auto}
 .project-card-footer a{order:3}
+
+/* Enlace publicado compacto */
+.public-site-card{gap:9px;margin-bottom:13px;padding:13px 16px}
+.public-site-compact-head{display:flex;align-items:center}
+.public-site-compact-head .eyebrow{margin:0}
+.public-site-link-box{gap:5px;padding:10px;border-radius:13px}
+.public-site-link-label{font-size:8px}
+.public-site-link-input{min-height:39px;border-radius:10px;padding:0 10px;font-size:11px}
+.public-site-actions{grid-template-columns:1fr 1fr;gap:7px}
+.public-site-actions .button{min-height:38px;padding:0 10px;font-size:10px}
+.public-site-note{font-size:9px}

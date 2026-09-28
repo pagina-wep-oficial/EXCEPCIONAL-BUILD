@@ -171,35 +171,26 @@ function nextStepText(project) {
     if(!card)return;
     const position=stageIndex(project);
     const published=position>=4&&project?.site_visibility==="public"&&String(project?.site_url||"").trim();
-    const review=position===3&&project?.site_visibility==="preview"&&String(project?.preview_url||"").trim();
-    const href=published?String(project.site_url).trim():review?String(project.preview_url).trim():"";
+    const href=published?String(project.site_url).trim():"";
     if(!href){
       card.hidden=true;
       card.innerHTML="";
       return;
     }
-    const stateLabel=published?"Estado: Publicada":"Estado: En revisión";
-    const title=published?"Este es tu enlace para compartir":"Esta es la vista previa de tu página";
-    const description=published
-      ?"Úsalo en WhatsApp, redes sociales, Google y cualquier otro lugar. Este es el enlace público de tu página; no es tu acceso privado."
-      :"Revísala y dinos si quieres cambios. Este enlace todavía es una vista previa y no es el enlace final para compartir.";
     const shareText=`Te comparto mi página web: ${href}`;
     const whatsappHref=`https://wa.me/?text=${encodeURIComponent(shareText)}`;
     card.hidden=false;
     card.innerHTML=`
-      <div class="card-heading">
-        <div><p class="eyebrow">${stateLabel}</p><h2>${title}</h2><p>${description}</p></div>
-      </div>
+      <div class="public-site-compact-head"><span class="eyebrow">Estado: Publicada</span></div>
       <div class="public-site-link-box">
-        <span class="public-site-link-label">${published?"Enlace público":"Enlace de vista previa"}</span>
+        <span class="public-site-link-label">Enlace para compartir</span>
         <input class="public-site-link-input" type="text" value="${safe(href)}" readonly aria-label="Enlace público de tu página">
       </div>
       <div class="public-site-actions">
-        <a class="button button-primary" href="${safe(href)}" target="_blank" rel="noopener">${published?"Abrir página":"Abrir vista previa"} →</a>
         <button class="button button-light" type="button" data-copy-public-site>Copiar enlace</button>
-        ${published?`<a class="button button-light" href="${whatsappHref}" target="_blank" rel="noopener">Compartir por WhatsApp</a>`:""}
+        <a class="button button-light" href="${whatsappHref}" target="_blank" rel="noopener">Compartir por WhatsApp</a>
       </div>
-      <p class="public-site-note" data-public-site-status>${published?"La página ya está publicada y lista para compartir.":"La publicación final aparecerá aquí cuando terminemos la revisión."}</p>`;
+      <p class="public-site-note" data-public-site-status>Lista para compartir.</p>`;
     const input=$(".public-site-link-input",card);
     input?.addEventListener("click",()=>input.select());
     $("[data-copy-public-site]",card)?.addEventListener("click",async event=>{
@@ -444,9 +435,8 @@ function nextStepText(project) {
       const ownerTag=p.user_id===uid?`<span class="mine-tag">Tuyo</span>`:`<span class="owner-tag">Proyecto de: ${safe(ownerById.get(p.user_id)||"Pendiente de activar")}</span>`;
       const cardPosition=stageIndex(p);
       const cardPublished=!archived&&cardPosition>=4&&p.site_visibility==="public"&&String(p.site_url||"").trim();
-      const cardReview=!archived&&cardPosition===3&&p.site_visibility==="preview"&&String(p.preview_url||"").trim();
-      const cardSiteUrl=cardPublished?String(p.site_url).trim():cardReview?String(p.preview_url).trim():"";
-      const publicLink=cardSiteUrl?`<div class="project-card-site-link"><span>${cardPublished?"Enlace público":"Vista previa"}</span><a href="${safe(cardSiteUrl)}" target="_blank" rel="noopener" title="${safe(cardSiteUrl)}">${safe(cardSiteUrl)} ↗</a></div>`:"";
+      const cardSiteUrl=cardPublished?String(p.site_url).trim():"";
+      const publicLink=cardSiteUrl?`<div class="project-card-site-link"><span>Enlace público</span><a href="${safe(cardSiteUrl)}" target="_blank" rel="noopener" title="${safe(cardSiteUrl)}">${safe(cardSiteUrl)} ↗</a></div>`:"";
       return `<article class="project-card-simple"><a class="project-card-main" href="${url}"><div class="project-card-icon">${stageIndex(p)===4?"OK":archived?"!":"EB"}</div><div class="project-card-copy"><span class="status-badge ${statusClass(p.status||p.project_stage)}">${safe(publicBadge)}</span><h3>${safe(p.name)}</h3><p>${safe(copy)}</p><small>${safe(p.domain||"Direccion por definir")}</small></div><span class="project-chevron">></span></a>${publicLink}<div class="project-card-footer">${ownerTag}<span>${date(p.created_at)}</span><a href="${url}">${safe(action)} ></a></div></article>`;
     }
     const render=()=>{
