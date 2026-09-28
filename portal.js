@@ -150,6 +150,65 @@ function nextStepText(project) {
     }
     return "";
   }
+  function copyText(text) {
+    if(navigator.clipboard?.writeText) return navigator.clipboard.writeText(text);
+    return new Promise((resolve,reject)=>{
+      const area=document.createElement("textarea");
+      area.value=text;
+      area.setAttribute("readonly","");
+      area.style.position="fixed";
+      area.style.opacity="0";
+      document.body.appendChild(area);
+      area.select();
+      try{
+        if(!document.execCommand("copy")) throw new Error("copy failed");
+        resolve();
+      }catch(error){reject(error)}finally{area.remove();}
+    });
+  }
+  function renderPublicSiteCard(project) {
+    const card=$("#public-site-card");
+    if(!card)return;
+    const href=String(project?.site_url||"").trim();
+    if(project?.site_visibility!=="public"||!href){
+      card.hidden=true;
+      card.innerHTML="";
+      return;
+    }
+    const shareText=`Te comparto mi página web: ${href}`;
+    const whatsappHref=`https://wa.me/?text=${encodeURIComponent(shareText)}`;
+    card.hidden=false;
+    card.innerHTML=`
+      <div class="card-heading">
+        <div><p class="eyebrow">Tu página publicada</p><h2>Este es tu enlace para compartir</h2><p>Úsalo en WhatsApp, redes sociales, Google y cualquier otro lugar. Este es el enlace público de tu página; no es tu acceso privado.</p></div>
+      </div>
+      <div class="public-site-link-box">
+        <span class="public-site-link-label">Enlace público</span>
+        <input class="public-site-link-input" type="text" value="${safe(href)}" readonly aria-label="Enlace público de tu página">
+      </div>
+      <div class="public-site-actions">
+        <a class="button button-primary" href="${safe(href)}" target="_blank" rel="noopener">Abrir página →</a>
+        <button class="button button-light" type="button" data-copy-public-site>Copiar enlace</button>
+        <a class="button button-light" href="${whatsappHref}" target="_blank" rel="noopener">Compartir por WhatsApp</a>
+      </div>
+      <p class="public-site-note" data-public-site-status>La página ya está publicada y lista para compartir.</p>`;
+    const input=$(".public-site-link-input",card);
+    input?.addEventListener("click",()=>input.select());
+    $("[data-copy-public-site]",card)?.addEventListener("click",async event=>{
+      const button=event.currentTarget;
+      const status=$("[data-public-site-status]",card);
+      try{
+        await copyText(href);
+        button.textContent="Enlace copiado ✓";
+        if(status)status.textContent="Listo. Ya puedes pegarlo donde quieras.";
+        setTimeout(()=>{button.textContent="Copiar enlace";},2200);
+      }catch(_){
+        input?.focus();
+        input?.select();
+        if(status)status.textContent="Selecciona el enlace y cópialo con Ctrl+C.";
+      }
+    });
+  }
   function continueProjectHref(project, profile, source="portal-cliente") {
     const state=archivedClientState(project)||"pausado";
     const text=[`Hola, soy ${profile?.full_name||"cliente"}.`,`Quiero continuar con mi proyecto ${project?.name||""}.`,`Estado actual: ${state}.`,`Proyecto ID: ${project?.id||""}.`,`Origen: ${source}.`].join("\n");
@@ -375,7 +434,8 @@ function nextStepText(project) {
       const archived=archivedClientState(p);
       const publicBadge=archived?(archived==="cancelado"?"Proyecto cancelado":"Proyecto descontinuado"):(p.site_visibility==="public"?"Pagina publicada":p.site_visibility==="preview"?"Vista previa lista":title);
       const ownerTag=p.user_id===uid?`<span class="mine-tag">Tuyo</span>`:`<span class="owner-tag">Proyecto de: ${safe(ownerById.get(p.user_id)||"Pendiente de activar")}</span>`;
-      return `<article class="project-card-simple"><a class="project-card-main" href="${url}"><div class="project-card-icon">${stageIndex(p)===4?"OK":archived?"!":"EB"}</div><div class="project-card-copy"><span class="status-badge ${statusClass(p.status||p.project_stage)}">${safe(publicBadge)}</span><h3>${safe(p.name)}</h3><p>${safe(copy)}</p><small>${safe(p.domain||"Direccion por definir")}</small></div><span class="project-chevron">></span></a><div class="project-card-footer">${ownerTag}<span>${date(p.created_at)}</span><a href="${url}">${safe(action)} ></a></div></article>`;
+      const publicLink=!archived&&p.site_visibility==="public"&&String(p.site_url||"").trim()?`<div class="project-card-site-link"><span>Enlace público</span><a href="${safe(String(p.site_url).trim())}" target="_blank" rel="noopener" title="${safe(String(p.site_url).trim())}">${safe(String(p.site_url).trim())} ↗</a></div>`:"";
+      return `<article class="project-card-simple"><a class="project-card-main" href="${url}"><div class="project-card-icon">${stageIndex(p)===4?"OK":archived?"!":"EB"}</div><div class="project-card-copy"><span class="status-badge ${statusClass(p.status||p.project_stage)}">${safe(publicBadge)}</span><h3>${safe(p.name)}</h3><p>${safe(copy)}</p><small>${safe(p.domain||"Direccion por definir")}</small></div><span class="project-chevron">></span></a>${publicLink}<div class="project-card-footer">${ownerTag}<span>${date(p.created_at)}</span><a href="${url}">${safe(action)} ></a></div></article>`;
     }
     const render=()=>{
       const norm=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
@@ -934,6 +994,7 @@ function nextStepText(project) {
 
     const focus=$("#project-focus"), briefCard=$("#project-brief-card"), actionsCard=$("#project-actions-card");
     const archivedState=archivedClientState(project);
+    renderPublicSiteCard(archivedState?null:project);
     if(archivedState){
       const isCancelled=archivedState==="cancelado";
       const contactHref=continueProjectHref(project,profile,isCancelled?"cancelado":"descontinuado");
