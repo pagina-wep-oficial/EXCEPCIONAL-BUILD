@@ -1049,10 +1049,15 @@ function nextStepText(project) {
     }
 
     const storeCard=$("#project-store-card");
-    const storeEnabled=project?.site_mode==="presentation_store"||project?.store_enabled===true;
+    const storeEnabled=project?.store_enabled===true;
+    const storeUrl=String(project?.store_admin_url||"").trim();
+    const storeLabel=String(project?.store_button_label||"Administrar mi tienda").trim()||"Administrar mi tienda";
     if(storeCard&&!archivedState&&storeEnabled&&/^publicado$/.test(stageKey(project))){
       storeCard.hidden=false;
-      storeCard.innerHTML=`<div class="card-heading"><div><p class="eyebrow">Tienda en línea</p><h2>Administra tus productos y pedidos</h2><p>Agrega productos, controla existencias y revisa pedidos desde ITM Void.</p></div></div><div class="row-actions"><a class="button button-primary" href="https://itm-void-excepcional.pages.dev/tienda-admin.html?project=${encodeURIComponent(id)}" target="_blank" rel="noopener">Administrar tienda</a><a class="button button-light" href="https://itm-void-excepcional.pages.dev/tienda-config.html?project=${encodeURIComponent(id)}" target="_blank" rel="noopener">Configuración</a></div>`;
+      const action=storeUrl
+        ?`<a class="button button-primary" href="${safe(storeUrl)}" target="_blank" rel="noopener">${safe(storeLabel)}</a>`
+        :`<span class="button button-light store-button-disabled" aria-disabled="true">${safe(storeLabel)}</span>`;
+      storeCard.innerHTML=`<div class="card-heading"><div><p class="eyebrow">Tienda online</p><h2>${safe(storeLabel)}</h2><p>Este acceso se habilitará cuando conectemos la página de administración de tu tienda.</p></div></div><div class="row-actions">${action}</div>`;
     } else if(storeCard) storeCard.hidden=true;
 
     const briefForm=$("#project-brief-form"); if(briefForm && !archivedState){

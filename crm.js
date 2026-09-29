@@ -1785,7 +1785,7 @@ if(canManageUsers()) await loadUsers();
     }
     const repoFields=$("#project-site-repo-owner")?{site_live_url:String($("#project-site-live-url")?.value||"").trim()||null,site_repo_owner:String($("#project-site-repo-owner")?.value||"").trim()||null,site_repo_name:String($("#project-site-repo-name")?.value||"").trim()||null,site_repo_branch:String($("#project-site-repo-branch")?.value||"").trim()||"main",site_repo_path:String($("#project-site-repo-path")?.value||"").trim()||"/",site_publish_provider:String($("#project-site-publish-provider")?.value||"github_pages"),site_editor_mode:"html_repo"}:{};
     const editorVisibilityFields=$("#project-editor-visible")?{editor_visible_to_client:Boolean($("#project-editor-visible").checked)}:{};
-    const payload={...repoFields,...editorVisibilityFields,user_id:userId,name:String(fd.get("name")||"").trim(),project_stage:stage,status:String(fd.get("status")||"").trim()||stage,address_type:String(fd.get("address_type")||"gratis"),domain:String(fd.get("domain")||"").trim()||null,hosting_type:String(fd.get("hosting_type")||"cloudflare"),site_visibility:String(fd.get("site_visibility")||"hidden"),site_url:String(fd.get("site_url")||"").trim()||null,preview_url:String(fd.get("preview_url")||"").trim()||null,total_price:fd.get("total_price")?Number(fd.get("total_price")):null,deposit_amount:fd.get("deposit_amount")?Number(fd.get("deposit_amount")):null,balance_amount:fd.get("balance_amount")?Number(fd.get("balance_amount")):null,payment_method:String(fd.get("payment_method")||"").trim()||null,deposit_paid:fd.get("deposit_paid")==="on",balance_paid:fd.get("balance_paid")==="on",client_note:String(fd.get("client_note")||"").trim()||null,source_prospect_id:String(fd.get("source_prospect_id")||"")||null,updated_at:new Date().toISOString()};
+    const payload={...repoFields,...editorVisibilityFields,user_id:userId,name:String(fd.get("name")||"").trim(),project_stage:stage,status:String(fd.get("status")||"").trim()||stage,address_type:String(fd.get("address_type")||"gratis"),domain:String(fd.get("domain")||"").trim()||null,hosting_type:String(fd.get("hosting_type")||"cloudflare"),site_visibility:String(fd.get("site_visibility")||"hidden"),site_url:String(fd.get("site_url")||"").trim()||null,preview_url:String(fd.get("preview_url")||"").trim()||null,store_enabled:fd.get("store_enabled")==="on",store_button_label:String(fd.get("store_button_label")||"Administrar mi tienda").trim()||"Administrar mi tienda",store_admin_url:String(fd.get("store_admin_url")||"").trim()||null,total_price:fd.get("total_price")?Number(fd.get("total_price")):null,deposit_amount:fd.get("deposit_amount")?Number(fd.get("deposit_amount")):null,balance_amount:fd.get("balance_amount")?Number(fd.get("balance_amount")):null,payment_method:String(fd.get("payment_method")||"").trim()||null,deposit_paid:fd.get("deposit_paid")==="on",balance_paid:fd.get("balance_paid")==="on",client_note:String(fd.get("client_note")||"").trim()||null,source_prospect_id:String(fd.get("source_prospect_id")||"")||null,updated_at:new Date().toISOString()};
     if(stage==="Revisión"&&!old?.review_ready_at)payload.review_ready_at=new Date().toISOString();if(stage==="Publicado"&&!old?.published_at)payload.published_at=new Date().toISOString();
     setLine("#project-form-status","Guardando…");const result=id?await db.from("client_projects").update(payload).eq("id",id).select().single():(async()=>{const {data,error}=await db.from("client_projects").insert({...payload,claim_token:null,accepted_at:new Date().toISOString()}).select().single();if(!error&&data&&!userId){const {data:updated}=await db.from("client_projects").update({claim_token:crypto.randomUUID()}).eq("id",data.id).select().single();if(updated)Object.assign(data,updated);await ensureInvite(data);}return {data,error};})();
     if(result.error){setLine("#project-form-status",result.error.message||"No pudimos guardar.","error");return;}
@@ -1991,4 +1991,34 @@ $("#project-storage-list")?.addEventListener("change",e=>{
   window.addEventListener("pagehide",stopCrmRealtime);
 
   (async()=>{if(!portal.configured){setLine("#crm-login-status","El CRM no está disponible en este momento.","error");return;}const {data:{session}}=await db.auth.getSession();await showSession(session);db.auth.onAuthStateChange((_e,s)=>{showSession(s||null);});})().catch(err=>{console.error(err);setLine("#crm-login-status","No pudimos cargar el CRM.","error");});
+  function ensureStoreAdminControls(){
+    const form=$("#project-form"),invite=$("#project-invite-box");
+    if(!form||!invite)return;
+    let box=$("#project-store-admin-box");
+    if(!box){
+      box=document.createElement("div");
+      box.id="project-store-admin-box";
+      box.className="editor-admin-box store-admin-box";
+      box.innerHTML=`<div class="editor-admin-head"><div><strong>Botón de tienda online</strong><p>Decide si el cliente verá el acceso para administrar sus productos y pedidos.</p></div><label class="store-visibility-toggle"><input type="checkbox" name="store_enabled"> Mostrar botón</label></div><div class="editor-admin-grid"><label>Texto del botón<input class="control" name="store_button_label" value="Administrar mi tienda" placeholder="Administrar mi tienda"></label><label>URL de administración futura<input class="control" name="store_admin_url" type="url" placeholder="https://tu-tienda.com/admin"></label></div><p class="status-line">Si la URL queda vacía, el botón se mostrará desactivado hasta conectarlo.</p>`;
+      invite.before(box);
+    }
+    const sync=()=>{
+      const project=state.currentProject||{};
+      const enabled=form.elements.store_enabled,label=form.elements.store_button_label,url=form.elements.store_admin_url;
+      if(enabled)enabled.checked=Boolean(project.store_enabled);
+      if(label)label.value=project.store_button_label||"Administrar mi tienda";
+      if(url)url.value=project.store_admin_url||"";
+    };
+    sync();
+    if(!form.dataset.storeResetBound){
+      form.dataset.storeResetBound="1";
+      form.addEventListener("reset",()=>queueMicrotask(sync));
+    }
+    const modal=$("#project-modal");
+    if(modal&&!modal.dataset.storeObserver){
+      modal.dataset.storeObserver="1";
+      new MutationObserver(()=>{if(modal.open)sync();}).observe(modal,{attributes:true,attributeFilter:["open"]});
+    }
+  }
+  ensureStoreAdminControls();
 })();

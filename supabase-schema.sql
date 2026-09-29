@@ -44,6 +44,9 @@ create table if not exists public.client_projects (
   site_live_url text,
   site_publish_provider text not null default 'github_pages',
   site_editor_mode text not null default 'html_repo',
+  store_enabled boolean not null default false,
+  store_button_label text not null default 'Administrar mi tienda',
+  store_admin_url text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -278,7 +281,10 @@ alter table if exists public.client_projects
   add column if not exists site_repo_path text not null default '/',
   add column if not exists site_live_url text,
   add column if not exists site_publish_provider text not null default 'github_pages',
-  add column if not exists site_editor_mode text not null default 'html_repo';
+  add column if not exists site_editor_mode text not null default 'html_repo',
+  add column if not exists store_enabled boolean not null default false,
+  add column if not exists store_button_label text not null default 'Administrar mi tienda',
+  add column if not exists store_admin_url text;
 
 -- Normalizamos valores de visibilidad existentes.
 update public.client_projects

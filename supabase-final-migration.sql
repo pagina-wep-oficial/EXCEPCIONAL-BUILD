@@ -49,7 +49,10 @@ alter table if exists public.client_projects
   add column if not exists balance_paid boolean not null default false,
   add column if not exists claim_token uuid default gen_random_uuid(),
   add column if not exists claimed_at timestamptz,
-  add column if not exists published_at timestamptz;
+  add column if not exists published_at timestamptz,
+  add column if not exists store_enabled boolean not null default false,
+  add column if not exists store_button_label text not null default 'Administrar mi tienda',
+  add column if not exists store_admin_url text;
 
 -- Normalizamos valores de visibilidad existentes.
 update public.client_projects
