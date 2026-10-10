@@ -245,6 +245,43 @@ function nextStepText(project) {
   function editorLaunchHref(project) {
     return `editor-v2.html?project=${encodeURIComponent(project.id)}`;
   }
+  const ITM_STORE_ADMIN_ORIGIN = "https://itm-void-excepcional.pages.dev";
+  const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+  function storeLaunchHref(project) {
+    const itmProjectId = String(project?.source_itm_project_id || "").trim();
+
+    if (UUID_PATTERN.test(itmProjectId)) {
+      return `${ITM_STORE_ADMIN_ORIGIN}/tienda-admin.html?project=${encodeURIComponent(itmProjectId)}`;
+    }
+
+    const legacyUrl = String(project?.store_admin_url || "").trim();
+    return /^https:\/\//i.test(legacyUrl) ? legacyUrl : "";
+  }
+
+  function siteToolIcon(kind) {
+    if (kind === "editor") {
+      return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M4 16.5V20h3.5L18.4 9.1l-3.5-3.5L4 16.5Z"></path>
+        <path d="m13.9 6.6 3.5 3.5"></path>
+        <path d="M4 4h6"></path>
+      </svg>`;
+    }
+
+    if (kind === "store") {
+      return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M4 10h16l-1 10H5L4 10Z"></path>
+        <path d="m6 10 1-6h10l1 6"></path>
+        <path d="M9 14h6"></path>
+      </svg>`;
+    }
+
+    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M5 7h14"></path>
+      <path d="M5 12h14"></path>
+      <path d="M5 17h14"></path>
+    </svg>`;
+  }
   function stopLiveUpdates(){
     clearTimeout(liveRefreshTimer);
     liveRefreshBusy=false;
@@ -1018,47 +1055,101 @@ function nextStepText(project) {
     const hasPayments=[project.total_price,project.deposit_amount,project.balance_amount].some(v=>v!=null&&v!=="");
     if(!archivedState&&hasPayments){$("#payment-card").hidden=false;$("#project-payments").innerHTML=`<div class="payment-box"><span>Total acordado</span><strong>${money(project.total_price)}</strong><small>${safe(project.payment_method||"")}</small></div><div class="payment-box"><span>Anticipo</span><strong>${money(project.deposit_amount)}</strong><em class="payment-state ${project.deposit_paid?"paid":""}">${project.deposit_paid?"Pagado":"Pendiente"}</em></div><div class="payment-box"><span>Saldo final</span><strong>${money(project.balance_amount)}</strong><em class="payment-state ${project.balance_paid?"paid":""}">${project.balance_paid?"Pagado":"Pendiente"}</em></div>`;}
 
-    const editorCard=$("#project-editor-card");
-    if(editorCard && !archivedState && /^publicado$/.test(stageKey(project)) && canClientSeeEditor(project)){
-      const access=editorAccessState(project);
-      const active=access.status==="active";
-      const expired=access.status==="expired";
-      const action=expired?"renovar":"activar";
-      const planButtons=[["1","50","1 mes"],["3","140","3 meses"],["6","270","6 meses"],["12","500","12 meses"]].map(([months,price,label])=>`<a class="editor-plan-card ${months==="12"?"featured":""}" href="${editorPlanHref(project,profile,months,price,action)}" target="_blank" rel="noopener"><span>${label}</span><strong>$${price}</strong><small>${months==="1"?"Para cambios puntuales.":months==="12"?"Mejor precio anual.":"Para mantenerlo activo."}</small></a>`).join("");
-      editorCard.hidden=false;
-      editorCard.innerHTML=active?`
-        <div class="editor-project-head">
-          <div><p class="eyebrow">Editor autogestionable</p><h2>Tu editor esta activo</h2><p>Cambia textos, imagenes, videos, horarios, precios y promociones por tu cuenta.</p></div>
-          <span class="editor-badge active">Activo${access.ends?` hasta ${date(access.ends)}`:""}</span>
-        </div>
-        <div class="editor-active-box">
-          <a class="button button-primary" href="${safe(editorLaunchHref(project))}">Abrir editor</a>
-          <a class="button button-light" href="${editorSupportHref(project,profile)}" target="_blank" rel="noopener">Ayuda con suscripcion</a>
-        </div>
-        <div class="editor-flow-note"><b>OK</b><span>Mientras el acceso este activo, este boton abre la herramienta de edicion de este sitio.</span></div>`:`
-        <div class="editor-project-head">
-          <div><p class="eyebrow">Editor autogestionable</p><h2>${expired?"Tu acceso al editor expiro":"Controla esta pagina tu mismo"}</h2><p>${expired?"Renueva para volver a editar este sitio por tu cuenta.":"Cambia textos, imagenes, videos, horarios, precios y promociones sin esperar soporte."}</p></div>
-          <span class="editor-badge ${expired?"expired":""}">${expired?"Vencido":"Por sitio web"}</span>
-        </div>
-        <div class="editor-flow-note"><b>1</b><span>Elige un plan. Cuando el pago se confirme, los planes desaparecen y aqui aparece el boton Abrir editor.</span></div>
-        <div class="editor-plan-grid">${planButtons}</div>
-        <div class="editor-rules"><p>El acceso dura el periodo pagado. Si vence, tu pagina sigue en linea, pero el editor se pausa.</p><a href="politicas-editor.html?id=${encodeURIComponent(id)}">Ver reglas de cancelacion y reembolso</a></div>
-        <div class="editor-support"><div><strong>Problemas con tu suscripcion?</strong><span>Cobro, cancelacion, reembolso o activacion se atienden por WhatsApp.</span></div><a class="button button-light" href="${editorSupportHref(project,profile)}" target="_blank" rel="noopener">Ayuda por WhatsApp</a></div>`;
-    } else if(editorCard){
-      editorCard.hidden=true;
+    const toolsCard = $("#project-tools-card");
+    const canShowTools = !archivedState && /^publicado$/.test(stageKey(project));
+    const tools = [];
+
+    if (canShowTools && canClientSeeEditor(project)) {
+      const access = editorAccessState(project);
+      const active = access.status === "active";
+      const expired = access.status === "expired";
+      const action = expired ? "renovar" : "activar";
+
+      const planButtons = [
+        ["1", "50", "1 mes"],
+        ["3", "140", "3 meses"],
+        ["6", "270", "6 meses"],
+        ["12", "500", "12 meses"]
+      ].map(([months, price, label]) => `
+        <a class="tool-plan-card ${months === "12" ? "featured" : ""}"
+          href="${editorPlanHref(project, profile, months, price, action)}"
+          target="_blank"
+          rel="noopener">
+          <span>${label}</span>
+          <strong>$${price}</strong>
+        </a>
+      `).join("");
+
+      const editorAction = active
+        ? `<a class="button button-primary tool-open-button" href="${safe(editorLaunchHref(project))}">
+            Abrir editor
+          </a>`
+        : `<details class="tool-suboptions">
+            <summary>${expired ? "Renovar editor" : "Activar editor"}</summary>
+            <p>${expired
+              ? "Tu página sigue publicada. Elige un plan para volver a editarla."
+              : "Elige un plan para editar textos, imágenes y secciones por tu cuenta."}</p>
+            <div class="tool-plan-grid">${planButtons}</div>
+          </details>`;
+
+      tools.push(`
+        <section class="site-tool site-tool-editor">
+          <div class="site-tool-icon">${siteToolIcon("editor")}</div>
+          <div class="site-tool-copy">
+            <span>Herramienta</span>
+            <strong>Editar sitio</strong>
+            <p>${active
+              ? `Tu editor está activo${access.ends ? ` hasta ${date(access.ends)}` : ""}.`
+              : "Cambia textos, imágenes y secciones de tu página."}</p>
+          </div>
+          <div class="site-tool-action">${editorAction}</div>
+        </section>
+      `);
     }
 
-    const storeCard=$("#project-store-card");
-    const storeEnabled=project?.store_enabled===true;
-    const storeUrl=String(project?.store_admin_url||"").trim();
-    const storeLabel=String(project?.store_button_label||"Administrar mi tienda").trim()||"Administrar mi tienda";
-    if(storeCard&&!archivedState&&storeEnabled&&/^publicado$/.test(stageKey(project))){
-      storeCard.hidden=false;
-      const action=storeUrl
-        ?`<a class="button button-primary" href="${safe(storeUrl)}" target="_blank" rel="noopener">${safe(storeLabel)}</a>`
-        :`<span class="button button-light store-button-disabled" aria-disabled="true">${safe(storeLabel)}</span>`;
-      storeCard.innerHTML=`<div class="card-heading"><div><p class="eyebrow">Tienda online</p><h2>${safe(storeLabel)}</h2><p>Este acceso se habilitará cuando conectemos la página de administración de tu tienda.</p></div></div><div class="row-actions">${action}</div>`;
-    } else if(storeCard) storeCard.hidden=true;
+    const storeEnabled = project?.store_enabled === true;
+    const storeUrl = storeLaunchHref(project);
+
+    if (canShowTools && storeEnabled) {
+      const storeAction = storeUrl
+        ? `<a class="button button-primary tool-open-button"
+              href="${safe(storeUrl)}"
+              target="_blank"
+              rel="noopener">Gestionar tienda</a>`
+        : `<span class="tool-unavailable">Tienda aún no conectada</span>`;
+
+      tools.push(`
+        <section class="site-tool site-tool-store">
+          <div class="site-tool-icon">${siteToolIcon("store")}</div>
+          <div class="site-tool-copy">
+            <span>Herramienta</span>
+            <strong>Gestionar tienda</strong>
+            <p>Administra productos, catálogo, inventario y configuración.</p>
+          </div>
+          <div class="site-tool-action">${storeAction}</div>
+        </section>
+      `);
+    }
+
+    if (toolsCard && tools.length) {
+      toolsCard.hidden = false;
+      toolsCard.innerHTML = `
+        <details class="site-tools-disclosure" id="project-tools-disclosure">
+          <summary>
+            <span class="site-tools-summary-icon">${siteToolIcon("tools")}</span>
+            <span class="site-tools-summary-copy">
+              <strong>Herramientas del sitio</strong>
+              <small>${tools.length === 1 ? "1 herramienta disponible" : `${tools.length} herramientas disponibles`}</small>
+            </span>
+            <span class="site-tools-chevron" aria-hidden="true">⌄</span>
+          </summary>
+          <div class="site-tools-list">${tools.join("")}</div>
+        </details>
+      `;
+    } else if (toolsCard) {
+      toolsCard.hidden = true;
+      toolsCard.innerHTML = "";
+    }
 
     const briefForm=$("#project-brief-form"); if(briefForm && !archivedState){
       briefFields.forEach(n=>{if(briefForm.elements[n])briefForm.elements[n].value=brief?.[n]||"";});

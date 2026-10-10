@@ -424,3 +424,245 @@ dialog{width:min(590px,calc(100% - 36px));margin:auto;border-radius:24px}.dialog
 .public-site-actions .button{min-height:38px;padding:0 10px;font-size:10px}
 .public-site-note{font-size:9px}
 .store-button-disabled{cursor:default;opacity:.62}
+/* Herramientas del sitio */
+.project-tools-card{
+  padding:0;
+  overflow:hidden;
+}
+
+.site-tools-disclosure > summary{
+  display:grid;
+  grid-template-columns:42px minmax(0,1fr) 24px;
+  align-items:center;
+  gap:12px;
+  min-height:76px;
+  padding:16px 18px;
+  cursor:pointer;
+  list-style:none;
+  transition:background .18s ease;
+}
+
+.site-tools-disclosure > summary::-webkit-details-marker{
+  display:none;
+}
+
+.site-tools-disclosure > summary:hover{
+  background:#f8faf7;
+}
+
+.site-tools-summary-icon,
+.site-tool-icon{
+  display:grid;
+  place-items:center;
+  flex:0 0 auto;
+  border-radius:14px;
+  background:var(--ink);
+  color:var(--lime);
+}
+
+.site-tools-summary-icon{
+  width:42px;
+  height:42px;
+}
+
+.site-tools-summary-icon svg,
+.site-tool-icon svg{
+  width:21px;
+  height:21px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.8;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+
+.site-tools-summary-copy{
+  display:grid;
+  gap:2px;
+  min-width:0;
+}
+
+.site-tools-summary-copy strong{
+  font:800 14px "Manrope";
+}
+
+.site-tools-summary-copy small{
+  color:var(--muted);
+  font-size:10px;
+}
+
+.site-tools-chevron{
+  display:grid;
+  place-items:center;
+  width:24px;
+  height:24px;
+  color:var(--muted);
+  font-size:20px;
+  transition:transform .2s ease;
+}
+
+.site-tools-disclosure[open] .site-tools-chevron{
+  transform:rotate(180deg);
+}
+
+.site-tools-list{
+  display:grid;
+  gap:10px;
+  padding:0 14px 14px;
+  border-top:1px solid var(--line);
+}
+
+.site-tool{
+  display:grid;
+  grid-template-columns:46px minmax(0,1fr) auto;
+  align-items:center;
+  gap:13px;
+  padding:14px;
+  border:1px solid var(--line);
+  border-radius:17px;
+  background:var(--soft);
+}
+
+.site-tool-editor .site-tool-icon{
+  background:#315ec9;
+  color:#fff;
+}
+
+.site-tool-store .site-tool-icon{
+  background:var(--green);
+  color:#fff;
+}
+
+.site-tool-icon{
+  width:46px;
+  height:46px;
+}
+
+.site-tool-copy{
+  min-width:0;
+}
+
+.site-tool-copy > span{
+  display:block;
+  margin-bottom:2px;
+  color:var(--muted);
+  font-size:9px;
+  font-weight:900;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+
+.site-tool-copy strong{
+  display:block;
+  font:800 14px "Manrope";
+}
+
+.site-tool-copy p{
+  margin:3px 0 0;
+  color:var(--muted);
+  font-size:10px;
+  line-height:1.45;
+}
+
+.site-tool-action{
+  min-width:145px;
+}
+
+.tool-open-button{
+  width:100%;
+  min-height:42px;
+  padding-inline:13px;
+  font-size:10px;
+}
+
+.tool-unavailable{
+  display:block;
+  padding:10px;
+  border-radius:12px;
+  background:var(--yellow-soft);
+  color:#7c5e14;
+  font-size:10px;
+  font-weight:800;
+  text-align:center;
+}
+
+.tool-suboptions{
+  min-width:190px;
+}
+
+.tool-suboptions > summary{
+  cursor:pointer;
+  color:var(--ink);
+  font-size:10px;
+  font-weight:900;
+  text-align:center;
+}
+
+.tool-suboptions > p{
+  margin:8px 0;
+  color:var(--muted);
+  font-size:9px;
+  line-height:1.4;
+}
+
+.tool-plan-grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:6px;
+}
+
+.tool-plan-card{
+  display:grid;
+  gap:1px;
+  padding:7px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:#fff;
+  text-align:center;
+}
+
+.tool-plan-card span{
+  color:var(--muted);
+  font-size:8px;
+}
+
+.tool-plan-card strong{
+  font:800 12px "Manrope";
+}
+
+.tool-plan-card.featured{
+  border-color:var(--green);
+  background:var(--green-soft);
+}
+
+@media (max-width:700px){
+  .site-tools-disclosure > summary{
+    min-height:68px;
+    padding:13px;
+  }
+
+  .site-tools-list{
+    padding:0 10px 10px;
+  }
+
+  .site-tool{
+    grid-template-columns:42px minmax(0,1fr);
+    align-items:start;
+    padding:12px;
+  }
+
+  .site-tool-icon{
+    width:42px;
+    height:42px;
+    border-radius:13px;
+  }
+
+  .site-tool-action{
+    grid-column:1/-1;
+    min-width:0;
+  }
+
+  .tool-suboptions{
+    width:100%;
+  }
+}
