@@ -97,8 +97,26 @@ export async function onRequestPost(context) {
     const issued = await issueResponse.json().catch(() => null);
 
     if (!issueResponse.ok || !issued?.ok || !issued?.handoff_token) {
-      console.error("ITM handoff issue failed", issueResponse.status, issued?.code || "");
-      return json({ ok: false, code: "HANDOFF_ISSUE_FAILED" }, 502);
+      const upstreamCode = String(issued?.code || "");
+      const safeCodes = new Set([
+        "HANDOFF_UNAUTHORIZED",
+        "PROJECT_NOT_FOUND",
+        "PROJECT_NOT_LINKED_TO_EXCEPTIONAL",
+        "HANDOFF_DATA_INVALID",
+        "STORE_OWNER_HANDOFF_SECRET_MISSING"
+      ]);
+
+      console.error("ITM handoff issue failed", issueResponse.status, upstreamCode);
+
+      return json(
+        {
+          ok: false,
+          code: safeCodes.has(upstreamCode)
+            ? upstreamCode
+            : "HANDOFF_ISSUE_FAILED"
+        },
+        502
+      );
     }
 
     return json({

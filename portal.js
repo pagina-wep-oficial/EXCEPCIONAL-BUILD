@@ -1175,8 +1175,9 @@ function nextStepText(project) {
         }
 
         location.assign(data.launch_url);
-      } catch {
-        alert("No pudimos abrir tu tienda. Vuelve a intentarlo en un momento.");
+      } catch (error) {
+        const code = String(error?.message || "HANDOFF_ISSUE_FAILED");
+        alert(`No pudimos abrir tu tienda. Código: ${code}`);
         storeLaunchButton.disabled = false;
         storeLaunchButton.textContent = originalText;
       }
