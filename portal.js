@@ -1112,10 +1112,9 @@ function nextStepText(project) {
 
     if (canShowTools && storeEnabled) {
       const storeAction = storeUrl
-        ? `<a class="button button-primary tool-open-button"
-              href="${safe(storeUrl)}"
-              target="_blank"
-              rel="noopener">Gestionar tienda</a>`
+        ? `<button class="button button-primary tool-open-button"
+              type="button"
+              data-store-owner-launch="1">Gestionar tienda</button>`
         : `<span class="tool-unavailable">Tienda aún no conectada</span>`;
 
       tools.push(`
@@ -1150,6 +1149,38 @@ function nextStepText(project) {
       toolsCard.hidden = true;
       toolsCard.innerHTML = "";
     }
+
+    const storeLaunchButton = toolsCard?.querySelector("[data-store-owner-launch]");
+
+    storeLaunchButton?.addEventListener("click", async () => {
+      const originalText = storeLaunchButton.textContent;
+
+      storeLaunchButton.disabled = true;
+      storeLaunchButton.textContent = "Abriendo tienda…";
+
+      try {
+        const response = await fetch("/api/store-owner-handoff", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({ project_id: project.id })
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok || !data.ok || !data.launch_url) {
+          throw new Error(data.code || "No pudimos abrir la tienda.");
+        }
+
+        location.assign(data.launch_url);
+      } catch {
+        alert("No pudimos abrir tu tienda. Vuelve a intentarlo en un momento.");
+        storeLaunchButton.disabled = false;
+        storeLaunchButton.textContent = originalText;
+      }
+    });
 
     const briefForm=$("#project-brief-form"); if(briefForm && !archivedState){
       briefFields.forEach(n=>{if(briefForm.elements[n])briefForm.elements[n].value=brief?.[n]||"";});
