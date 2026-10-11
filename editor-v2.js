@@ -2203,27 +2203,62 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
     }
   }
 
-    function showPublishConfirm() {
+    function setPublishModal(state, viewUrl = "") {
+    const overlay = $("#editor-v2-confirm");
+    if (!overlay) return;
+    const ok = $("#editor-v2-confirm-ok");
+    const cancel = $("#editor-v2-confirm-cancel");
+    const view = $("#editor-v2-confirm-view");
+    const doneBtn = $("#editor-v2-confirm-done");
+    const spinner = $("#editor-v2-publish-spinner");
+    const title = $("#editor-v2-confirm-title");
+    const copy = $("#editor-v2-confirm .editor-modal-copy");
+    const note = $("#editor-v2-confirm-note");
+    overlay.hidden = false;
+    if (spinner) spinner.hidden = state !== "loading";
+    if (ok) ok.hidden = state !== "confirm";
+    if (cancel) cancel.hidden = state !== "confirm";
+    if (view) {
+      view.hidden = state !== "done" || !viewUrl;
+      if (viewUrl) view.href = viewUrl;
+    }
+    if (doneBtn) doneBtn.hidden = state !== "done";
+    if (state === "loading") {
+      if (title) title.textContent = "Publicando...";
+      if (copy) copy.textContent = "Subiendo tus cambios a tu página.";
+      if (note) note.textContent = "No cierres esta ventana.";
+    } else if (state === "done") {
+      if (title) title.textContent = "¡Listo! Ya se publicó.";
+      if (copy) copy.textContent = "Tus cambios ya están en tu página.";
+      if (note) note.textContent = "Pueden tardar un momento en verse.";
+    }
+  }
+
+  function showPublishConfirm() {
     const overlay = $("#editor-v2-confirm");
     if (!overlay) return Promise.resolve(true);
     const ok = $("#editor-v2-confirm-ok");
     const cancel = $("#editor-v2-confirm-cancel");
+    const doneBtn = $("#editor-v2-confirm-done");
     const title = $("#editor-v2-confirm-title");
     const copy = $("#editor-v2-confirm .editor-modal-copy");
     const note = $("#editor-v2-confirm-note");
     if (title) title.textContent = "¿Quieres publicar estos cambios?";
     if (copy) copy.textContent = "Tu página se actualizará con lo que editaste.";
     if (note) note.textContent = "Los cambios pueden tardar un momento en verse.";
+    setPublishModal("confirm");
     return new Promise(resolve => {
       overlay.hidden = false;
       const done = result => {
         overlay.hidden = true;
         ok.onclick = null;
         cancel.onclick = null;
+        if (doneBtn) doneBtn.onclick = null;
         resolve(result);
       };
       ok.onclick = () => done(true);
       cancel.onclick = () => done(false);
+      if (doneBtn) doneBtn.onclick = () => { overlay.hidden = true; };
       ok.focus();
     });
   }
@@ -2248,6 +2283,8 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
 
     if (!(await showPublishConfirm())) return;
     if (!(await saveRepoDraft())) return;
+
+    setPublishModal("loading");
 
     if (hasPendingVideoStreamProcessing()) {
       showEditorError("EB-VIDEO-002");
@@ -2281,6 +2318,7 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
 
     const result = await response.json().catch(() => null);
     if (!response.ok || !result?.ok) {
+      $("#editor-v2-confirm").hidden = true;
       showEditorError("EB-PUBLISH-001");
       return;
     }
@@ -2298,6 +2336,11 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
 
     applyDraftToFrame();
     renderSidebar();
+    const liveUrl = state.project.preview_url
+      || state.project.site_url
+      || state.project.site_live_url
+      || "";
+    setPublishModal("done", liveUrl);
     setStatus(EDITOR_STATUS_COPY.published_ok, "success");
   }
 

@@ -597,6 +597,24 @@ body[data-portal-page="editor-v2"]{
   gap:.6rem;
 }
 
+.editor-modal-spinner{
+  width:42px;
+  height:42px;
+  margin:.5rem auto 1rem;
+  border:4px solid #dce7df;
+  border-top-color:#1f7a5a;
+  border-radius:50%;
+  animation:editor-spin .8s linear infinite;
+}
+
+.editor-modal-spinner[hidden]{
+  display:none;
+}
+
+@keyframes editor-spin{
+  to{transform:rotate(360deg)}
+}
+
 @media (max-width: 520px){
   .editor-photo-modal{
     max-width:calc(100vw - 24px);
