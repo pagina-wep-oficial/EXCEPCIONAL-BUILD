@@ -215,6 +215,59 @@ async function syncBranchSnapshotExact({ token, owner, repo, fromBranch, toBranc
   return { copiedFiles, deletedFiles };
 }
 
+async function syncSelectedFilesFromBranch({
+  token,
+  owner,
+  repo,
+  fromBranch,
+  toBranch,
+  paths = []
+}) {
+  const wanted = [...new Set(
+    (Array.isArray(paths) ? paths : [])
+      .map(normalizePath)
+      .filter(Boolean)
+  )];
+
+  if (!wanted.length) return { copiedFiles: [] };
+
+  const tree = await githubGetBranchTree({
+    token,
+    owner,
+    repo,
+    branch: fromBranch
+  });
+
+  const filesByPath = new Map(
+    tree
+      .filter(entry => entry?.type === "blob" && entry?.path)
+      .map(entry => [normalizePath(entry.path), entry])
+  );
+
+  const missing = wanted.filter(path => !filesByPath.has(path));
+  if (missing.length) {
+    throw new Error(`La versión base no contiene: ${missing.join(", ")}`);
+  }
+
+  for (const path of wanted) {
+    const source = filesByPath.get(path);
+    const blob = await githubGetBlob(token, owner, repo, source.sha);
+    const data = String(blob?.content || "").replace(/\n/g, "");
+
+    await upsertGitHubFile({
+      token,
+      owner,
+      repo,
+      branch: toBranch,
+      path,
+      data,
+      message: `Restaura ${path} desde ${fromBranch}`
+    });
+  }
+
+  return { copiedFiles: wanted };
+}
+
 async function upsertGitHubFile({ token, owner, repo, branch, path, data, message }) {
   const encodedPath = githubPath(path);
   const fileUrl = `${GITHUB_API}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodedPath}?ref=${encodeURIComponent(branch)}`;
@@ -238,6 +291,45 @@ function escapeRegExp(text = "") {
 
 function normalizePath(path = "") {
   return String(path || "").replace(/\\/g, "/").replace(/^\/+/, "");
+}
+
+function projectEditorPath(project, path = "") {
+  const root = normalizePath(project?.site_repo_path || "");
+  const target = normalizePath(path);
+
+  if (!root) return target;
+  if (!target) return root;
+
+  return target === root || target.startsWith(`${root}/`)
+    ? target
+    : `${root}/${target}`;
+}
+
+function projectEditorPages(project) {
+  let configured = project?.site_editor_pages;
+
+  if (typeof configured === "string") {
+    try {
+      configured = JSON.parse(configured);
+    } catch {
+      configured = [];
+    }
+  }
+
+  const rawPages = Array.isArray(configured) && configured.length
+    ? configured
+    : ["index.html"];
+
+  return [...new Set(
+    rawPages
+      .map(normalizePath)
+      .filter(path =>
+        path &&
+        /\.html?$/i.test(path) &&
+        !path.split("/").some(part => part === "." || part === "..")
+      )
+      .map(path => projectEditorPath(project, path))
+  )];
 }
 
 function splitExt(name = "") {
@@ -337,9 +429,15 @@ function extractRepoAssetPath(url, project) {
   return normalizePath(pathname.slice(prefix.length));
 }
 
-function pickRepoAssetPath(url, usedPaths) {
+function editorAssetDirectory(project) {
+  const root = normalizePath(project?.site_repo_path || "");
+  return [root, "editor", "fotos"].filter(Boolean).join("/");
+}
+
+function pickRepoAssetPath(project, url, usedPaths) {
   let folder = "editor";
   let file = `foto-${usedPaths.size + 1}.jpg`;
+
   try {
     const parsed = new URL(url);
     const parts = parsed.pathname.split("/").filter(Boolean);
@@ -350,12 +448,15 @@ function pickRepoAssetPath(url, usedPaths) {
   }
 
   const { base, ext } = splitExt(file);
-  let candidate = normalizePath(`fotos/${folder}/${base}${ext}`);
+  const directory = editorAssetDirectory(project);
+  let candidate = normalizePath(`${directory}/${folder}/${base}${ext}`);
   let index = 2;
+
   while (usedPaths.has(candidate)) {
-    candidate = normalizePath(`fotos/${folder}/${base}-${index}${ext}`);
+    candidate = normalizePath(`${directory}/${folder}/${base}-${index}${ext}`);
     index++;
   }
+
   usedPaths.add(candidate);
   return candidate;
 }
@@ -390,7 +491,7 @@ async function bundleRepoImages(pages, env, project) {
   let failed = 0;
 
   for (const url of supabaseUrls) {
-    const repoPath = pickRepoAssetPath(url, usedPaths);
+    const repoPath = pickRepoAssetPath(project, url, usedPaths);
     const editorUrl = editorAssetUrl(project, repoPath);
     try {
       const response = await fetch(url);
@@ -463,7 +564,7 @@ export async function onRequestPost(context) {
 
     const body = await context.request.json().catch(() => ({}));
     const projectId = String(body.project_id || "");
-    const baseBranch = String(body.base_branch || DEFAULT_BASE_BRANCH).trim() || DEFAULT_BASE_BRANCH;
+    const baseBranch = DEFAULT_BASE_BRANCH;
     const useBaseSnapshot = body.use_base_snapshot === true;
     const pages = (Array.isArray(body.pages) ? body.pages : [])
       .map(page => ({
@@ -479,6 +580,17 @@ export async function onRequestPost(context) {
     if (!access) return json({ ok: false, message: "No tienes acceso a este proyecto." }, 403);
 
     const project = access.project;
+    const allowedPages = new Set(projectEditorPages(project));
+    const requestedPages = pages.map(page => normalizePath(page.path));
+    const forbiddenPages = requestedPages.filter(path => !allowedPages.has(path));
+
+    if (forbiddenPages.length) {
+      return json({
+        ok: false,
+        message: `No se permite publicar: ${forbiddenPages.join(", ")}`
+      }, 403);
+    }
+
     const owner = project.site_repo_owner;
     const repo = project.site_repo_name;
     const branch = liveBranch(project);
@@ -489,21 +601,16 @@ export async function onRequestPost(context) {
     let syncedBaseFiles = 0;
     let deletedBaseFiles = 0;
     if (useBaseSnapshot && baseBranch !== branch) {
-      const baseSync = await syncBranchSnapshotExact({
+      const baseSync = await syncSelectedFilesFromBranch({
         token,
         owner,
         repo,
         fromBranch: baseBranch,
         toBranch: branch,
-        rootPath: project.site_repo_path || "",
-        extraKeepPaths: [
-          ...bundled.pages.map(page => page.path),
-          ...bundled.assetFiles.map(asset => asset.path)
-        ]
+        paths: pages.map(page => page.path)
       });
 
       syncedBaseFiles = baseSync.copiedFiles.length;
-      deletedBaseFiles = baseSync.deletedFiles.length;
     }
 
     const published = [];

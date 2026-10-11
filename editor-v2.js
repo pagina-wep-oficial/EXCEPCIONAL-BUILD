@@ -291,15 +291,57 @@
     updateUndoButtons();
   }
 
+  function normalizeRepoPath(path = "") {
+    return String(path || "")
+      .replace(/\\/g, "/")
+      .replace(/^\/+|\/+$/g, "");
+  }
+
   function repoBasePath(project) {
-    const raw = String(project.site_repo_path || "/").trim();
-    if (!raw || raw === "/") return "";
-    return raw.replace(/^\/+|\/+$/g, "");
+    return normalizeRepoPath(project?.site_repo_path || "/");
+  }
+
+  function repoFullPath(project, path = "") {
+    const base = repoBasePath(project);
+    const target = normalizeRepoPath(path);
+
+    if (!base) return target;
+    if (!target) return base;
+
+    return target === base || target.startsWith(`${base}/`)
+      ? target
+      : `${base}/${target}`;
+  }
+
+  function editorPagePaths(project) {
+    let configured = project?.site_editor_pages;
+
+    if (typeof configured === "string") {
+      try {
+        configured = JSON.parse(configured);
+      } catch {
+        configured = [];
+      }
+    }
+
+    const rawPages = Array.isArray(configured) && configured.length
+      ? configured
+      : ["index.html"];
+
+    const pages = rawPages
+      .map(normalizeRepoPath)
+      .filter(path =>
+        path &&
+        /\.html?$/i.test(path) &&
+        !path.split("/").some(part => part === "." || part === "..")
+      )
+      .map(path => repoFullPath(project, path));
+
+    return [...new Set(pages)];
   }
 
   function repoApiUrl(project, path = "", mode = "token", branchOverride = "") {
-    const base = repoBasePath(project);
-    const fullPath = [base, path].filter(Boolean).join("/");
+    const fullPath = repoFullPath(project, path);
     const branch = String(branchOverride || liveRepoBranch(project)).trim() || "main";
     const params = new URLSearchParams({
       owner: project.site_repo_owner || "",
@@ -312,10 +354,9 @@
   }
 
   function githubContentsUrl(project, path = "", branchOverride = "") {
-    const base = repoBasePath(project);
-    const fullPath = [base, path].filter(Boolean).join("/");
+    const fullPath = repoFullPath(project, path);
     const encodedPath = fullPath
-      ? fullPath.split("/").map(seg => encodeURIComponent(seg)).join("/")
+      ? fullPath.split("/").map(segment => encodeURIComponent(segment)).join("/")
       : "";
     const owner = encodeURIComponent(project.site_repo_owner || "");
     const repo = encodeURIComponent(project.site_repo_name || "");
@@ -500,8 +541,7 @@
   }
 
   function repoRawUrl(project, path = "", branchOverride = "") {
-    const base = repoBasePath(project);
-    const fullPath = [base, path].filter(Boolean).join("/");
+    const fullPath = repoFullPath(project, path);
     const branch = encodeURIComponent(String(branchOverride || liveRepoBranch(project)).trim() || "main");
     return `https://raw.githubusercontent.com/${encodeURIComponent(project.site_repo_owner)}/${encodeURIComponent(project.site_repo_name)}/${branch}/${fullPath}`;
   }
@@ -510,8 +550,7 @@
   // con el MIME correcto y sin depender de CDNs de terceros (raw los sirve como text/plain
   // y el navegador los bloquea, dejando la página sin estilos).
   function repoCdnUrl(project, path = "", branchOverride = "") {
-    const base = repoBasePath(project);
-    const fullPath = [base, path].filter(Boolean).join("/");
+    const fullPath = repoFullPath(project, path);
     const branch = String(branchOverride || liveRepoBranch(project)).trim() || "main";
     const prefix = `${encodeURIComponent(project.site_repo_owner)}/${encodeURIComponent(project.site_repo_name)}@${encodeURIComponent(branch)}`;
     return `/api/repo-asset/${prefix}/${fullPath}`;
@@ -528,24 +567,34 @@
 
   async function readRepoSnapshot(project, branch) {
     const result = await listRepoEntries(project, "", branch);
-    const entries = result.entries;
+    const entries = Array.isArray(result.entries) ? result.entries : [];
+    const configuredPaths = editorPagePaths(project);
 
-    const htmlFiles = (Array.isArray(entries) ? entries : [])
-      .filter(item => item.type === "file" && /\.html?$/i.test(item.name))
-      .sort((a, b) => {
-        if (a.name === "index.html") return -1;
-        if (b.name === "index.html") return 1;
-        return a.name.localeCompare(b.name);
-      });
+    if (!configuredPaths.length) {
+      throw new Error("No hay páginas configuradas para este editor.");
+    }
 
-    if (!htmlFiles.length) throw new Error(`No encontramos archivos HTML en la rama ${branch}.`);
+    const entriesByPath = new Map(
+      entries
+        .filter(item => item?.type === "file" && item?.path)
+        .map(item => [normalizeRepoPath(item.path), item])
+    );
 
-    const pages = htmlFiles.map((item, index) => ({
-      id: item.path,
-      slug: item.path,
-      name: pageNameFromPath(item.path),
-      path: item.path,
-      is_home: item.name === "index.html" || index === 0,
+    const missing = configuredPaths.filter(path => {
+      const item = entriesByPath.get(path);
+      return !item || !/\.html?$/i.test(item.name || path);
+    });
+
+    if (missing.length) {
+      throw new Error(`No encontramos la página editable: ${missing.join(", ")}.`);
+    }
+
+    const pages = configuredPaths.map((path, index) => ({
+      id: path,
+      slug: path,
+      name: pageNameFromPath(path),
+      path,
+      is_home: index === 0,
       is_visible: true
     }));
 
@@ -553,9 +602,11 @@
 
     await Promise.all(pages.map(async page => {
       const htmlRes = await fetch(repoRawUrl(project, page.path, branch));
-      if (!htmlRes.ok) throw new Error(`No pudimos leer ${page.path} en la rama ${branch}.`);
-      const html = await htmlRes.text();
-      htmlByPath.set(page.path, html);
+      if (!htmlRes.ok) {
+        throw new Error(`No pudimos leer ${page.path} en la rama ${branch}.`);
+      }
+
+      htmlByPath.set(page.path, await htmlRes.text());
     }));
 
     return { source: result.source, branch, pages, htmlByPath };
