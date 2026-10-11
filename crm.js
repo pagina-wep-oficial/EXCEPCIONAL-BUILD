@@ -1775,6 +1775,30 @@ if(canManageUsers()) await loadUsers();
     toast("Proyecto borrado permanentemente.");
   }
 
+  async function revokeStoreOwnerAccess(project){
+    const projectId=String(project?.id||"").trim();
+    const itmProjectId=String(project?.source_itm_project_id||"").trim();
+    const accessToken=String(state.session?.access_token||"").trim();
+
+    if(!projectId||!itmProjectId)return;
+    if(!accessToken)throw new Error("CRM_SESSION_REQUIRED");
+
+    const response=await fetch("/api/store-owner-access",{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        Authorization:`Bearer ${accessToken}`
+      },
+      body:JSON.stringify({project_id:projectId})
+    });
+
+    const data=await response.json().catch(()=>({}));
+
+    if(!response.ok||!data?.ok){
+      throw new Error(data?.code||"STORE_ACCESS_REVOKE_FAILED");
+    }
+  }
+
   async function saveProject(e){
     e.preventDefault();const f=e.currentTarget,fd=new FormData(f),id=String(fd.get("id")||""),old=projectById(id),userId=String(fd.get("user_id")||"")||null,stage=String(fd.get("project_stage")||"Configuración");
     const hostingLocked=fd.get("hosting_plan_locked")==="on",hostingTypeForm=String(fd.get("hosting_type")||"cloudflare");
@@ -1790,6 +1814,31 @@ if(canManageUsers()) await loadUsers();
     setLine("#project-form-status","Guardando…");const result=id?await db.from("client_projects").update(payload).eq("id",id).select().single():(async()=>{const {data,error}=await db.from("client_projects").insert({...payload,claim_token:null,accepted_at:new Date().toISOString()}).select().single();if(!error&&data&&!userId){const {data:updated}=await db.from("client_projects").update({claim_token:crypto.randomUUID()}).eq("id",data.id).select().single();if(updated)Object.assign(data,updated);await ensureInvite(data);}return {data,error};})();
     if(result.error){setLine("#project-form-status",result.error.message||"No pudimos guardar.","error");return;}
     let saved=result.data;
+
+    const ownerChanged=Boolean(id)&&
+      String(old?.user_id||"")!==String(saved.user_id||"");
+
+    const storeWasHidden=Boolean(id)&&
+      Boolean(old?.store_enabled)&&
+      !Boolean(saved.store_enabled);
+
+    if(
+      (ownerChanged||storeWasHidden)&&
+      String(saved.source_itm_project_id||"").trim()
+    ){
+      setLine("#project-form-status","Actualizando el acceso de la tienda…");
+
+      try{
+        await revokeStoreOwnerAccess(saved);
+      }catch(error){
+        setLine(
+          "#project-form-status",
+          "El proyecto se guardó, pero no se pudo retirar el acceso anterior. Guarda otra vez para reintentarlo.",
+          "error"
+        );
+        return;
+      }
+    }
     // Guardado explícito: la casilla del editor debe sobrevivir a la recarga
     // en tiempo real y no depender de que el primer update devuelva el campo.
     if(id&&$("#project-editor-visible")){
@@ -1999,7 +2048,7 @@ $("#project-storage-list")?.addEventListener("change",e=>{
       box=document.createElement("div");
       box.id="project-store-admin-box";
       box.className="editor-admin-box store-admin-box";
-      box.innerHTML=`<div class="editor-admin-head"><div><strong>Herramienta de tienda</strong><p>Decide si el cliente verá <b>Gestionar tienda</b> dentro de las herramientas de su sitio.</p></div><label class="store-visibility-toggle"><input type="checkbox" name="store_enabled"> Mostrar herramienta</label></div><p class="status-line" id="project-store-admin-note"></p>`;
+      box.innerHTML=`<div class="editor-admin-head"><div><strong>Herramienta de tienda</strong><p>Decide si el cliente verá <b>Gestionar tienda</b> dentro de las herramientas de su sitio. Al ocultarla, se retira su acceso actual a la tienda.</p></div><label class="store-visibility-toggle"><input type="checkbox" name="store_enabled"> Mostrar herramienta</label></div><p class="status-line" id="project-store-admin-note"></p>`;
       invite.before(box);
     }
     const sync=()=>{
