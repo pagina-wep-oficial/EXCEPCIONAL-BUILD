@@ -526,6 +526,34 @@ function patchPhotoMeta(element, meta = {}) {
   );
 }
 
+function removeLegacyEditorPhotoLayout(element) {
+  const current = String(element.getAttribute("style") || "");
+  const wasGeneratedByOldEditor =
+    /(?:^|;)\s*position\s*:\s*absolute\b/i.test(current) &&
+    /translate\(\s*-50%\s*,\s*-50%\s*\)/i.test(current);
+
+  if (!wasGeneratedByOldEditor) return;
+
+  const next = styleValue(current, {
+    position: null,
+    inset: null,
+    left: null,
+    top: null,
+    width: null,
+    height: null,
+    "max-width": null,
+    "max-height": null,
+    display: null,
+    "border-radius": null,
+    "transform-origin": null,
+    transform: null,
+    "object-fit": null
+  });
+
+  if (next) element.setAttribute("style", next);
+  else element.removeAttribute("style");
+}
+
 async function applyEditorPatchesToHtml(sourceHtml, elements = {}) {
   const entries = Object.entries(elements || {})
     .filter(([key, entry]) =>
@@ -535,9 +563,15 @@ async function applyEditorPatchesToHtml(sourceHtml, elements = {}) {
       ["text", "link", "image"].includes(entry.type)
     );
 
-  if (!entries.length) return String(sourceHtml || "");
-
   const rewriter = new HTMLRewriter();
+
+  // Corrige publicaciones hechas por el editor anterior: esas imágenes se
+  // guardaban absolutas y podían hacer colapsar el contenedor en el sitio vivo.
+  rewriter.on('[data-eb-editable="image"]', {
+    element(element) {
+      removeLegacyEditorPhotoLayout(element);
+    }
+  });
 
   for (const [key, entry] of entries) {
     const selector = `[data-eb-key="${selectorAttributeValue(key)}"]`;

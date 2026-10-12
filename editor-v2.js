@@ -3097,10 +3097,21 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
   }
 
   function ensurePhotoFrame(node, meta) {
-    const ratio = Number(meta?.frameRatio);
-    if (!node || !Number.isFinite(ratio) || ratio <= 0) return null;
+    if (!node) return null;
 
     let frame = photoFrameWrapper(node);
+
+    // El sitio puede traer un marco semántico propio (picture, figure o div).
+    // Ese marco es parte del diseño y no depende de que una edición anterior
+    // haya guardado frameRatio.
+    if (
+      frame?.getAttribute("data-eb-photo-frame-for") ===
+      node.getAttribute("data-eb-key")
+    ) return frame;
+
+    const ratio = Number(meta?.frameRatio);
+    if (!Number.isFinite(ratio) || ratio <= 0) return null;
+
     if (!frame) {
       const parent = node.parentNode;
       if (!parent) return null;
@@ -3109,13 +3120,6 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
       parent.insertBefore(frame, node);
       frame.appendChild(node);
     }
-
-    // Los marcos definidos por el sitio ya tienen sus propias dimensiones y
-    // estilos responsivos. El editor no debe reemplazarlos por un wrapper suyo.
-    if (
-      frame.getAttribute("data-eb-photo-frame-for") ===
-      node.getAttribute("data-eb-key")
-    ) return frame;
 
     const computed = node.ownerDocument?.defaultView?.getComputedStyle(node);
     if (!frame.dataset.ebPhotoRadius) {
@@ -3140,6 +3144,9 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
     const frame = photoFrameWrapper(node);
     const parent = frame?.parentNode;
     if (!frame || !parent) return;
+    // Este contenedor fue escrito por el sitio, no por el editor. Quitarle
+    // rompería la composición aunque el usuario solo restablezca una foto.
+    if (frame.hasAttribute("data-eb-photo-frame-for")) return;
     parent.insertBefore(node, frame);
     frame.remove();
   }
@@ -3161,6 +3168,7 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
       node.style.display = "";
       node.style.borderRadius = "";
       node.style.transformOrigin = "";
+      node.style.objectPosition = "";
       return;
     }
     const frame = ensurePhotoFrame(node, meta);
@@ -3188,6 +3196,7 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
       node.style.width = "";
       node.style.height = "";
       node.style.maxWidth = "";
+      node.style.maxHeight = "";
       node.style.display = "";
       node.style.borderRadius = "";
       node.style.transformOrigin = "center center";
