@@ -79,7 +79,7 @@
     saving_draft: "Guardando cambios...",
     draft_saved: "Cambios guardados.",
     publishing: "Publicando cambios...",
-    published_ok: "Cambios publicados. En un momento los verás reflejados en tu página.",
+    published_ok: "Cambios publicados.",
     page_reset: "Esta página volvió a su último estado guardado.",
     image_optimizing: "Preparando imagen...",
     image_uploading: "Subiendo imagen...",
@@ -2227,21 +2227,21 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
       doneBtn.onclick = state === "done" || state === "pending" ? () => { overlay.hidden = true; } : null;
     }
     if (state === "loading") {
-      if (title) title.textContent = "Guardando tus cambios";
-      if (copy) copy.textContent = "Estamos guardando la nueva versión en GitHub.";
+      if (title) title.textContent = "Guardando cambios";
+      if (copy) copy.textContent = "Estamos preparando la nueva versión de tu página.";
       if (note) note.textContent = "No cierres esta ventana.";
     } else if (state === "checking") {
       if (title) title.textContent = "Actualizando tu página";
-      if (copy) copy.textContent = "Tus cambios ya están guardados. Cloudflare está preparando la nueva versión.";
-      if (note) note.textContent = "Abriremos la página solo cuando el cambio ya esté disponible.";
+      if (copy) copy.textContent = "Estamos preparando los cambios para que se vean en tu página.";
+      if (note) note.textContent = "Esto puede tomar un momento.";
     } else if (state === "done") {
       if (title) title.textContent = "Tu página ya está actualizada";
       if (copy) copy.textContent = "El cambio ya está disponible para tus visitantes.";
-      if (note) note.textContent = "Ahora sí puedes abrirla sin recargar ni esperar.";
+      if (note) note.textContent = "Puedes abrir tu página cuando quieras.";
     } else if (state === "pending") {
-      if (title) title.textContent = "Tu cambio quedó guardado";
-      if (copy) copy.textContent = "Cloudflare todavía está preparando la nueva versión.";
-      if (note) note.textContent = "Puedes seguir editando. La página se actualizará automáticamente al terminar el despliegue.";
+      if (title) title.textContent = "Tus cambios se guardaron";
+      if (copy) copy.textContent = "Tu página se actualizará en unos momentos.";
+      if (note) note.textContent = "Puedes continuar editando con normalidad.";
     }
   }
 

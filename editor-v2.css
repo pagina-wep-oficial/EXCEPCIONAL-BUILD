@@ -598,13 +598,16 @@ body[data-portal-page="editor-v2"]{
 }
 
 .editor-modal-spinner{
-  width:42px;
-  height:42px;
+  width:46px;
+  height:46px;
   margin:.5rem auto 1rem;
-  border:4px solid #dce7df;
-  border-top-color:#1f7a5a;
+  border:5px solid #dce7df;
+  border-top-color:#167353;
+  border-right-color:#8cdbba;
   border-radius:50%;
-  animation:editor-spin .8s linear infinite;
+  animation:editor-spin .72s linear infinite !important;
+  transform-origin:center;
+  will-change:transform;
 }
 
 .editor-modal-spinner[hidden]{
@@ -612,6 +615,7 @@ body[data-portal-page="editor-v2"]{
 }
 
 @keyframes editor-spin{
+  from{transform:rotate(0deg)}
   to{transform:rotate(360deg)}
 }
 
