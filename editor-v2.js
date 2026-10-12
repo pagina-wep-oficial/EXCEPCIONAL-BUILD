@@ -631,9 +631,10 @@
         elements: {}
       };
       writeDraftMeta(draft, {
-  asset_branch: branch,
-  save_model: "patch-v2"
-});
+        asset_branch: branch,
+        save_model: "patch-v2",
+        published: true
+      });
       state.repoDrafts.set(page.id, draft);
     });
 
@@ -647,15 +648,20 @@
         const draft = state.repoDrafts.get(saved.page_path);
         if (!draft) return;
         draft.edited_html = draft.original_html;
-        draft.elements = saved.elements || {};
+        const savedDraft = { elements: saved.elements || {} };
+        const savedMeta = readDraftMeta(savedDraft);
+        const hasPendingChanges = savedMeta.published === false;
 
-        const savedMeta = readDraftMeta(draft);
-        if (savedMeta.save_model !== "patch-v2") {
-          writeDraftMeta(draft, {
-            asset_branch: branch,
-            save_model: "patch-v2"
-          });
-        }
+        // Un borrador ya publicado no debe volver a imponerse sobre el HTML
+        // recién leído del repositorio. Solo restauramos cambios pendientes.
+        draft.elements = hasPendingChanges ? savedDraft.elements : {};
+        writeDraftMeta(draft, {
+          asset_branch: hasPendingChanges
+            ? (savedMeta.asset_branch || branch)
+            : branch,
+          save_model: "patch-v2",
+          published: !hasPendingChanges
+        });
       });
     }
 
@@ -1792,6 +1798,7 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
 
     draft.elements = draft.elements || {};
     draft.elements[state.currentKey] = entry;
+    writeDraftMeta(draft, { published: false });
 
     const stateEl = $("#editor-v2-current-state");
     if (stateEl) stateEl.textContent = "Tienes cambios sin publicar en esta página.";
@@ -1916,12 +1923,14 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
       state.repoDrafts.forEach(draft => {
         const html = snapshot.htmlByPath.get(draft.path);
         if (!html) return;
+        draft.original_html = html;
         draft.edited_html = html;
         draft.elements = {};
         writeDraftMeta(draft, {
-  asset_branch: branch,
-  save_model: "patch-v2"
-});
+          asset_branch: branch,
+          save_model: "patch-v2",
+          published: false
+        });
       });
 
       const savedAll = await saveAllRepoDrafts(true);
@@ -2391,7 +2400,8 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
       if (saved.elements && typeof saved.elements === "object") draft.elements = saved.elements;
       writeDraftMeta(draft, {
         asset_branch: liveBranch,
-        save_model: "patch-v2"
+        save_model: "patch-v2",
+        published: true
       });
     });
 
@@ -2411,7 +2421,8 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
       draft.elements = {};
       writeDraftMeta(draft, {
         asset_branch: liveRepoBranch(state.project),
-        save_model: "patch-v2"
+        save_model: "patch-v2",
+        published: false
       });
     }
     state.currentKey = "";

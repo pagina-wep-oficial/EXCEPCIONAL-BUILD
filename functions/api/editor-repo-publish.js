@@ -26,11 +26,12 @@ function readDraftMeta(elements = {}) {
   }
 }
 
-function withDraftAssetBranch(elements = {}, branch = "main") {
+function withDraftAssetBranch(elements = {}, branch = "main", patch = {}) {
   const next = elements && typeof elements === "object" ? { ...elements } : {};
   const meta = {
     ...readDraftMeta(next),
-    asset_branch: branch
+    asset_branch: branch,
+    ...(patch && typeof patch === "object" ? patch : {})
   };
   next[DRAFT_META_KEY] = {
     type: "__system__",
@@ -689,11 +690,14 @@ async function bundleRepoImages(pages, env, project) {
       page.elements || {}
     );
 
+    const publishedHtml = rewriteStringWithMap(patchedHtml, htmlReplacements);
     return {
       path: page.path,
-      published_html: rewriteStringWithMap(patchedHtml, htmlReplacements),
-      draft_html: sourceHtml,
-      draft_elements: rewriteValueDeep(page.elements || {}, draftReplacements)
+      published_html: publishedHtml,
+      // Tras publicar, el repo se vuelve la fuente de verdad. Conservar los
+      // cambios puntuales aquí hacía que un borrador viejo reapareciera.
+      draft_html: publishedHtml,
+      draft_elements: {}
     };
   }));
 
@@ -713,6 +717,7 @@ async function updateDraftRecord(context, access, page) {
         Prefer: "return=representation"
       },
       body: JSON.stringify({
+        original_html: page.draft_html,
         edited_html: page.draft_html,
         elements: page.draft_elements || {},
         published_at: new Date().toISOString(),
@@ -809,7 +814,7 @@ export async function onRequestPost(context) {
         message: `Actualiza ${page.path} desde editor Excepcional Build`
       });
 
-      const nextDraftElements = withDraftAssetBranch(page.draft_elements || {}, branch);
+      const nextDraftElements = withDraftAssetBranch({}, branch, { published: true });
       const saved = await updateDraftRecord(context, access, {
         ...page,
         draft_elements: nextDraftElements
