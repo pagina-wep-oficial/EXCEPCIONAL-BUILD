@@ -1603,6 +1603,7 @@ if(canManageUsers()) await loadUsers();
     // con la opcion equivocada por un instante (parpadeo), porque client_projects
     // no guarda domain_owned ni los candados: viven en client_project_setup.
     if(state.currentSetup&&state.currentSetup.project_id===project.id)applySetupToForm(state.currentSetup);
+    ensureStoreAdminControls();
   }
 
   async function downloadAdminFile(fileId,fileName){try{const r=await fetch(`/api/project-file?id=${encodeURIComponent(fileId)}`,{headers:{Authorization:`Bearer ${state.session.access_token}`}});if(!r.ok)throw new Error();const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=fileName||"archivo";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch{toast("No pudimos descargar el archivo.");}}
@@ -1799,8 +1800,33 @@ if(canManageUsers()) await loadUsers();
     }
   }
 
+  async function requestStoreMode(project,storeMode){
+    const projectId=String(project?.id||"").trim();
+    const accessToken=String(state.session?.access_token||"").trim();
+    if(!projectId||!accessToken)throw new Error("STORE_MODE_UNAVAILABLE");
+    const changing=storeMode==="whatsapp_catalog"||storeMode==="managed_orders";
+    const url=changing
+      ? "/api/store-admin-mode"
+      : `/api/store-admin-mode?project_id=${encodeURIComponent(projectId)}`;
+    const response=await fetch(url,{
+      method:changing?"POST":"GET",
+      headers:{Authorization:`Bearer ${accessToken}`,...(changing?{"Content-Type":"application/json"}:{})},
+      ...(changing?{body:JSON.stringify({project_id:projectId,store_mode:storeMode})}:{})
+    });
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok||!data?.ok)throw new Error(data?.code||"STORE_MODE_REQUEST_FAILED");
+    return data.store_mode==="managed_orders"?"managed_orders":"whatsapp_catalog";
+  }
+
+  async function updateStoreMode(project,storeMode){
+    return requestStoreMode(project,storeMode);
+  }
+
   async function saveProject(e){
     e.preventDefault();const f=e.currentTarget,fd=new FormData(f),id=String(fd.get("id")||""),old=projectById(id),userId=String(fd.get("user_id")||"")||null,stage=String(fd.get("project_stage")||"Configuración");
+    const storeModeControl=$("#project-store-mode");
+    const requestedStoreMode=String(storeModeControl?.value||"").trim();
+    const currentStoreMode=String(storeModeControl?.dataset.currentMode||"").trim();
     const hostingLocked=fd.get("hosting_plan_locked")==="on",hostingTypeForm=String(fd.get("hosting_type")||"cloudflare");
     if(hostingLocked&&hostingTypeForm==="hostinger"){
       const planElegido=String(fd.get("hosting_plan_id")||"").trim();
@@ -1847,6 +1873,21 @@ if(canManageUsers()) await loadUsers();
       if(visibilityResult.error){setLine("#project-form-status",visibilityResult.error.message||"No pudimos guardar la visibilidad del editor.","error");return;}
       saved=visibilityResult.data||saved;
       if(Boolean(saved.editor_visible_to_client)!==editorVisible){setLine("#project-form-status","Supabase no confirmó la visibilidad del editor.","error");return;}
+    }
+    if(
+      id&&
+      String(saved.source_itm_project_id||"").trim()&&
+      requestedStoreMode&&
+      requestedStoreMode!==currentStoreMode
+    ){
+      setLine("#project-form-status","Actualizando el funcionamiento de la tienda…");
+      try{
+        const nextMode=await updateStoreMode(saved,requestedStoreMode);
+        if(storeModeControl)storeModeControl.dataset.currentMode=nextMode;
+      }catch(error){
+        setLine("#project-form-status","El proyecto se guardó, pero no pudimos actualizar el funcionamiento de la tienda. Guarda otra vez para reintentarlo.","error");
+        return;
+      }
     }
     const idx=state.projects.findIndex(p=>p.id===saved.id);if(idx>=0)state.projects[idx]=saved;else state.projects.unshift(saved);
     if(saved.source_prospect_id)await db.from("prospectos").update({client_user_id:userId,client_project_id:saved.id}).eq("id",saved.source_prospect_id).then(()=>{});
@@ -2048,21 +2089,36 @@ $("#project-storage-list")?.addEventListener("change",e=>{
       box=document.createElement("div");
       box.id="project-store-admin-box";
       box.className="editor-admin-box store-admin-box";
-      box.innerHTML=`<div class="editor-admin-head"><div><strong>Herramienta de tienda</strong><p>Decide si el cliente verá <b>Gestionar tienda</b> dentro de las herramientas de su sitio. Al ocultarla, se retira su acceso actual a la tienda.</p></div><label class="store-visibility-toggle"><input type="checkbox" name="store_enabled"> Mostrar herramienta</label></div><p class="status-line" id="project-store-admin-note"></p>`;
+      box.innerHTML=`<div class="editor-admin-head"><div><strong>Herramienta de tienda</strong><p>Decide si el cliente verá <b>Gestionar tienda</b> dentro de las herramientas de su sitio. Al ocultarla, se retira su acceso actual a la tienda.</p></div><label class="store-visibility-toggle"><input type="checkbox" name="store_enabled"> Mostrar herramienta</label></div><div class="editor-admin-grid"><label class="wide">Versión de la tienda<select id="project-store-mode" disabled><option value="whatsapp_catalog">Versión base — pedidos por WhatsApp</option><option value="managed_orders">Versión completa — pedidos administrados</option></select><small>Solo la administración puede cambiarlo. El cliente no verá esta opción.</small></label></div><p class="status-line" id="project-store-admin-note"></p>`;
       invite.before(box);
     }
-    const sync=()=>{
+    const sync=async()=>{
       const project=state.currentProject||{};
       const enabled=form.elements.store_enabled;
       const note=$("#project-store-admin-note");
       const itmProjectId=String(project.source_itm_project_id||"").trim();
+      const mode=$("#project-store-mode");
 
       if(enabled)enabled.checked=Boolean(project.store_enabled);
 
-      if(note){
-        note.textContent=itmProjectId
-          ? "Esta tienda está conectada automáticamente con su proyecto ITM. No necesitas copiar enlaces ni configurar una URL."
-          : "Esta herramienta aparecerá cuando el proyecto esté conectado con una tienda creada desde ITM.";
+      if(!itmProjectId){
+        if(mode){mode.disabled=true;delete mode.dataset.currentMode;}
+        if(note)note.textContent="Esta herramienta aparecerá cuando el proyecto esté conectado con una tienda creada desde ITM.";
+        return;
+      }
+
+      if(mode)mode.disabled=true;
+      if(note)note.textContent="Cargando el tipo de atención de esta tienda…";
+      const projectId=String(project.id||"");
+      try{
+        const currentMode=await requestStoreMode(project);
+        if(String(state.currentProject?.id||"")!==projectId)return;
+        if(mode){mode.value=currentMode;mode.dataset.currentMode=currentMode;mode.disabled=false;}
+        if(note)note.textContent="El cambio se aplicará cuando guardes el proyecto. El cliente no ve esta configuración.";
+      }catch(_){
+        if(String(state.currentProject?.id||"")!==projectId)return;
+        if(mode){mode.disabled=true;delete mode.dataset.currentMode;}
+        if(note)note.textContent="No pudimos cargar esta configuración. Intenta actualizar el proyecto.";
       }
     };
     sync();
