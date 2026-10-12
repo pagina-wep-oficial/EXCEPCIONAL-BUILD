@@ -630,7 +630,10 @@
         edited_html: html,
         elements: {}
       };
-      writeDraftMeta(draft, { asset_branch: branch });
+      writeDraftMeta(draft, {
+  asset_branch: branch,
+  save_model: "patch-v2"
+});
       state.repoDrafts.set(page.id, draft);
     });
 
@@ -643,9 +646,16 @@
       (draftResult?.drafts || []).forEach(saved => {
         const draft = state.repoDrafts.get(saved.page_path);
         if (!draft) return;
-        draft.edited_html = saved.edited_html || draft.original_html;
+        draft.edited_html = draft.original_html;
         draft.elements = saved.elements || {};
-        writeDraftMeta(draft, { asset_branch: draftAssetBranch(draft) });
+
+        const savedMeta = readDraftMeta(draft);
+        if (savedMeta.save_model !== "patch-v2") {
+          writeDraftMeta(draft, {
+            asset_branch: branch,
+            save_model: "patch-v2"
+          });
+        }
       });
     }
 
@@ -1908,7 +1918,10 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
         if (!html) return;
         draft.edited_html = html;
         draft.elements = {};
-        writeDraftMeta(draft, { asset_branch: branch });
+        writeDraftMeta(draft, {
+  asset_branch: branch,
+  save_model: "patch-v2"
+});
       });
 
       const savedAll = await saveAllRepoDrafts(true);
@@ -2097,11 +2110,14 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
 
   function syncRepoDraftFromFrame() {
     const draft = currentDraft();
-    const frame = $("#editor-v2-frame");
-    const doc = frame?.contentDocument;
-    if (!draft || !doc) return;
+    if (!draft) return;
 
-    draft.edited_html = buildRepoExportHtml(doc);
+    /*
+      La fuente de verdad son los cambios puntuales de draft.elements.
+      Nunca guardamos el DOM renderizado del iframe: podría contener cambios
+      temporales de scripts, tarjetas dinámicas o elementos visuales del editor.
+    */
+    draft.edited_html = draft.original_html || draft.edited_html || "";
   }
 
   function ensureFrameBaseInDoc() {
@@ -2332,6 +2348,7 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
     setStatus(EDITOR_STATUS_COPY.publishing);
     const pages = [...state.repoDrafts.values()].map(draft => ({
       path: draft.path,
+      original_html: draft.original_html,
       edited_html: draft.edited_html,
       elements: draft.elements || {}
     }));
@@ -2372,7 +2389,10 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
         draft.original_html = saved.edited_html;
       }
       if (saved.elements && typeof saved.elements === "object") draft.elements = saved.elements;
-      writeDraftMeta(draft, { asset_branch: liveBranch });
+      writeDraftMeta(draft, {
+        asset_branch: liveBranch,
+        save_model: "patch-v2"
+      });
     });
 
     applyDraftToFrame();
@@ -2389,7 +2409,10 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
     if (draft) {
       draft.edited_html = draft.original_html;
       draft.elements = {};
-      writeDraftMeta(draft, { asset_branch: liveRepoBranch(state.project) });
+      writeDraftMeta(draft, {
+        asset_branch: liveRepoBranch(state.project),
+        save_model: "patch-v2"
+      });
     }
     state.currentKey = "";
     state.currentType = "";
@@ -3065,6 +3088,10 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
     const parent = node?.parentElement;
     if (!parent) return null;
     if (parent.getAttribute("data-eb-photo-frame") === "1") return parent;
+    if (
+      parent.getAttribute("data-eb-photo-frame-for") ===
+      node.getAttribute("data-eb-key")
+    ) return parent;
     if (parent.classList?.contains("site-img-adjust")) return parent;
     return null;
   }
@@ -3082,6 +3109,13 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
       parent.insertBefore(frame, node);
       frame.appendChild(node);
     }
+
+    // Los marcos definidos por el sitio ya tienen sus propias dimensiones y
+    // estilos responsivos. El editor no debe reemplazarlos por un wrapper suyo.
+    if (
+      frame.getAttribute("data-eb-photo-frame-for") ===
+      node.getAttribute("data-eb-key")
+    ) return frame;
 
     const computed = node.ownerDocument?.defaultView?.getComputedStyle(node);
     if (!frame.dataset.ebPhotoRadius) {
@@ -3142,6 +3176,27 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
       return;
     }
     const layout = photoComputeLayout(meta, frameW, frameH, node.naturalWidth, node.naturalHeight);
+    const isAuthoredFrame =
+      frame.getAttribute("data-eb-photo-frame-for") ===
+      node.getAttribute("data-eb-key");
+
+    if (isAuthoredFrame) {
+      node.style.position = "";
+      node.style.inset = "";
+      node.style.left = "";
+      node.style.top = "";
+      node.style.width = "";
+      node.style.height = "";
+      node.style.maxWidth = "";
+      node.style.display = "";
+      node.style.borderRadius = "";
+      node.style.transformOrigin = "center center";
+      node.style.objectFit = "cover";
+      node.style.objectPosition = `${50 + layout.x * 100}% ${50 + layout.y * 100}%`;
+      node.style.transform = `translate(${layout.x * 100}%, ${layout.y * 100}%) scale(${layout.zoom}) rotate(${layout.rotation}deg)`;
+      return;
+    }
+
     node.style.position = "absolute";
     node.style.inset = "auto";
     node.style.left = `${50 + layout.x * 100}%`;
@@ -3686,6 +3741,14 @@ function readNodeValue(node, type) {
 
       showInlineImageLoader(node);
       node.setAttribute("src", nextSrc);
+
+      if (node.dataset.ebResponsive === "1") {
+        const key = node.getAttribute("data-eb-key") || "";
+        node.ownerDocument
+          ?.querySelectorAll(`[data-eb-source-for="${CSS.escape(key)}"]`)
+          .forEach(source => source.setAttribute("srcset", nextSrc));
+      }
+
       applyPhotoMetaStyles(node, entry?.meta || null);
 
       if (node.complete && node.naturalWidth) {

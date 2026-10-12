@@ -461,6 +461,135 @@ function pickRepoAssetPath(project, url, usedPaths) {
   return candidate;
 }
 
+function styleValue(existing = "", patch = {}) {
+  const values = new Map();
+
+  String(existing)
+    .split(";")
+    .map(item => item.trim())
+    .filter(Boolean)
+    .forEach(item => {
+      const index = item.indexOf(":");
+      if (index > 0) {
+        values.set(
+          item.slice(0, index).trim().toLowerCase(),
+          item.slice(index + 1).trim()
+        );
+      }
+    });
+
+  Object.entries(patch).forEach(([property, value]) => {
+    if (value === null || value === undefined || value === "") {
+      values.delete(property);
+    } else {
+      values.set(property, String(value));
+    }
+  });
+
+  return [...values.entries()]
+    .map(([property, value]) => `${property}: ${value}`)
+    .join("; ");
+}
+
+// Las claves se usan dentro de selectores de atributo de HTMLRewriter.
+// Aquí basta escapar los dos caracteres que pueden cerrar el valor citado.
+function selectorAttributeValue(value = "") {
+  return String(value)
+    .replaceAll("\\", "\\\\")
+    .replaceAll('"', '\\"');
+}
+
+function patchPhotoMeta(element, meta = {}) {
+  if (!meta || typeof meta !== "object") return;
+
+  const zoom = Math.min(6, Math.max(1, Number(meta.zoom || meta.scale || 1)));
+  const x = Math.min(1, Math.max(-1, Number(meta.x || 0)));
+  const y = Math.min(1, Math.max(-1, Number(meta.y || 0)));
+  const rotation = ((Number(meta.rotation || 0) % 360) + 360) % 360;
+
+  element.setAttribute(
+    "style",
+    styleValue(element.getAttribute("style"), {
+      // La imagen debe conservar su espacio natural en el documento publicado.
+      // position:absolute hacía que algunos contenedores colapsaran a altura cero.
+      position: null,
+      left: null,
+      top: null,
+      width: null,
+      height: null,
+      "max-width": null,
+      "object-fit": "cover",
+      "object-position": `${50 + x * 100}% ${50 + y * 100}%`,
+      "transform-origin": "center center",
+      transform: `translate(${x * 100}%, ${y * 100}%) scale(${zoom}) rotate(${rotation}deg)`
+    })
+  );
+}
+
+async function applyEditorPatchesToHtml(sourceHtml, elements = {}) {
+  const entries = Object.entries(elements || {})
+    .filter(([key, entry]) =>
+      key !== DRAFT_META_KEY &&
+      entry &&
+      typeof entry === "object" &&
+      ["text", "link", "image"].includes(entry.type)
+    );
+
+  if (!entries.length) return String(sourceHtml || "");
+
+  const rewriter = new HTMLRewriter();
+
+  for (const [key, entry] of entries) {
+    const selector = `[data-eb-key="${selectorAttributeValue(key)}"]`;
+    const value = String(entry.value || "");
+
+    if (entry.type === "text") {
+      rewriter.on(selector, {
+        element(element) {
+          element.setInnerContent(value, { html: false });
+        }
+      });
+      continue;
+    }
+
+    if (entry.type === "link") {
+      rewriter.on(selector, {
+        element(element) {
+          element.setAttribute("href", value || "#");
+        }
+      });
+      continue;
+    }
+
+    if (entry.type === "image") {
+      rewriter.on(selector, {
+        element(element) {
+          if (value) element.setAttribute("src", value);
+          patchPhotoMeta(element, entry.meta);
+
+          if (element.getAttribute("data-eb-responsive") === "1") {
+            element.setAttribute("data-eb-responsive-value", value);
+          }
+        }
+      });
+
+      rewriter.on(`[data-eb-source-for="${selectorAttributeValue(key)}"]`, {
+        element(element) {
+          const imageValue = String(
+            elements[key]?.value || ""
+          ).trim();
+
+          if (imageValue) element.setAttribute("srcset", imageValue);
+        }
+      });
+    }
+  }
+
+  return await rewriter
+    .transform(new Response(String(sourceHtml || "")))
+    .text();
+}
+
 async function bundleRepoImages(pages, env, project) {
   const supabasePrefix = storagePublicPrefix(env);
   const repoPrefix = editorAssetPrefix(project);
@@ -511,7 +640,7 @@ async function bundleRepoImages(pages, env, project) {
     }
   }
 
-  const nextPages = pages.map(page => {
+  const nextPages = await Promise.all(pages.map(async page => {
     const htmlReplacements = new Map();
     const draftReplacements = new Map();
 
@@ -520,13 +649,19 @@ async function bundleRepoImages(pages, env, project) {
       draftReplacements.set(sourceUrl, asset.editorUrl);
     });
 
+    const sourceHtml = String(page.original_html || page.edited_html || "");
+    const patchedHtml = await applyEditorPatchesToHtml(
+      sourceHtml,
+      page.elements || {}
+    );
+
     return {
       path: page.path,
-      published_html: rewriteStringWithMap(page.edited_html || "", htmlReplacements),
-      draft_html: rewriteStringWithMap(page.edited_html || "", htmlReplacements),
+      published_html: rewriteStringWithMap(patchedHtml, htmlReplacements),
+      draft_html: sourceHtml,
       draft_elements: rewriteValueDeep(page.elements || {}, draftReplacements)
     };
-  });
+  }));
 
   return { pages: nextPages, assetFiles, copied, failed };
 }
@@ -569,10 +704,11 @@ export async function onRequestPost(context) {
     const pages = (Array.isArray(body.pages) ? body.pages : [])
       .map(page => ({
         path: normalizePath(page?.path || ""),
+        original_html: String(page?.original_html || ""),
         edited_html: String(page?.edited_html || ""),
         elements: page?.elements && typeof page.elements === "object" ? page.elements : {}
       }))
-      .filter(page => page.path && page.edited_html);
+      .filter(page => page.path && (page.original_html || page.edited_html));
 
     if (!projectId || !pages.length) return json({ ok: false, message: "Faltan páginas para publicar." }, 400);
 
