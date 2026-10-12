@@ -2203,7 +2203,7 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
     }
   }
 
-    function setPublishModal(state, viewUrl = "") {
+  function setPublishModal(state, viewUrl = "") {
     const overlay = $("#editor-v2-confirm");
     if (!overlay) return;
     const ok = $("#editor-v2-confirm-ok");
@@ -2215,22 +2215,33 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
     const copy = $("#editor-v2-confirm .editor-modal-copy");
     const note = $("#editor-v2-confirm-note");
     overlay.hidden = false;
-    if (spinner) spinner.hidden = state !== "loading";
+    if (spinner) spinner.hidden = state !== "loading" && state !== "checking";
     if (ok) ok.hidden = state !== "confirm";
     if (cancel) cancel.hidden = state !== "confirm";
     if (view) {
       view.hidden = state !== "done" || !viewUrl;
       if (viewUrl) view.href = viewUrl;
     }
-    if (doneBtn) doneBtn.hidden = state !== "done";
+    if (doneBtn) {
+      doneBtn.hidden = state !== "done" && state !== "pending";
+      doneBtn.onclick = state === "done" || state === "pending" ? () => { overlay.hidden = true; } : null;
+    }
     if (state === "loading") {
-      if (title) title.textContent = "Publicando...";
-      if (copy) copy.textContent = "Subiendo tus cambios a tu página.";
+      if (title) title.textContent = "Guardando tus cambios";
+      if (copy) copy.textContent = "Estamos guardando la nueva versión en GitHub.";
       if (note) note.textContent = "No cierres esta ventana.";
+    } else if (state === "checking") {
+      if (title) title.textContent = "Actualizando tu página";
+      if (copy) copy.textContent = "Tus cambios ya están guardados. Cloudflare está preparando la nueva versión.";
+      if (note) note.textContent = "Abriremos la página solo cuando el cambio ya esté disponible.";
     } else if (state === "done") {
-      if (title) title.textContent = "¡Listo! Ya se publicó.";
-      if (copy) copy.textContent = "Tus cambios ya están en tu página.";
-      if (note) note.textContent = "Pueden tardar un momento en verse.";
+      if (title) title.textContent = "Tu página ya está actualizada";
+      if (copy) copy.textContent = "El cambio ya está disponible para tus visitantes.";
+      if (note) note.textContent = "Ahora sí puedes abrirla sin recargar ni esperar.";
+    } else if (state === "pending") {
+      if (title) title.textContent = "Tu cambio quedó guardado";
+      if (copy) copy.textContent = "Cloudflare todavía está preparando la nueva versión.";
+      if (note) note.textContent = "Puedes seguir editando. La página se actualizará automáticamente al terminar el despliegue.";
     }
   }
 
@@ -2244,8 +2255,8 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
     const copy = $("#editor-v2-confirm .editor-modal-copy");
     const note = $("#editor-v2-confirm-note");
     if (title) title.textContent = "¿Quieres publicar estos cambios?";
-    if (copy) copy.textContent = "Tu página se actualizará con lo que editaste.";
-    if (note) note.textContent = "Los cambios pueden tardar un momento en verse.";
+    if (copy) copy.textContent = "Guardaremos tu portada y actualizaremos tu página.";
+    if (note) note.textContent = "Verificaremos la página antes de ofrecerte abrirla.";
     setPublishModal("confirm");
     return new Promise(resolve => {
       overlay.hidden = false;
@@ -2256,6 +2267,8 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
         if (doneBtn) doneBtn.onclick = null;
         resolve(result);
       };
+      ok.textContent = "Publicar ahora";
+      cancel.textContent = "Volver a editar";
       ok.onclick = () => done(true);
       cancel.onclick = () => done(false);
       if (doneBtn) doneBtn.onclick = () => { overlay.hidden = true; };
@@ -2273,6 +2286,27 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
       }
     }
     return false;
+  }
+
+  const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+  async function waitForLiveSite() {
+    const projectId = state.project?.id;
+    if (!projectId || !state.session?.access_token) return null;
+
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      try {
+        const response = await fetch(`/api/editor-site-ready?project_id=${encodeURIComponent(projectId)}`, {
+          headers: { Authorization: `Bearer ${state.session.access_token}`, "Cache-Control": "no-cache" }
+        });
+        const result = await response.json().catch(() => null);
+        if (response.ok && result?.ready) return result;
+      } catch {
+        // El despliegue puede estar entre versiones; seguimos comprobando sin interrumpir al usuario.
+      }
+      await wait(3000);
+    }
+    return null;
   }
 
   async function publishDraft() {
@@ -2302,21 +2336,28 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
       elements: draft.elements || {}
     }));
 
-    const response = await fetch("/api/editor-repo-publish", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${state.session.access_token}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        project_id: state.project.id,
-        pages,
-        use_base_snapshot: useBaseSnapshot,
-        base_branch: baseBranch
-      })
-    });
-
-    const result = await response.json().catch(() => null);
+    let response;
+    let result;
+    try {
+      response = await fetch("/api/editor-repo-publish", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${state.session.access_token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          project_id: state.project.id,
+          pages,
+          use_base_snapshot: useBaseSnapshot,
+          base_branch: baseBranch
+        })
+      });
+      result = await response.json().catch(() => null);
+    } catch {
+      $("#editor-v2-confirm").hidden = true;
+      showEditorError("EB-PUBLISH-001");
+      return;
+    }
     if (!response.ok || !result?.ok) {
       $("#editor-v2-confirm").hidden = true;
       showEditorError("EB-PUBLISH-001");
@@ -2336,12 +2377,11 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
 
     applyDraftToFrame();
     renderSidebar();
-    const liveUrl = state.project.preview_url
-      || state.project.site_url
-      || state.project.site_live_url
-      || "";
-    setPublishModal("done", liveUrl);
-    setStatus(EDITOR_STATUS_COPY.published_ok, "success");
+    setPublishModal("checking");
+    const publishedSite = await waitForLiveSite();
+    const liveUrl = publishedSite?.live_url || state.project.site_live_url || state.project.site_url || state.project.preview_url || "";
+    setPublishModal(publishedSite ? "done" : "pending", liveUrl);
+    setStatus(publishedSite ? "Cambios publicados y página actualizada." : "Cambios guardados. Cloudflare sigue actualizando tu página.", "success");
   }
 
   async function resetDraft() {
