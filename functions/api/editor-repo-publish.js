@@ -269,6 +269,27 @@ async function syncSelectedFilesFromBranch({
   return { copiedFiles: wanted };
 }
 
+function basePresentationPaths(pages = []) {
+  const paths = new Set();
+
+  (Array.isArray(pages) ? pages : []).forEach(page => {
+    const pagePath = normalizePath(page?.path || "");
+    if (!pagePath) return;
+    paths.add(pagePath);
+
+    // La portada y sus dos hojas de estilo forman una sola composición.
+    // Solo se restauran archivos de presentación del mismo directorio;
+    // tienda, carrito, pedidos y configuración quedan intactos.
+    if (!pagePath.endsWith("index.html")) return;
+    const separator = pagePath.lastIndexOf("/");
+    const directory = separator === -1 ? "" : pagePath.slice(0, separator + 1);
+    paths.add(`${directory}home.css`);
+    paths.add(`${directory}styles.css`);
+  });
+
+  return [...paths];
+}
+
 async function upsertGitHubFile({ token, owner, repo, branch, path, data, message }) {
   const encodedPath = githubPath(path);
   const fileUrl = `${GITHUB_API}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodedPath}?ref=${encodeURIComponent(branch)}`;
@@ -782,7 +803,7 @@ export async function onRequestPost(context) {
         repo,
         fromBranch: baseBranch,
         toBranch: branch,
-        paths: pages.map(page => page.path)
+        paths: basePresentationPaths(pages)
       });
 
       syncedBaseFiles = baseSync.copiedFiles.length;
