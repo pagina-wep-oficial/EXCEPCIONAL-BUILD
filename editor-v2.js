@@ -2965,24 +2965,41 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
     const rad = rotation * Math.PI / 180;
     const cos = Math.abs(Math.cos(rad));
     const sin = Math.abs(Math.sin(rad));
-    const rotatedW = naturalW * cos + naturalH * sin;
-    const rotatedH = naturalW * sin + naturalH * cos;
-    const fit = meta?.fit || "cover";
-    const baseScale = fit === "fit"
-      ? Math.min(frameW / rotatedW, frameH / rotatedH)
-      : Math.max(frameW / rotatedW, frameH / rotatedH);
+    // El marco manda: la foto se comporta como una capa recortada dentro de
+    // él. Nunca calculamos el tamaño del marco a partir de la foto.
+    const baseScale = Math.max(frameW / naturalW, frameH / naturalH);
+    const drawWidth = naturalW * baseScale;
+    const drawHeight = naturalH * baseScale;
+    const frameBoundsW = frameW * cos + frameH * sin;
+    const frameBoundsH = frameW * sin + frameH * cos;
+    const rotationCover = Math.max(
+      1,
+      frameW / Math.max(1, frameBoundsW),
+      frameH / Math.max(1, frameBoundsH)
+    );
+    const zoom = Math.min(6, Math.max(1, photoMetaZoom(meta))) * rotationCover;
+    const x = Math.max(-1, Math.min(1, Number(meta?.x) || 0));
+    const y = Math.max(-1, Math.min(1, Number(meta?.y) || 0));
+    const objectX = 50 - x * 50;
+    const objectY = 50 - y * 50;
     return {
       rotation,
-      zoom: photoMetaZoom(meta),
-      x: Number.isFinite(Number(meta?.x)) ? Number(meta.x) : 0,
-      y: Number.isFinite(Number(meta?.y)) ? Number(meta.y) : 0,
+      zoom,
+      x,
+      y,
       baseScale,
-      widthPct: (naturalW * baseScale / frameW) * 100,
-      heightPct: (naturalH * baseScale / frameH) * 100,
-      bboxW: rotatedW * baseScale * photoMetaZoom(meta),
-      bboxH: rotatedH * baseScale * photoMetaZoom(meta),
-      drawWidth: naturalW * baseScale * photoMetaZoom(meta),
-      drawHeight: naturalH * baseScale * photoMetaZoom(meta)
+      drawWidth,
+      drawHeight,
+      objectX,
+      objectY,
+      objectLeft: (frameW - drawWidth) * objectX / 100,
+      objectTop: (frameH - drawHeight) * objectY / 100,
+      // Este desplazamiento completa el recorrido cuando hay zoom. Está
+      // expresado respecto al marco, igual que translate(%) en la página.
+      translateX: x * (zoom - 1) * frameW / 2,
+      translateY: y * (zoom - 1) * frameH / 2,
+      translateXPct: x * (zoom - 1) * 50,
+      translateYPct: y * (zoom - 1) * 50
     };
   }
 
@@ -3011,16 +3028,12 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
   }
 
   function clampPhotoOffsets(metrics = photoFrameMetrics()) {
-    const limitX = metrics.bboxW > metrics.frameW ? (metrics.bboxW - metrics.frameW) / (2 * metrics.frameW) : 0;
-    const limitY = metrics.bboxH > metrics.frameH ? (metrics.bboxH - metrics.frameH) / (2 * metrics.frameH) : 0;
-    photoEdit.x = Math.max(-limitX, Math.min(limitX, Number.isFinite(photoEdit.x) ? photoEdit.x : 0));
-    photoEdit.y = Math.max(-limitY, Math.min(limitY, Number.isFinite(photoEdit.y) ? photoEdit.y : 0));
+    photoEdit.x = Math.max(-1, Math.min(1, Number.isFinite(photoEdit.x) ? photoEdit.x : 0));
+    photoEdit.y = Math.max(-1, Math.min(1, Number.isFinite(photoEdit.y) ? photoEdit.y : 0));
     return {
       ...metrics,
       x: photoEdit.x,
-      y: photoEdit.y,
-      centerX: metrics.w / 2 + photoEdit.x * metrics.frameW,
-      centerY: metrics.h / 2 + photoEdit.y * metrics.frameH
+      y: photoEdit.y
     };
   }
 
@@ -3046,12 +3059,18 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
       ctx.fillStyle = "#efece6";
       ctx.fillRect(metrics.frameLeft, metrics.frameTop, metrics.frameW, metrics.frameH);
     }
-    ctx.translate(metrics.centerX, metrics.centerY);
+    // Reproduce exactamente el modelo publicado: el marco se queda fijo y
+    // únicamente la capa de imagen se desplaza, escala y gira dentro de él.
+    ctx.translate(
+      metrics.frameLeft + metrics.frameW / 2 + metrics.translateX,
+      metrics.frameTop + metrics.frameH / 2 + metrics.translateY
+    );
     ctx.rotate(metrics.rotation * Math.PI / 180);
+    ctx.scale(metrics.zoom, metrics.zoom);
     ctx.drawImage(
       photoEdit.img,
-      -metrics.drawWidth / 2,
-      -metrics.drawHeight / 2,
+      metrics.objectLeft - metrics.frameW / 2,
+      metrics.objectTop - metrics.frameH / 2,
       metrics.drawWidth,
       metrics.drawHeight
     );
@@ -3212,24 +3231,25 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
       node.style.borderRadius = "";
       node.style.transformOrigin = "center center";
       node.style.objectFit = "cover";
-      node.style.objectPosition = `${50 + layout.x * 100}% ${50 + layout.y * 100}%`;
-      node.style.transform = `translate(${layout.x * 100}%, ${layout.y * 100}%) scale(${layout.zoom}) rotate(${layout.rotation}deg)`;
+      node.style.objectPosition = `${layout.objectX}% ${layout.objectY}%`;
+      node.style.transform = `translate(${layout.translateXPct}%, ${layout.translateYPct}%) scale(${layout.zoom}) rotate(${layout.rotation}deg)`;
       return;
     }
 
     node.style.position = "absolute";
-    node.style.inset = "auto";
-    node.style.left = `${50 + layout.x * 100}%`;
-    node.style.top = `${50 + layout.y * 100}%`;
-    node.style.width = `${layout.widthPct}%`;
-    node.style.height = `${layout.heightPct}%`;
+    node.style.inset = "0";
+    node.style.left = "";
+    node.style.top = "";
+    node.style.width = "100%";
+    node.style.height = "100%";
     node.style.maxWidth = "none";
     node.style.maxHeight = "none";
     node.style.display = "block";
     node.style.borderRadius = "0";
     node.style.transformOrigin = "center center";
-    node.style.transform = `translate(-50%, -50%) scale(${layout.zoom}) rotate(${layout.rotation}deg)`;
-    node.style.objectFit = "fill";
+    node.style.objectPosition = `${layout.objectX}% ${layout.objectY}%`;
+    node.style.transform = `translate(${layout.translateXPct}%, ${layout.translateYPct}%) scale(${layout.zoom}) rotate(${layout.rotation}deg)`;
+    node.style.objectFit = "cover";
   }
 
   function inlineImageLoaderTarget(node) {
@@ -3401,7 +3421,7 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
           photoEdit.url = url;
           photoEdit.rot = ((photoEdit.meta?.rotation || 0) % 360 + 360) % 360;
           photoEdit.ar = photoTargetAspect();
-          photoEdit.mode = photoEdit.meta?.fit || photoFitMode();
+          photoEdit.mode = "cover";
           photoEdit.zoom = photoMetaZoom(photoEdit.meta);
           photoEdit.x = Number.isFinite(Number(photoEdit.meta?.x)) ? Number(photoEdit.meta.x) : 0;
           photoEdit.y = Number.isFinite(Number(photoEdit.meta?.y)) ? Number(photoEdit.meta.y) : 0;

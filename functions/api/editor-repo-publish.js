@@ -521,19 +521,46 @@ function selectorAttributeValue(value = "") {
     .replaceAll('"', '\\"');
 }
 
+function photoCropStyle(meta = {}) {
+  const rotation = ((Number(meta.rotation || meta.rot || 0) % 360) + 360) % 360;
+  const userZoom = Math.min(6, Math.max(1, Number(meta.zoom || meta.scale || 1)));
+  const x = Math.min(1, Math.max(-1, Number(meta.x) || 0));
+  const y = Math.min(1, Math.max(-1, Number(meta.y) || 0));
+  const ratio = Number(meta.frameRatio);
+  let rotationCover = 1;
+
+  // La proporción llega desde el marco real que el usuario vio en el editor.
+  // Al girar, escalamos lo mínimo para que nunca aparezcan esquinas vacías.
+  if (Number.isFinite(ratio) && ratio > 0) {
+    const radians = rotation * Math.PI / 180;
+    const cos = Math.abs(Math.cos(radians));
+    const sin = Math.abs(Math.sin(radians));
+    const rotatedWidth = ratio * cos + sin;
+    const rotatedHeight = ratio * sin + cos;
+    rotationCover = Math.max(1, ratio / rotatedWidth, 1 / rotatedHeight);
+  }
+
+  const zoom = userZoom * rotationCover;
+  return {
+    rotation,
+    zoom,
+    objectX: 50 - x * 50,
+    objectY: 50 - y * 50,
+    translateX: x * (zoom - 1) * 50,
+    translateY: y * (zoom - 1) * 50
+  };
+}
+
 function patchPhotoMeta(element, meta = {}) {
   if (!meta || typeof meta !== "object") return;
 
-  const zoom = Math.min(6, Math.max(1, Number(meta.zoom || meta.scale || 1)));
-  const x = Math.min(1, Math.max(-1, Number(meta.x || 0)));
-  const y = Math.min(1, Math.max(-1, Number(meta.y || 0)));
-  const rotation = ((Number(meta.rotation || 0) % 360) + 360) % 360;
+  const crop = photoCropStyle(meta);
 
   element.setAttribute(
     "style",
     styleValue(element.getAttribute("style"), {
-      // La imagen debe conservar su espacio natural en el documento publicado.
-      // position:absolute hacía que algunos contenedores colapsaran a altura cero.
+      // El marco del diseño conserva su tamaño; estos valores solo mueven la
+      // capa de imagen recortada que vive dentro de él.
       position: null,
       left: null,
       top: null,
@@ -541,9 +568,9 @@ function patchPhotoMeta(element, meta = {}) {
       height: null,
       "max-width": null,
       "object-fit": "cover",
-      "object-position": `${50 + x * 100}% ${50 + y * 100}%`,
+      "object-position": `${crop.objectX}% ${crop.objectY}%`,
       "transform-origin": "center center",
-      transform: `translate(${x * 100}%, ${y * 100}%) scale(${zoom}) rotate(${rotation}deg)`
+      transform: `translate(${crop.translateX}%, ${crop.translateY}%) scale(${crop.zoom}) rotate(${crop.rotation}deg)`
     })
   );
 }
