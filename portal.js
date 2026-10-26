@@ -1423,24 +1423,28 @@ function nextStepText(project) {
 
     const renderUpdate=(item)=>`<article class="timeline-item"><h3>${safe(item.title||"Novedad del proyecto")}</h3>${item.status?`<span class="timeline-status">${safe(item.status)}</span>`:""}<p>${safe(item.description||"")}</p><time>${date(item.created_at)}</time></article>`;
     const sortedUpdates=updates.slice().sort((a,b)=>new Date(b.created_at||0).getTime()-new Date(a.created_at||0).getTime());
-    const latestUpdates=$("#project-timeline"), updateHistory=$("#project-timeline-history"), updateToggle=$("#project-timeline-toggle"), updatesCopy=$("#project-updates-copy");
+    const latestUpdates=$("#project-timeline"), updateHistoryPanel=$("#project-timeline-history-panel"), updateHistory=$("#project-timeline-history"), updateToggle=$("#project-timeline-toggle"), updateScrollHint=$("#project-timeline-scroll-hint"), updatesCopy=$("#project-updates-copy");
     if(sortedUpdates.length){
       latestUpdates.innerHTML=renderUpdate(sortedUpdates[0]);
       const olderUpdates=sortedUpdates.slice(1);
       updateHistory.innerHTML=olderUpdates.map(renderUpdate).join("");
-      updateHistory.hidden=true;
+      updateHistoryPanel.hidden=true;
+      updateHistory.classList.toggle("is-scrollable",olderUpdates.length>5);
+      updateScrollHint.hidden=olderUpdates.length<=5;
       updateToggle.hidden=!olderUpdates.length;
       updateToggle.textContent=olderUpdates.length?`Ver historial completo (${olderUpdates.length})`:"";
       updateToggle.onclick=()=>{
-        const willShow=updateHistory.hidden;
-        updateHistory.hidden=!willShow;
+        const willShow=updateHistoryPanel.hidden;
+        updateHistoryPanel.hidden=!willShow;
         updateToggle.textContent=willShow?"Ocultar historial":`Ver historial completo (${olderUpdates.length})`;
       };
       if(updatesCopy) updatesCopy.textContent=olderUpdates.length?"Aquí aparecerá la última novedad de tu proyecto.":"Aquí aparecerán las novedades que agreguemos a tu proyecto.";
     }else{
       latestUpdates.innerHTML=`<article class="timeline-item"><h3>Sin novedades nuevas</h3><p>Te avisaremos aquí cuando haya un avance importante en tu proyecto.</p></article>`;
       updateHistory.innerHTML="";
-      updateHistory.hidden=true;
+      updateHistoryPanel.hidden=true;
+      updateHistory.classList.remove("is-scrollable");
+      updateScrollHint.hidden=true;
       updateToggle.hidden=true;
       if(updatesCopy) updatesCopy.textContent="Aquí aparecerán las novedades que agreguemos a tu proyecto.";
     }
