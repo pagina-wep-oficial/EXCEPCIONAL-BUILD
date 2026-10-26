@@ -1424,6 +1424,15 @@ function nextStepText(project) {
     const renderUpdate=(item)=>`<article class="timeline-item"><h3>${safe(item.title||"Novedad del proyecto")}</h3>${item.status?`<span class="timeline-status">${safe(item.status)}</span>`:""}<p>${safe(item.description||"")}</p><time>${date(item.created_at)}</time></article>`;
     const sortedUpdates=updates.slice().sort((a,b)=>new Date(b.created_at||0).getTime()-new Date(a.created_at||0).getTime());
     const latestUpdates=$("#project-timeline"), updateHistoryPanel=$("#project-timeline-history-panel"), updateHistory=$("#project-timeline-history"), updateToggle=$("#project-timeline-toggle"), updateScrollHint=$("#project-timeline-scroll-hint"), updatesCopy=$("#project-updates-copy");
+    const closeHistoryModal=()=>{
+      updateHistoryPanel.hidden=true;
+      document.body.classList.remove("history-modal-open");
+      updateToggle.textContent=`Ver historial completo (${sortedUpdates.length-1})`;
+    };
+    updateHistoryPanel.querySelectorAll("[data-history-close]").forEach(button=>button.addEventListener("click",closeHistoryModal));
+    document.addEventListener("keydown",event=>{
+      if(event.key==="Escape"&&!updateHistoryPanel.hidden) closeHistoryModal();
+    });
     if(sortedUpdates.length){
       latestUpdates.innerHTML=renderUpdate(sortedUpdates[0]);
       const olderUpdates=sortedUpdates.slice(1);
@@ -1436,6 +1445,7 @@ function nextStepText(project) {
       updateToggle.onclick=()=>{
         const willShow=updateHistoryPanel.hidden;
         updateHistoryPanel.hidden=!willShow;
+        document.body.classList.toggle("history-modal-open",willShow);
         updateToggle.textContent=willShow?"Ocultar historial":`Ver historial completo (${olderUpdates.length})`;
       };
       if(updatesCopy) updatesCopy.textContent=olderUpdates.length?"Aquí aparecerá la última novedad de tu proyecto.":"Aquí aparecerán las novedades que agreguemos a tu proyecto.";
@@ -1446,6 +1456,7 @@ function nextStepText(project) {
       updateHistory.classList.remove("is-scrollable");
       updateScrollHint.hidden=true;
       updateToggle.hidden=true;
+      document.body.classList.remove("history-modal-open");
       if(updatesCopy) updatesCopy.textContent="Aquí aparecerán las novedades que agreguemos a tu proyecto.";
     }
 
