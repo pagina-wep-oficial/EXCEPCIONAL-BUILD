@@ -26,7 +26,8 @@
     repoDrafts: new Map(),
     currentNodeValue: "",
     history: [],
-    historyIndex: -1
+    historyIndex: -1,
+    exitIntent: false
   };
 
   const EDITOR_BASE_BRANCH = "editor-base";
@@ -2210,6 +2211,70 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
     await saveRepoDraft(silent);
   }
 
+  function hasUnpublishedChanges() {
+    return [...state.repoDrafts.values()].some(draft => {
+      return readDraftMeta(draft).published === false;
+    });
+  }
+
+  function projectReturnUrl() {
+    return `proyecto.html?id=${encodeURIComponent(state.project?.id || "")}`;
+  }
+
+  async function discardDraftsOnServer() {
+    const response = await fetch(
+      `/api/editor-repo-draft?project_id=${encodeURIComponent(state.project.id)}`,
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${state.session.access_token}` }
+      }
+    );
+    const result = await response.json().catch(() => null);
+    if (!response.ok || !result?.ok) {
+      throw new Error(result?.message || "No pudimos descartar el borrador.");
+    }
+  }
+
+  function closeExitModal() {
+    const modal = $("#editor-exit-modal");
+    if (modal) modal.hidden = true;
+  }
+
+  async function exitEditor(action = "ask") {
+    if (action === "ask") {
+      if (!hasUnpublishedChanges()) {
+        state.exitIntent = true;
+        location.assign(projectReturnUrl());
+        return;
+      }
+      const modal = $("#editor-exit-modal");
+      if (modal) modal.hidden = false;
+      return;
+    }
+
+    state.exitIntent = true;
+    if (autoSaveTimer) {
+      clearTimeout(autoSaveTimer);
+      autoSaveTimer = 0;
+    }
+
+    try {
+      if (action === "save") {
+        if (!(await saveAllRepoDrafts())) {
+          state.exitIntent = false;
+          return;
+        }
+      } else if (action === "discard") {
+        await discardDraftsOnServer();
+      }
+      location.assign(projectReturnUrl());
+    } catch (error) {
+      console.error("exit editor", error);
+      state.exitIntent = false;
+      showEditorError("EB-DRAFT-001");
+    }
+  }
+
   let autoSaveTimer = 0;
   const AUTOSAVE_DELAY = 2000;
   function scheduleAutoSave() {
@@ -2221,6 +2286,7 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
   }
 
   function flushAutoSave() {
+    if (state.exitIntent) return;
     if (autoSaveTimer) {
       clearTimeout(autoSaveTimer);
       autoSaveTimer = 0;
@@ -3606,6 +3672,10 @@ function readNodeValue(node, type) {
     $("#editor-v2-undo").onclick = undoAction;
     $("#editor-v2-redo").onclick = redoAction;
     $("#editor-v2-base").onclick = restoreBase;
+    $("#editor-v2-back").onclick = event => {
+      event.preventDefault();
+      exitEditor("ask");
+    };
 
     document.addEventListener("keydown", e => {
       if (!(e.ctrlKey || e.metaKey)) return;
@@ -3624,6 +3694,13 @@ function readNodeValue(node, type) {
     const photoBackdrop = $("#editor-photo-modal");
     $("#editor-photo-cancel").onclick = () => closePhotoEditor();
     $("#editor-photo-apply").onclick = () => applyPhotoEdit();
+
+    $("#editor-exit-cancel").onclick = closeExitModal;
+    $("#editor-exit-save").onclick = () => exitEditor("save");
+    $("#editor-exit-discard").onclick = () => exitEditor("discard");
+    $("#editor-exit-modal")?.addEventListener("click", event => {
+      if (event.target.id === "editor-exit-modal") closeExitModal();
+    });
 
     $("#editor-photo-zoom-in").onclick = () => zoomPhotoBy(1.25);
     $("#editor-photo-zoom-out").onclick = () => zoomPhotoBy(0.8);

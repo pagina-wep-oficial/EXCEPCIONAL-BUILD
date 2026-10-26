@@ -18,7 +18,7 @@
   <main class="editor-shell">
     <header class="editor-topbar">
       <div class="editor-topbar-main">
-        <a class="editor-back-link" id="editor-v2-back" href="panel.html">← Volver al proyecto</a>
+        <a class="editor-back-link" id="editor-v2-back" href="panel.html">← Salir del editor</a>
         <div>
           <p class="editor-eyebrow">Editor visual</p>
           <h1 id="editor-v2-project-name">Editor de tu sitio</h1>
@@ -131,6 +131,19 @@
       <div class="editor-modal-actions">
         <button class="button button-light" id="editor-photo-cancel" type="button">Cancelar</button>
         <button class="button button-primary" id="editor-photo-apply" type="button">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="editor-modal-backdrop" id="editor-exit-modal" hidden>
+    <div class="editor-modal editor-exit-modal" role="dialog" aria-modal="true" aria-labelledby="editor-exit-title">
+      <p class="editor-eyebrow">Salir del editor</p>
+      <h2 id="editor-exit-title">Tienes cambios sin publicar</h2>
+      <p class="editor-modal-copy">Puedes conservarlos para continuar después o descartarlos y volver al proyecto.</p>
+      <div class="editor-exit-actions">
+        <button class="button button-light" id="editor-exit-cancel" type="button">Seguir editando</button>
+        <button class="button button-light" id="editor-exit-save" type="button">Guardar borrador y salir</button>
+        <button class="button button-danger" id="editor-exit-discard" type="button">Descartar y salir</button>
       </div>
     </div>
   </div>

@@ -606,6 +606,19 @@ body[data-portal-page="editor-v2"]{
   gap:.6rem;
 }
 
+.editor-exit-actions{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+  gap:.6rem;
+}
+
+.button-danger{
+  background:#b83a32;
+  border-color:#b83a32;
+  color:#fff;
+}
+
 .editor-modal-spinner{
   width:46px;
   height:46px;

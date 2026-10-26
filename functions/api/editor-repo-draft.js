@@ -83,3 +83,30 @@ export async function onRequestPost(context) {
     return json({ ok:false, message:"No pudimos guardar el borrador." }, 500);
   }
 }
+
+export async function onRequestDelete(context) {
+  try {
+    const projectId = new URL(context.request.url).searchParams.get("project_id");
+    if (!projectId) return json({ ok:false, message:"Falta el proyecto." }, 400);
+
+    const access = await projectAccess(context.request, context.env, projectId);
+    if (!access) return json({ ok:false, message:"No tienes acceso a este proyecto." }, 403);
+
+    const { url, key } = supabaseConfig(context.env);
+    const endpoint = `${url}/rest/v1/client_site_repo_drafts?project_id=eq.${encodeURIComponent(projectId)}&user_id=eq.${encodeURIComponent(access.user.id)}`;
+    const response = await fetch(endpoint, {
+      method: "DELETE",
+      headers: {
+        apikey: key,
+        Authorization: bearer(context.request),
+        Prefer: "return=minimal"
+      }
+    });
+
+    if (!response.ok) throw new Error(await response.text());
+    return json({ ok:true });
+  } catch (error) {
+    console.error(error);
+    return json({ ok:false, message:"No pudimos descartar el borrador." }, 500);
+  }
+}
