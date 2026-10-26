@@ -1025,9 +1025,23 @@ function nextStepText(project) {
     });
     document.title=`${project.name} | Excepcional Build`; $("#project-title").textContent=project.name; $("#project-subtitle").innerHTML=`<span class="status-badge ${statusClass(project.status||project.project_stage)}">${safe(project.status||project.project_stage)}</span>`; $("#project-top-actions").innerHTML=(stageIndex(project)<2&&!archivedClientState(project))?siteAction(project):"";
     const isMaint=/mantenimiento/.test(stageKey(project));
+    const isPublished=/^publicado$/.test(stageKey(project));
     const labels=["Configurar","Enviar información","Construcción","Revisión","Publicada",...(isMaint?["Mantenimiento"]:[])], pos=stageIndex(project);
-    const track=$("#project-stage-track"); track.classList.toggle("has-maint",isMaint);
-    track.innerHTML=labels.map((label,i)=>`<div class="stage-step ${(i<pos||(isMaint&&i===4))?"done":(isMaint&&i===5)?"current maint":i===pos?"current":""}"><i>${(i<pos||(isMaint&&i===4))?"✓":i+1}</i><span>${safe(label)}</span><small>${(isMaint?i===5:i===pos)?"Ahora":""}</small></div>`).join("");
+    const track=$("#project-stage-track");
+    const progressCard=document.querySelector(".progress-card");
+    const progressTitle=progressCard?.querySelector("h2");
+    const progressCopy=progressCard?.querySelector(".card-heading p");
+    track.classList.toggle("has-maint",isMaint);
+    track.classList.toggle("published-only",isPublished);
+    if(isPublished){
+      if(progressTitle) progressTitle.textContent="Estado actual";
+      if(progressCopy) progressCopy.textContent="Tu página está publicada y disponible en internet.";
+      track.innerHTML=`<div class="stage-step current"><i>✓</i><span>Publicada</span><small>Ahora</small></div>`;
+    }else{
+      if(progressTitle) progressTitle.textContent="¿En qué vamos?";
+      if(progressCopy) progressCopy.textContent="Solo tienes que hacer lo que aparezca marcado como “Ahora”.";
+      track.innerHTML=labels.map((label,i)=>`<div class="stage-step ${(i<pos||(isMaint&&i===4))?"done":(isMaint&&i===5)?"current maint":i===pos?"current":""}"><i>${(i<pos||(isMaint&&i===4))?"✓":i+1}</i><span>${safe(label)}</span><small>${(isMaint?i===5:i===pos)?"Ahora":""}</small></div>`).join("");
+    }
     if(project.client_note && stageIndex(project) === 0){$("#project-client-note").hidden=false;$("#project-client-note").textContent=project.client_note;}
 
     const focus=$("#project-focus"), briefCard=$("#project-brief-card"), actionsCard=$("#project-actions-card");
@@ -1053,7 +1067,10 @@ function nextStepText(project) {
     }
 
     const hasPayments=[project.total_price,project.deposit_amount,project.balance_amount].some(v=>v!=null&&v!=="");
-    if(!archivedState&&hasPayments){$("#payment-card").hidden=false;$("#project-payments").innerHTML=`<div class="payment-box"><span>Total acordado</span><strong>${money(project.total_price)}</strong><small>${safe(project.payment_method||"")}</small></div><div class="payment-box"><span>Anticipo</span><strong>${money(project.deposit_amount)}</strong><em class="payment-state ${project.deposit_paid?"paid":""}">${project.deposit_paid?"Pagado":"Pendiente"}</em></div><div class="payment-box"><span>Saldo final</span><strong>${money(project.balance_amount)}</strong><em class="payment-state ${project.balance_paid?"paid":""}">${project.balance_paid?"Pagado":"Pendiente"}</em></div>`;}
+    const paymentsComplete=project.deposit_paid===true&&project.balance_paid===true;
+    const showPayments=!archivedState&&hasPayments&&!paymentsComplete;
+    $("#payment-card").hidden=!showPayments;
+    if(showPayments){$("#project-payments").innerHTML=`<div class="payment-box"><span>Total acordado</span><strong>${money(project.total_price)}</strong><small>${safe(project.payment_method||"")}</small></div><div class="payment-box"><span>Anticipo</span><strong>${money(project.deposit_amount)}</strong><em class="payment-state ${project.deposit_paid?"paid":""}">${project.deposit_paid?"Pagado":"Pendiente"}</em></div><div class="payment-box"><span>Saldo final</span><strong>${money(project.balance_amount)}</strong><em class="payment-state ${project.balance_paid?"paid":""}">${project.balance_paid?"Pagado":"Pendiente"}</em></div>`;}
 
     const toolsCard = $("#project-tools-card");
     const canShowTools = !archivedState && /^publicado$/.test(stageKey(project));
