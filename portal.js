@@ -1428,7 +1428,7 @@ function nextStepText(project) {
       latestUpdates.innerHTML=renderUpdate(sortedUpdates[0]);
       const olderUpdates=sortedUpdates.slice(1);
       updateHistory.innerHTML=olderUpdates.map(renderUpdate).join("");
-      updateHistory.hidden=!olderUpdates.length;
+      updateHistory.hidden=true;
       updateToggle.hidden=!olderUpdates.length;
       updateToggle.textContent=olderUpdates.length?`Ver historial completo (${olderUpdates.length})`:"";
       updateToggle.onclick=()=>{
