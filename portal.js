@@ -1001,11 +1001,12 @@ function nextStepText(project) {
       db.from("client_requests").select("*").eq("project_id",id).order("created_at",{ascending:false}),
       db.from("client_project_setup").select("*").eq("project_id",id).maybeSingle(),
       db.from("client_project_briefs").select("*").eq("project_id",id).maybeSingle(),
-      db.from("client_project_files").select("*").eq("project_id",id).order("created_at",{ascending:false})
+      db.from("client_project_files").select("*").eq("project_id",id).order("created_at",{ascending:false}),
+      db.from("client_updates").select("*").eq("project_id",id).order("created_at",{ascending:false})
     ]);
     for(const r of results) if(r.error) throw r.error;
-    let requests=results[0].data||[], setup=results[1].data||null, brief=results[2].data, files=results[3].data||[];
-    startLiveUpdates(`portal-project-${id}`,[{table:"client_projects",filter:`id=eq.${id}`},{table:"client_project_setup",filter:`project_id=eq.${id}`},{table:"client_requests",filter:`project_id=eq.${id}`}],async(payload,spec)=>{
+    let requests=results[0].data||[], setup=results[1].data||null, brief=results[2].data, files=results[3].data||[], updates=results[4].data||[];
+    startLiveUpdates(`portal-project-${id}`,[{table:"client_projects",filter:`id=eq.${id}`},{table:"client_project_setup",filter:`project_id=eq.${id}`},{table:"client_requests",filter:`project_id=eq.${id}`},{table:"client_updates",filter:`project_id=eq.${id}`}],async(payload,spec)=>{
       if(spec.table==="client_requests"){
         const event=payload?.eventType||payload?.event||"*";
         const row=payload?.new||null;
@@ -1420,8 +1421,29 @@ function nextStepText(project) {
       }
     });
 
-    const baseTimeline=projectBaseTimeline(project);
-    $("#project-timeline").innerHTML=baseTimeline.length?baseTimeline.map(item=>`<article class="timeline-item"><h3>${safe(item.title)}</h3><p>${safe(item.description||"")}</p><time>${date(item.dateValue)}</time></article>`).join(""):`<article class="timeline-item"><h3>Proyecto creado</h3><p>Tu proyecto fue registrado correctamente.</p><time>${date(project.created_at)}</time></article>`;
+    const renderUpdate=(item)=>`<article class="timeline-item"><h3>${safe(item.title||"Novedad del proyecto")}</h3>${item.status?`<span class="timeline-status">${safe(item.status)}</span>`:""}<p>${safe(item.description||"")}</p><time>${date(item.created_at)}</time></article>`;
+    const sortedUpdates=updates.slice().sort((a,b)=>new Date(b.created_at||0).getTime()-new Date(a.created_at||0).getTime());
+    const latestUpdates=$("#project-timeline"), updateHistory=$("#project-timeline-history"), updateToggle=$("#project-timeline-toggle"), updatesCopy=$("#project-updates-copy");
+    if(sortedUpdates.length){
+      latestUpdates.innerHTML=renderUpdate(sortedUpdates[0]);
+      const olderUpdates=sortedUpdates.slice(1);
+      updateHistory.innerHTML=olderUpdates.map(renderUpdate).join("");
+      updateHistory.hidden=!olderUpdates.length;
+      updateToggle.hidden=!olderUpdates.length;
+      updateToggle.textContent=olderUpdates.length?`Ver historial completo (${olderUpdates.length})`:"";
+      updateToggle.onclick=()=>{
+        const willShow=updateHistory.hidden;
+        updateHistory.hidden=!willShow;
+        updateToggle.textContent=willShow?"Ocultar historial":`Ver historial completo (${olderUpdates.length})`;
+      };
+      if(updatesCopy) updatesCopy.textContent=olderUpdates.length?"Aquí aparecerá la última novedad de tu proyecto.":"Aquí aparecerán las novedades que agreguemos a tu proyecto.";
+    }else{
+      latestUpdates.innerHTML=`<article class="timeline-item"><h3>Sin novedades nuevas</h3><p>Te avisaremos aquí cuando haya un avance importante en tu proyecto.</p></article>`;
+      updateHistory.innerHTML="";
+      updateHistory.hidden=true;
+      updateToggle.hidden=true;
+      if(updatesCopy) updatesCopy.textContent="Aquí aparecerán las novedades que agreguemos a tu proyecto.";
+    }
 
     const ACTIVE_REQUEST_LIMIT=3;
     const CLOSED_REQUEST_LIMIT=6;
