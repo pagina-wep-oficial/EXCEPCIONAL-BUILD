@@ -649,7 +649,8 @@
         path: page.path,
         original_html: html,
         edited_html: html,
-        elements: {}
+        elements: {},
+        _revision: 0
       };
       writeDraftMeta(draft, {
         asset_branch: branch,
@@ -711,6 +712,12 @@
 
   function currentDraft() {
     return draftForPage(state.currentPageId);
+  }
+
+  function bumpDraftRevision(draft) {
+    if (!draft) return 0;
+    draft._revision = Number(draft._revision || 0) + 1;
+    return draft._revision;
   }
 
   function currentDraftData() {
@@ -1832,6 +1839,7 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
     draft.elements = draft.elements || {};
     draft.elements[state.currentKey] = entry;
     writeDraftMeta(draft, { published: false });
+    bumpDraftRevision(draft);
 
     const stateEl = $("#editor-v2-current-state");
     if (stateEl) stateEl.textContent = "Tienes cambios sin publicar en esta página.";
@@ -1898,6 +1906,7 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
     }
     d.edited_html = snap.html || "";
     d.elements = JSON.parse(JSON.stringify(snap.elements || {}));
+    bumpDraftRevision(d);
     writeDraftMeta(d, {
       asset_branch: liveRepoBranch(state.project),
       save_model: "patch-v2",
@@ -1969,6 +1978,7 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
         draft.original_html = html;
         draft.edited_html = html;
         draft.elements = {};
+        bumpDraftRevision(draft);
         writeDraftMeta(draft, {
           asset_branch: branch,
           save_model: "patch-v2",
@@ -2186,20 +2196,32 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
     if (doc.head) doc.head.appendChild(tag);
   }
 
-  async function persistRepoDraftRecord(draft) {
+  function repoDraftPayload(draft) {
+    return {
+      project_id: state.project.id,
+      page_path: draft.path,
+      original_html: draft.original_html,
+      edited_html: draft.edited_html,
+      elements: draft.elements || {}
+    };
+  }
+
+  let repoSaveQueue = Promise.resolve();
+
+  function enqueueRepoSave(task) {
+    const next = repoSaveQueue.then(task, task);
+    repoSaveQueue = next.catch(() => {});
+    return next;
+  }
+
+  async function persistRepoDraftRecord(draft, payload = repoDraftPayload(draft)) {
     const response = await fetch("/api/editor-repo-draft", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${state.session.access_token}`,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({
-        project_id: state.project.id,
-        page_path: draft.path,
-        original_html: draft.original_html,
-        edited_html: draft.edited_html,
-        elements: draft.elements || {}
-      })
+      body: JSON.stringify(payload)
     });
 
     const result = await response.json().catch(() => null);
@@ -2213,7 +2235,10 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
     if (!silent) setStatus(EDITOR_STATUS_COPY.saving_draft);
     try {
       for (const draft of state.repoDrafts.values()) {
-        const saved = await persistRepoDraftRecord(draft);
+        const revision = Number(draft._revision || 0);
+        const payload = repoDraftPayload(draft);
+        const saved = await enqueueRepoSave(() => persistRepoDraftRecord(draft, payload));
+        if (revision !== Number(draft._revision || 0)) continue;
         if (!saved) continue;
         if (typeof saved.edited_html === "string") draft.edited_html = saved.edited_html;
         if (saved.elements && typeof saved.elements === "object") draft.elements = saved.elements;
@@ -2235,7 +2260,10 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
 
     if (!silent) setStatus(EDITOR_STATUS_COPY.saving_draft);
     try {
-      const saved = await persistRepoDraftRecord(draft);
+      const revision = Number(draft._revision || 0);
+      const payload = repoDraftPayload(draft);
+      const saved = await enqueueRepoSave(() => persistRepoDraftRecord(draft, payload));
+      if (revision !== Number(draft._revision || 0)) return true;
       if (saved && typeof saved.edited_html === "string") draft.edited_html = saved.edited_html;
       if (saved?.elements && typeof saved.elements === "object") draft.elements = saved.elements;
       if (!silent) setStatus(EDITOR_STATUS_COPY.draft_saved, "success");
@@ -2449,6 +2477,10 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
     }
 
     if (!(await showPublishConfirm())) return;
+    if (autoSaveTimer) {
+      clearTimeout(autoSaveTimer);
+      autoSaveTimer = 0;
+    }
     if (!(await saveRepoDraft())) return;
 
     setPublishModal("loading");
@@ -2527,6 +2559,7 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
     if (draft) {
       draft.edited_html = draft.original_html;
       draft.elements = {};
+      bumpDraftRevision(draft);
       writeDraftMeta(draft, {
         asset_branch: liveRepoBranch(state.project),
         save_model: "patch-v2",

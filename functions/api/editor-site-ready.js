@@ -118,10 +118,13 @@ export async function onRequestGet(context) {
     if (!publicResponse.ok) throw new Error(`Sitio ${publicResponse.status}`);
 
     const publicHtml = await publicResponse.text();
+    const liveUrl = livePageUrl.origin + livePageUrl.pathname.replace(/index\.html$/, "");
+    const viewUrl = new URL(liveUrl);
+    viewUrl.searchParams.set("editor-view", String(Date.now()));
     return json({
       ok: true,
       ready: comparableHtml(repoHtml) === comparableHtml(publicHtml),
-      live_url: livePageUrl.origin + livePageUrl.pathname.replace(/index\.html$/, ""),
+      live_url: viewUrl.toString(),
       checked_at: new Date().toISOString()
     });
   } catch (error) {
