@@ -1,10 +1,12 @@
-﻿const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+﻿import { supabaseConfig } from "../_lib/supabase.js";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export async function onRequestPost(context) {
   const request = context.request;
   const env = context.env;
 
-  if (!env.ITM_FINALIZATION_SECRET || !env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!env.ITM_FINALIZATION_SECRET) {
     return json({ ok: false, code: "INTEGRATION_NOT_CONFIGURED" }, 503);
   }
 
@@ -32,14 +34,13 @@ export async function onRequestPost(context) {
     return json({ ok: false, code: "ITM_PROJECT_DATA_INCOMPLETE" }, 400);
   }
 
-  const supabaseUrl = env.SUPABASE_URL;
-  const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY;
+  const { url: supabaseUrl, key: publicKey } = supabaseConfig(env);
 
   const rpc = await fetch(supabaseUrl + "/rest/v1/rpc/import_itm_finalized_project", {
     method: "POST",
     headers: {
-      apikey: serviceKey,
-      Authorization: "Bearer " + serviceKey,
+      apikey: publicKey,
+      Authorization: "Bearer " + publicKey,
       "Content-Type": "application/json"
     },
     body: JSON.stringify({

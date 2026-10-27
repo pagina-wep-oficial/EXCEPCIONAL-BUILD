@@ -732,6 +732,21 @@ if(canManageUsers()) await loadUsers();
     }catch(_){setLine("#settings-token-status-line","No pudimos comprobar la validez ahora. Revisa tu conexión.","error");}
     finally{btn.disabled=false;}
   }
+  async function setupItmFinalization(){
+    const row=settingsRow();
+    const button=$("#setup-itm-finalization");
+    if(!row?.value){setLine("#setup-itm-finalization-status","Primero guarda un token de Supabase.","error");return;}
+    button.disabled=true;
+    setLine("#setup-itm-finalization-status","Activando conexión…");
+    try{
+      const session=(await db.auth.getSession()).data.session;
+      const response=await fetch("/api/setup-itm-finalization",{method:"POST",headers:{Authorization:`Bearer ${session?.access_token||""}`,"Content-Type":"application/json"},body:JSON.stringify({management_token:row.value})});
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok||!data?.ok)throw new Error(data?.code||"No se pudo activar la conexión.");
+      setLine("#setup-itm-finalization-status","Conexión ITM activada ✓","success");
+    }catch(error){setLine("#setup-itm-finalization-status",error.message||"No se pudo activar la conexión.","error");}
+    finally{button.disabled=false;}
+  }
   async function loadSettings(){
     try{
       const r=await db.from("crm_settings").select("*");
@@ -2074,6 +2089,7 @@ $("#project-storage-list")?.addEventListener("change",e=>{
   $$('[data-close-user-permissions]').forEach(b=>b.addEventListener("click",()=>$("#user-permissions-modal").close()));
   $("#crm-token-form")?.addEventListener("submit",saveSettingsToken);
   $("#settings-token-verify")?.addEventListener("click",verifySettingsToken);
+  $("#setup-itm-finalization")?.addEventListener("click",setupItmFinalization);
   $("#settings-github-refresh")?.addEventListener("click",()=>{setLine("#settings-github-status-line","");loadGithubQuota();});
   $("#settings-token-show")?.addEventListener("change",e=>{$("#settings-token-input").type=e.target.checked?"text":"password";});
   $("#dashboard-token-banner")?.addEventListener("click",()=>setView("settings"));
