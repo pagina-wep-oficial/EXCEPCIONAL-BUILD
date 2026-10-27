@@ -23,6 +23,11 @@ export async function onRequestPost(context) {
       return json({ ok: false, code: "SUPABASE_TOKEN_INVALID" }, 401);
     }
 
+    const sql = [
+      "grant select on table public.app_admins to authenticated;",
+      "grant select on table public.crm_miembros to authenticated;",
+      `grant execute on function ${RPC_SIGNATURE} to anon;`
+    ].join("\\n");
     const queryResponse = await fetch(
       "https://api.supabase.com/v1/projects/scaebulgcuvqpucondws/database/query",
       {
@@ -31,7 +36,7 @@ export async function onRequestPost(context) {
           Authorization: `Bearer ${managementToken}`,
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ query: `grant execute on function ${RPC_SIGNATURE} to anon;` })
+        body: JSON.stringify({ query: sql })
       }
     );
 
