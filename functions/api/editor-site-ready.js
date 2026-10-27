@@ -74,6 +74,22 @@ async function githubPage(token, owner, repo, branch, path) {
   return decodeGitHubContent(body?.content || "");
 }
 
+async function repositoryPage(token, project, pagePath) {
+  const owner = String(project.site_repo_owner || "").trim();
+  const repo = String(project.site_repo_name || "").trim();
+  const branch = String(project.site_repo_branch || "main").trim() || "main";
+
+  try {
+    return await githubPage(token, owner, repo, branch, repositoryPath(project, pagePath));
+  } catch (error) {
+    if (normalizePath(project.site_repo_path) || normalizePath(pagePath) !== "index.html") {
+      throw error;
+    }
+
+    return githubPage(token, owner, repo, branch, "dist/index.html");
+  }
+}
+
 export async function onRequestGet(context) {
   try {
     const projectId = new URL(context.request.url).searchParams.get("project_id") || "";
@@ -96,7 +112,7 @@ export async function onRequestGet(context) {
     }
 
     const [repoHtml, publicResponse] = await Promise.all([
-      githubPage(token, owner, repo, branch, repositoryPath(project, pagePath)),
+      repositoryPage(token, project, pagePath),
       fetch(livePageUrl, { headers: { "Cache-Control": "no-cache" }, redirect: "follow" })
     ]);
     if (!publicResponse.ok) throw new Error(`Sitio ${publicResponse.status}`);

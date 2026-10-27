@@ -115,6 +115,29 @@ async function githubGetBranchTree({ token, owner, repo, branch }) {
   return Array.isArray(tree?.tree) ? tree.tree : [];
 }
 
+async function resolveEditorProject(project, token) {
+  if (normalizePath(project?.site_repo_path)) return project;
+
+  const owner = String(project?.site_repo_owner || "").trim();
+  const repo = String(project?.site_repo_name || "").trim();
+  if (!owner || !repo) return project;
+
+  const tree = await githubGetBranchTree({
+    token,
+    owner,
+    repo,
+    branch: liveBranch(project)
+  });
+
+  const hasDistIndex = tree.some(entry =>
+    entry?.type === "blob" && normalizePath(entry.path) === "dist/index.html"
+  );
+
+  return hasDistIndex
+    ? { ...project, site_repo_path: "dist" }
+    : project;
+}
+
 async function githubGetBlob(token, owner, repo, sha) {
   return githubJson(`${GITHUB_API}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/blobs/${encodeURIComponent(sha)}`, token);
 }
@@ -802,7 +825,7 @@ export async function onRequestPost(context) {
     const access = await projectAccess(context.request, context.env, projectId);
     if (!access) return json({ ok: false, message: "No tienes acceso a este proyecto." }, 403);
 
-    const project = access.project;
+    const project = await resolveEditorProject(access.project, token);
     const allowedPages = new Set(projectEditorPages(project));
     const requestedPages = pages.map(page => normalizePath(page.path));
     const forbiddenPages = requestedPages.filter(path => !allowedPages.has(path));

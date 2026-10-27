@@ -569,6 +569,26 @@
   async function readRepoSnapshot(project, branch) {
     const result = await listRepoEntries(project, "", branch);
     const entries = Array.isArray(result.entries) ? result.entries : [];
+
+    if (!repoBasePath(project)) {
+      const distEntry = entries.find(item =>
+        item?.type === "dir" && normalizeRepoPath(item.path) === "dist"
+      );
+
+      if (distEntry) {
+        const distProject = { ...project, site_repo_path: "dist" };
+        const distResult = await listRepoEntries(distProject, "", branch);
+        const hasIndex = (distResult.entries || []).some(item =>
+          item?.type === "file" && normalizeRepoPath(item.path) === "dist/index.html"
+        );
+
+        if (hasIndex) {
+          project.site_repo_path = "dist";
+          return readRepoSnapshot(project, branch);
+        }
+      }
+    }
+
     const configuredPaths = editorPagePaths(project);
 
     if (!configuredPaths.length) {
