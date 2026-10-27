@@ -668,14 +668,26 @@
       (draftResult?.drafts || []).forEach(saved => {
         const draft = state.repoDrafts.get(saved.page_path);
         if (!draft) return;
-        draft.edited_html = draft.original_html;
         const savedDraft = { elements: saved.elements || {} };
         const savedMeta = readDraftMeta(savedDraft);
         const hasPendingChanges = savedMeta.published === false;
 
         // Un borrador ya publicado no debe volver a imponerse sobre el HTML
         // recién leído del repositorio. Solo restauramos cambios pendientes.
-        draft.elements = hasPendingChanges ? savedDraft.elements : {};
+        if (hasPendingChanges) {
+          if (typeof saved.original_html === "string") {
+            draft.original_html = saved.original_html;
+          }
+          if (typeof saved.edited_html === "string") {
+            draft.edited_html = saved.edited_html;
+          } else {
+            draft.edited_html = draft.original_html;
+          }
+          draft.elements = savedDraft.elements;
+        } else {
+          draft.edited_html = draft.original_html;
+          draft.elements = {};
+        }
         writeDraftMeta(draft, {
           asset_branch: hasPendingChanges
             ? (savedMeta.asset_branch || branch)
@@ -1836,6 +1848,7 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
     if (!d) return null;
     return {
       page: state.currentPageId,
+      original_html: d.original_html || "",
       html: d.edited_html || "",
       elements: JSON.parse(JSON.stringify(d.elements || {}))
     };
@@ -1880,8 +1893,16 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
     if (!snap) return;
     const d = draftForPage(snap.page);
     if (!d) return;
+    if (typeof snap.original_html === "string") {
+      d.original_html = snap.original_html;
+    }
     d.edited_html = snap.html || "";
     d.elements = JSON.parse(JSON.stringify(snap.elements || {}));
+    writeDraftMeta(d, {
+      asset_branch: liveRepoBranch(state.project),
+      save_model: "patch-v2",
+      published: false
+    });
     const samePage = snap.page === state.currentPageId;
     const keepKey = samePage ? state.currentKey : "";
     const keepType = samePage ? state.currentType : "";
@@ -1900,6 +1921,7 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
       state.currentType = keepType;
       renderSidebar();
     }
+    scheduleAutoSave();
   }
 
   function undoAction() {
