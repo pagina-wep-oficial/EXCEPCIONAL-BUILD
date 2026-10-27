@@ -467,13 +467,13 @@ function nextStepText(project) {
     function projectCard(p){
       const [title,copy]=nextStepText(p), url=projectPrimaryHref(p), action=projectPrimaryLabel(p);
       const archived=archivedClientState(p);
-      const publicBadge=archived?(archived==="cancelado"?"Proyecto cancelado":"Proyecto descontinuado"):(p.site_visibility==="public"?"Pagina publicada":p.site_visibility==="preview"?"Vista previa lista":title);
+      const publicBadge=archived?(archived==="cancelado"?"Proyecto cancelado":"Proyecto descontinuado"):(p.site_visibility==="public"?"Página publicada":p.site_visibility==="preview"?"Vista previa lista":title);
       const ownerTag=p.user_id===uid?`<span class="mine-tag">Tuyo</span>`:`<span class="owner-tag">Proyecto de: ${safe(ownerById.get(p.user_id)||"Pendiente de activar")}</span>`;
       const cardPosition=stageIndex(p);
       const cardPublished=!archived&&cardPosition>=4&&p.site_visibility==="public"&&String(p.site_url||"").trim();
       const cardSiteUrl=cardPublished?String(p.site_url).trim():"";
       const publicLink=cardSiteUrl?`<div class="project-card-site-link"><span>Enlace público</span><a href="${safe(cardSiteUrl)}" target="_blank" rel="noopener" title="${safe(cardSiteUrl)}">${safe(cardSiteUrl)} ↗</a></div>`:"";
-      return `<article class="project-card-simple"><a class="project-card-main" href="${url}"><div class="project-card-icon">${stageIndex(p)===4?"OK":archived?"!":"EB"}</div><div class="project-card-copy"><span class="status-badge ${statusClass(p.status||p.project_stage)}">${safe(publicBadge)}</span><h3>${safe(p.name)}</h3><p>${safe(copy)}</p><small>${safe(p.domain||"Direccion por definir")}</small></div><span class="project-chevron">></span></a>${publicLink}<div class="project-card-footer">${ownerTag}<span>${date(p.created_at)}</span><a href="${url}">${safe(action)} ></a></div></article>`;
+      return `<article class="project-card-simple"><a class="project-card-main" href="${url}"><div class="project-card-icon">${stageIndex(p)===4?"OK":archived?"!":"EB"}</div><div class="project-card-copy"><span class="status-badge ${statusClass(p.status||p.project_stage)}">${safe(publicBadge)}</span><h3>${safe(p.name)}</h3><p>${safe(copy)}</p><small>${safe(p.domain||"Dirección por definir")}</small></div><span class="project-chevron">></span></a>${publicLink}<div class="project-card-footer">${ownerTag}<span>${date(p.created_at)}</span><a href="${url}">${safe(action)} ></a></div></article>`;
     }
     const render=()=>{
       const norm=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
@@ -766,7 +766,7 @@ function nextStepText(project) {
       if(lockType||lockValue){
         $("#domain-type-lock-note").textContent=lockValue
           ?"Esto ya fue acordado con el equipo. Si necesitas cambiarlo, escribenos por WhatsApp."
-          :"El tipo de enlace ya fue decidido por el equipo. Puedes escribir, verificar y elegir el enlace aqui.";
+          :"El tipo de enlace ya fue decidido por el equipo. Puedes escribir, verificar y elegir el enlace aquí.";
       }
       $("#domain-value-lock-note").hidden=!lockValue;
       $("#hosting-lock-note").hidden=!lockHosting;
@@ -786,7 +786,7 @@ function nextStepText(project) {
       const firstTotal=creation+Number(buy?(dp.first||0):0)+hostingFirst;
       const renewalTotal=Number(buy?(dp.renew||0):0)+hostingRenew;
       const hostingLabel=hostingChoice==="propio"?"Ya tengo hosting":hostingChoice==="hostinger"?(plan?.hosting_plan_name||plan?.name||"Plan de hosting por elegir"):"Incluido";
-      const lines=[["Creacion de tu pagina",money(creation)||"Acordado"],["Direccion",owned?`${name} (tuyo)`:name],["Alojamiento",hostingLabel],["Total inicial estimado",money(firstTotal)]];
+      const lines=[["Creación de tu página",money(creation)||"Acordado"],["Dirección",owned?`${name} (tuyo)`:name],["Alojamiento",hostingLabel],["Total inicial estimado",money(firstTotal)]];
       if(buy&&dp.first!=null){lines.splice(3,0,["Dominio primer año",money(dp.first)],["Renovacion dominio",money(dp.renew)]);}
       if(hostingChoice==="hostinger"){lines.splice(lines.length-1,0,["Hosting primer año",money(hostingFirst)],["Renovacion hosting",money(hostingRenew)]);}
       if(renewalTotal>0)lines.push(["Renovacion anual estimada",money(renewalTotal)]);
@@ -904,13 +904,13 @@ function nextStepText(project) {
         else if(configureState.step==="hosting"){if(validateHosting())setStep("summary");}
         return;
       }
-      if(!validateAddress()){setStatus("#setup-status","Revisa la direccion para continuar.","error");setStep("address");return;}
+      if(!validateAddress()){setStatus("#setup-status","Revisa la dirección para continuar.","error");setStep("address");return;}
       if(!validateHosting()){setStatus("#setup-status",configureState.hostingChoice!=="cloudflare"&&configureState.addressChoice==="gratis"?"Este alojamiento requiere dominio personalizado. Elige un dominio para continuar.":"Revisa el alojamiento para continuar.","error");setStep("hosting");return;}
       const button=$("#setup-finish-btn");button.disabled=true;setStatus("#setup-status","Guardando tu configuracion...");
       try{
         await saveSetup({final:true});
         const {error:applyErr}=await db.rpc("client_apply_project_setup",{p_project_id:id});if(applyErr)throw applyErr;
-        setStatus("#setup-status","Listo. Ahora necesitamos la informacion de tu negocio.","success");location.assign(`proyecto.html?id=${encodeURIComponent(id)}#informacion`);
+        setStatus("#setup-status","Listo. Ahora necesitamos la información de tu negocio.","success");location.assign(`proyecto.html?id=${encodeURIComponent(id)}#informacion`);
       }catch(err){setStatus("#setup-status",friendlyError(err,"No pudimos guardar la configuracion."),"error");button.disabled=false;}
     });
   }
@@ -947,9 +947,9 @@ function nextStepText(project) {
   const requestLabels={
     cambio:{title:"Solicitar un cambio",help:"Dinos que quieres corregir antes de publicar.",publicTitle:"Cambio solicitado"},
     mantenimiento:{title:"Solicitar mantenimiento",help:"Revisar un problema o algo que dejo de funcionar.",publicTitle:"Mantenimiento solicitado"},
-    actualizar:{title:"Actualizar mi pagina",help:"Cambiar textos, fotos, horarios, productos o precios.",publicTitle:"Actualizacion solicitada"},
-    dominio:{title:"Quiero un dominio propio",help:"Cambiar el enlace gratuito por una direccion profesional.",publicTitle:"Dominio solicitado"},
-    hosting:{title:"Quiero mejorar mi alojamiento",help:"Pasar del alojamiento incluido a una opcion mas profesional.",publicTitle:"Mejora de alojamiento solicitada"},
+    actualizar:{title:"Actualizar mi página",help:"Cambiar textos, fotos, horarios, productos o precios.",publicTitle:"Actualización solicitada"},
+    dominio:{title:"Quiero un dominio propio",help:"Cambiar el enlace gratuito por una dirección profesional.",publicTitle:"Dominio solicitado"},
+    hosting:{title:"Quiero mejorar mi alojamiento",help:"Pasar del alojamiento incluido a una opción más profesional.",publicTitle:"Mejora de alojamiento solicitada"},
     mejorar:{title:"Mejorar mi proyecto",help:"Agregar nuevas secciones o funciones.",publicTitle:"Mejora solicitada"}
   };
   function requestStateMeta(value=""){
@@ -1277,8 +1277,8 @@ function nextStepText(project) {
     const domainOfferPrice=setup?.offer_domain_price!=null?Number(setup.offer_domain_price):(setup?.domain_first_year!=null?Number(setup.domain_first_year):null);
     const hostingOfferPrice=setup?.offer_hosting_price!=null?Number(setup.offer_hosting_price):(setup?.hosting_first_year!=null?Number(setup.hosting_first_year):null);
 
-    const domainOfferNote=String(setup?.offer_domain_note||"Pasa de un enlace gratuito a un dominio propio mas profesional.").trim();
-    const hostingOfferNote=String(setup?.offer_hosting_note||"Mejora el alojamiento de tu pagina para una base mas flexible.").trim();
+    const domainOfferNote=String(setup?.offer_domain_note||"Pasa de un enlace gratuito a un dominio propio más profesional.").trim();
+    const hostingOfferNote=String(setup?.offer_hosting_note||"Mejora el alojamiento de tu página para una base más flexible.").trim();
 
     let selectedUpgradeDomain="";
     let selectedUpgradeDomainPrice=domainOfferPrice;
@@ -1288,7 +1288,7 @@ function nextStepText(project) {
         `Hola, soy ${profile.full_name}.`,
         `Proyecto: ${project.name}.`,
         `Proyecto ID: ${project.id}.`,
-        kind==="dominio"?"Quiero contratar un dominio propio.":"Quiero mejorar el alojamiento de mi pagina.",
+        kind==="dominio"?"Quiero contratar un dominio propio.":"Quiero mejorar el alojamiento de mi página.",
         ...extraLines.filter(Boolean)
       ].join("\n");
       location.assign(`https://wa.me/${WHATSAPP}?text=${encodeURIComponent(text)}`);
@@ -1299,17 +1299,17 @@ function nextStepText(project) {
       selectedUpgradeDomainPrice=domainOfferPrice;
       if(domainForm)domainForm.reset();
       if(domainStatus){domainStatus.textContent="Escribe un dominio y pulsa Verificar.";domainStatus.className="form-status";}
-      if(domainPriceLine){domainPriceLine.textContent=domainOfferPrice!=null?`Precio mostrado: ${money(domainOfferPrice)} al ano.`:"";domainPriceLine.className="form-status";}
+      if(domainPriceLine){domainPriceLine.textContent=domainOfferPrice!=null?`Precio mostrado: ${money(domainOfferPrice)} al año.`:"";domainPriceLine.className="form-status";}
       if(domainSubmit)domainSubmit.disabled=true;
     };
 
     if(upgradesCard&&upgradesList&&!archivedState&&pos===4&&(hasDomainOffer||hasHostingOffer)){
       const items=[];
       if(hasDomainOffer){
-        items.push(`<button class="action-card" type="button" data-upgrade-action="domain"><b>Consigue tu dominio propio</b><span>${safe(domainOfferNote)}</span><small>${domainOfferPrice!=null?`Desde ${safe(money(domainOfferPrice))} al ano`:"Cotizacion manual"}</small></button>`);
+        items.push(`<button class="action-card" type="button" data-upgrade-action="domain"><b>Consigue tu dominio propio</b><span>${safe(domainOfferNote)}</span><small>${domainOfferPrice!=null?`Desde ${safe(money(domainOfferPrice))} al año`:"Cotización manual"}</small></button>`);
       }
       if(hasHostingOffer){
-        items.push(`<button class="action-card" type="button" data-upgrade-action="hosting"><b>Mejora tu alojamiento</b><span>${safe(hostingOfferNote)}</span><small>${hostingOfferPrice!=null?`Desde ${safe(money(hostingOfferPrice))} al ano`:"Cotizacion manual"}</small></button>`);
+        items.push(`<button class="action-card" type="button" data-upgrade-action="hosting"><b>Mejora tu alojamiento</b><span>${safe(hostingOfferNote)}</span><small>${hostingOfferPrice!=null?`Desde ${safe(money(hostingOfferPrice))} al año`:"Cotización manual"}</small></button>`);
       }
       upgradesCard.hidden=false;
       upgradesList.innerHTML=items.join("");
@@ -1336,7 +1336,7 @@ function nextStepText(project) {
         if(result.availability==="free"){
           selectedUpgradeDomain=normalized;
           if(domainStatus){domainStatus.textContent=`${normalized} esta disponible.`;domainStatus.className="form-status success";}
-          if(domainPriceLine){domainPriceLine.textContent=selectedUpgradeDomainPrice!=null?`Precio mostrado: ${money(selectedUpgradeDomainPrice)} al ano.`:"Precio por confirmar por WhatsApp.";domainPriceLine.className="form-status";}
+          if(domainPriceLine){domainPriceLine.textContent=selectedUpgradeDomainPrice!=null?`Precio mostrado: ${money(selectedUpgradeDomainPrice)} al año.`:"Precio por confirmar por WhatsApp.";domainPriceLine.className="form-status";}
           if(domainSubmit)domainSubmit.disabled=false;
           if(domainInput)domainInput.value=normalized;
           return;
@@ -1363,7 +1363,7 @@ function nextStepText(project) {
       try{
         const detailLines=[
           `Dominio elegido: ${selectedUpgradeDomain}`,
-          selectedUpgradeDomainPrice!=null?`Precio mostrado: ${money(selectedUpgradeDomainPrice)} al ano.`:"",
+          selectedUpgradeDomainPrice!=null?`Precio mostrado: ${money(selectedUpgradeDomainPrice)} al año.`:"",
           domainOfferNote?`Oferta visible: ${domainOfferNote}`:""
         ].filter(Boolean);
         const payload={
@@ -1373,7 +1373,7 @@ function nextStepText(project) {
           message:detailLines.join(" "),
           status:"Nueva",
           admin_title:"Dominio solicitado",
-          admin_summary:`El cliente quiere ${selectedUpgradeDomain}${selectedUpgradeDomainPrice!=null?` por ${money(selectedUpgradeDomainPrice)} al ano`:""}.`
+          admin_summary:`El cliente quiere ${selectedUpgradeDomain}${selectedUpgradeDomainPrice!=null?` por ${money(selectedUpgradeDomainPrice)} al año`:""}.`
         };
         const {error}=await db.from("client_requests").insert(payload);
         if(error)throw error;
@@ -1396,20 +1396,20 @@ function nextStepText(project) {
       }
       if(kind==="hosting"){
         const detailLines=[
-          hostingOfferPrice!=null?`Precio mostrado: ${money(hostingOfferPrice)} al ano.`:"",
+          hostingOfferPrice!=null?`Precio mostrado: ${money(hostingOfferPrice)} al año.`:"",
           hostingOfferNote?`Oferta visible: ${hostingOfferNote}`:""
         ].filter(Boolean);
-        if(!confirm(`Se enviara una solicitud para mejorar el alojamiento${hostingOfferPrice!=null?` por ${money(hostingOfferPrice)} al ano`:""}.`))return;
+        if(!confirm(`Se enviará una solicitud para mejorar el alojamiento${hostingOfferPrice!=null?` por ${money(hostingOfferPrice)} al año`:""}.`))return;
         btn.disabled=true;
         try{
           const payload={
             project_id:id,
             user_id:session.user.id,
             request_type:"hosting",
-            message:detailLines.join(" ")||"Quiero mejorar el alojamiento de mi pagina.",
+            message:detailLines.join(" ")||"Quiero mejorar el alojamiento de mi página.",
             status:"Nueva",
             admin_title:"Mejora de alojamiento solicitada",
-            admin_summary:`El cliente quiere mejorar el alojamiento${hostingOfferPrice!=null?` por ${money(hostingOfferPrice)} al ano`:""}.`
+            admin_summary:`El cliente quiere mejorar el alojamiento${hostingOfferPrice!=null?` por ${money(hostingOfferPrice)} al año`:""}.`
           };
           const {error}=await db.from("client_requests").insert(payload);
           if(error)throw error;
