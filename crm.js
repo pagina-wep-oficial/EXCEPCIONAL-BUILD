@@ -719,11 +719,13 @@ if(canManageUsers()) await loadUsers();
   }
   async function verifySettingsToken(){
     const row=settingsRow();
-    if(!row?.value){setLine("#settings-token-status-line","Primero guarda un token para poder comprobarlo.","error");return;}
+    const typedToken=String($("#settings-token-input")?.value||"").trim();
+    const token=typedToken||String(row?.value||"").trim();
+    if(!token){setLine("#settings-token-status-line","Escribe un token para poder comprobarlo.","error");return;}
     const btn=$("#settings-token-verify");btn.disabled=true;
     setLine("#settings-token-status-line","Comprobando validez…");
     try{
-      const r=await fetch("/api/verificar-sb-token",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:row.value})});
+      const r=await fetch("/api/verificar-sb-token",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token})});
       const data=await r.json().catch(()=>({}));
       if(data?.ok)setLine("#settings-token-status-line",`Token válido ✓ (acceso a ${data.count??0} proyecto${(data.count??0)===1?"":"s"}).`,"success");
       else if(data?.error==="expirado")setLine("#settings-token-status-line","El token expiró (401). Genera uno nuevo en supabase.com y cámbialo aquí.","error");
@@ -734,13 +736,15 @@ if(canManageUsers()) await loadUsers();
   }
   async function setupItmFinalization(){
     const row=settingsRow();
+    const typedToken=String($("#settings-token-input")?.value||"").trim();
+    const token=typedToken||String(row?.value||"").trim();
     const button=$("#setup-itm-finalization");
-    if(!row?.value){setLine("#setup-itm-finalization-status","Primero guarda un token de Supabase.","error");return;}
+    if(!token){setLine("#setup-itm-finalization-status","Escribe un token de Supabase antes de activar la conexión.","error");return;}
     button.disabled=true;
     setLine("#setup-itm-finalization-status","Activando conexión…");
     try{
       const session=(await db.auth.getSession()).data.session;
-      const response=await fetch("/api/setup-itm-finalization",{method:"POST",headers:{Authorization:`Bearer ${session?.access_token||""}`,"Content-Type":"application/json"},body:JSON.stringify({management_token:row.value})});
+      const response=await fetch("/api/setup-itm-finalization",{method:"POST",headers:{Authorization:`Bearer ${session?.access_token||""}`,"Content-Type":"application/json"},body:JSON.stringify({management_token:token})});
       const data=await response.json().catch(()=>({}));
       if(!response.ok||!data?.ok)throw new Error(data?.code||"No se pudo activar la conexión.");
       setLine("#setup-itm-finalization-status","Conexión ITM activada ✓","success");

@@ -6,7 +6,7 @@ export async function onRequestPost(context) {
   try {
     const request = context.request;
     const user = await getUser(request, context.env);
-    if (!user?.id || !(await isAppAdmin(request, context.env))) {
+    if (!user?.id || !(await isCrmAdmin(request, context.env))) {
       return json({ ok: false, code: "ADMIN_REQUIRED" }, 403);
     }
 
@@ -46,9 +46,9 @@ export async function onRequestPost(context) {
   }
 }
 
-async function isAppAdmin(request, env) {
+async function isCrmAdmin(request, env) {
   const { url, key } = supabaseConfig(env);
-  const response = await fetch(`${url}/rest/v1/rpc/is_app_admin`, {
+  const response = await fetch(`${url}/rest/v1/rpc/crm_mi_perfil`, {
     method: "POST",
     headers: {
       apikey: key,
@@ -57,7 +57,8 @@ async function isAppAdmin(request, env) {
     },
     body: "{}"
   });
-  return response.ok && (await response.json()) === true;
+  const profile = await response.json().catch(() => null);
+  return response.ok && profile?.rol === "administrador";
 }
 
 function json(data, status = 200) {
