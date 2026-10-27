@@ -23,25 +23,29 @@ export async function onRequestPost(context) {
       return json({ ok: false, code: "SUPABASE_TOKEN_INVALID" }, 401);
     }
 
-    const sql = [
+    const statements = [
       "grant select on table public.app_admins to authenticated;",
       "grant select on table public.crm_miembros to authenticated;",
       `grant execute on function ${RPC_SIGNATURE} to anon;`
-    ].join("\\n");
-    const queryResponse = await fetch(
-      "https://api.supabase.com/v1/projects/scaebulgcuvqpucondws/database/query",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${managementToken}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ query: sql })
-      }
-    );
+    ];
 
-    if (!queryResponse.ok) {
-      return json({ ok: false, code: "SUPABASE_PERMISSION_UPDATE_FAILED" }, 502);
+    for (let index = 0; index < statements.length; index += 1) {
+      const queryResponse = await fetch(
+        "https://api.supabase.com/v1/projects/scaebulgcuvqpucondws/database/query",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${managementToken}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ query: statements[index] })
+        }
+      );
+
+      if (!queryResponse.ok) {
+        console.error("Supabase permission update failed", index + 1, queryResponse.status);
+        return json({ ok: false, code: `SUPABASE_PERMISSION_UPDATE_FAILED_${index + 1}` }, 502);
+      }
     }
 
     return json({ ok: true });
