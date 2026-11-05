@@ -501,6 +501,7 @@ function nextStepText(project) {
     $("#panel-first-name").textContent=(profile.full_name||"cliente").split(/\s+/)[0];
     const uid=session.user.id;
     const grid=$("#projects-grid"), allBlock=$("#all-projects-block"), allGrid=$("#projects-grid-all"), search=$("#projects-search");
+    const addPageCard=$("#panel-add-page"), mobileNav=$(".mobile-nav"), mobileAddPage=$("#panel-mobile-add-page");
     let mine=[], others=[], ownerById=new Map();
 
     function projectCardSignature(project){
@@ -580,6 +581,23 @@ function nextStepText(project) {
       const q=norm(search?.value);
       const match=p=>!q||norm(`${p.name} ${p.domain||""} ${ownerById.get(p.user_id)||""}`).includes(q);
       const own=mine.filter(match), other=others.filter(match);
+      const administrativeView=others.length>0;
+      const canRequestAnotherPage=mine.length>0&&!administrativeView;
+
+      if(search){
+        search.placeholder=administrativeView
+          ? "Buscar por página, cliente o dirección…"
+          : "Buscar mis páginas o direcciones…";
+        search.setAttribute(
+          "aria-label",
+          administrativeView ? "Buscar por página, cliente o dirección" : "Buscar mis páginas"
+        );
+      }
+
+      if(addPageCard)addPageCard.hidden=!canRequestAnotherPage;
+      if(mobileAddPage)mobileAddPage.hidden=!canRequestAnotherPage;
+      mobileNav?.classList.toggle("has-primary-action",canRequestAnotherPage);
+
       const actionable=mine.find(p=>stageIndex(p)<4&&!archivedClientState(p));
       const box=$("#panel-next-step");
       const nextStepKey=actionable?projectCardSignature(actionable):"none";

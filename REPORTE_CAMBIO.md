@@ -31,3 +31,14 @@
 2. Modificar un proyecto desde otra sesión.
 3. Confirmar que solo cambia su tarjeta y la búsqueda permanece intacta.
 4. Cambiar de pestaña y volver; confirmar que no hay recarga completa.
+
+## Panel adaptado a cliente y administración
+
+- La búsqueda dice `Buscar mis páginas o direcciones` cuando solo hay proyectos
+  propios; en una vista con proyectos de otras personas permite buscar también
+  por cliente.
+- `¿Necesitas otra página?` y el acceso móvil de nueva página aparecen solo
+  para una cuenta con al menos un proyecto propio, fuera de la vista
+  administrativa.
+- Al ocultar ese acceso móvil, la barra inferior usa dos columnas y no deja un
+  espacio vacío.
