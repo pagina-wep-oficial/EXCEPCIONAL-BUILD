@@ -11,8 +11,10 @@
   const HOSTINGER_AFFILIATE_URL = "";
   let liveChannel = null;
   let liveRefreshTimer = 0;
+  let liveVisibilityTimer = 0;
   let liveRefreshBusy = false;
-  let liveRefreshQueued = false;
+  let liveResyncHandler = null;
+  const liveRefreshQueue = new Map();
 
   const $ = (s, r=document) => r.querySelector(s);
   const $$ = (s, r=document) => [...r.querySelectorAll(s)];
@@ -284,33 +286,70 @@ function nextStepText(project) {
   }
   function stopLiveUpdates(){
     clearTimeout(liveRefreshTimer);
+    clearTimeout(liveVisibilityTimer);
     liveRefreshBusy=false;
-    liveRefreshQueued=false;
+    liveResyncHandler=null;
+    liveRefreshQueue.clear();
     if(liveChannel){
       db.removeChannel(liveChannel);
       liveChannel=null;
     }
   }
-  function refreshVisiblePortalPage(){
-    if(document.visibilityState!=="visible") return;
-    if(["panel","project","configure","editor"].includes(page)) location.reload();
+
+  function liveChangeKey(payload,spec){
+    const row=payload?.new||payload?.old||{};
+    const rowId=row.id||row.project_id||row.user_id||spec.key||spec.filter||"all";
+    return `${spec.table||"refresh"}:${rowId}`;
   }
-  async function runLiveHandler(handler,payload,spec){
-    if(liveRefreshBusy){
-      liveRefreshQueued=true;
-      return;
-    }
+
+  function queueLiveUpdate(handler,payload,spec){
+    if(typeof handler!=="function")return;
+
+    liveRefreshQueue.set(liveChangeKey(payload,spec),{handler,payload,spec});
+    clearTimeout(liveRefreshTimer);
+    liveRefreshTimer=setTimeout(flushLiveUpdates,350);
+  }
+
+  async function flushLiveUpdates(){
+    if(liveRefreshBusy)return;
+
     liveRefreshBusy=true;
+    const pending=[...liveRefreshQueue.values()];
+    liveRefreshQueue.clear();
+
     try{
-      await handler(payload,spec);
+      for(const update of pending){
+        try{
+          await update.handler(update.payload,update.spec);
+        }catch(error){
+          console.error("portal live update",error);
+        }
+      }
     }finally{
       liveRefreshBusy=false;
-      if(liveRefreshQueued){
-        liveRefreshQueued=false;
-        refreshVisiblePortalPage();
+      if(liveRefreshQueue.size){
+        clearTimeout(liveRefreshTimer);
+        liveRefreshTimer=setTimeout(flushLiveUpdates,80);
       }
     }
   }
+
+  function refreshVisiblePortalPage(){
+    if(document.visibilityState!=="visible") return;
+
+    if(page!=="panel"){
+      if(["project","configure","editor"].includes(page)) location.reload();
+      return;
+    }
+
+    if(typeof liveResyncHandler!=="function") return;
+
+    clearTimeout(liveVisibilityTimer);
+    liveVisibilityTimer=setTimeout(()=>{
+      queueLiveUpdate(liveResyncHandler,null,{table:"portal_visible",key:page});
+    },120);
+  }
+
   function startLiveUpdates(name,specs,handler){
     stopLiveUpdates();
     if(!db?.channel||!specs?.length)return;
@@ -319,8 +358,7 @@ function nextStepText(project) {
       const config={event:"*",schema:"public",table:spec.table};
       if(spec.filter) config.filter=spec.filter;
       channel.on("postgres_changes",config,(payload)=>{
-        clearTimeout(liveRefreshTimer);
-        liveRefreshTimer=setTimeout(()=>runLiveHandler(handler,payload,spec).catch(err=>console.error("portal live refresh",err)),120);
+        queueLiveUpdate(handler,payload,spec);
       });
     });
     liveChannel=channel;
@@ -464,6 +502,23 @@ function nextStepText(project) {
     const uid=session.user.id;
     const grid=$("#projects-grid"), allBlock=$("#all-projects-block"), allGrid=$("#projects-grid-all"), search=$("#projects-search");
     let mine=[], others=[], ownerById=new Map();
+
+    function projectCardSignature(project){
+      return encodeURIComponent(JSON.stringify([
+        project.id,
+        project.user_id,
+        project.name,
+        project.domain,
+        project.status,
+        project.project_stage,
+        project.site_visibility,
+        project.site_url,
+        project.created_at,
+        project.updated_at,
+        ownerById.get(project.user_id)||""
+      ]));
+    }
+
     function projectCard(p){
       const [title,copy]=nextStepText(p), url=projectPrimaryHref(p), action=projectPrimaryLabel(p);
       const archived=archivedClientState(p);
@@ -473,19 +528,80 @@ function nextStepText(project) {
       const cardPublished=!archived&&cardPosition>=4&&p.site_visibility==="public"&&String(p.site_url||"").trim();
       const cardSiteUrl=cardPublished?String(p.site_url).trim():"";
       const publicLink=cardSiteUrl?`<div class="project-card-site-link"><span>Enlace público</span><a href="${safe(cardSiteUrl)}" target="_blank" rel="noopener" title="${safe(cardSiteUrl)}">${safe(cardSiteUrl)} ↗</a></div>`:"";
-      return `<article class="project-card-simple"><a class="project-card-main" href="${url}"><div class="project-card-icon">${stageIndex(p)===4?"OK":archived?"!":"EB"}</div><div class="project-card-copy"><span class="status-badge ${statusClass(p.status||p.project_stage)}">${safe(publicBadge)}</span><h3>${safe(p.name)}</h3><p>${safe(copy)}</p><small>${safe(p.domain||"Dirección por definir")}</small></div><span class="project-chevron">></span></a>${publicLink}<div class="project-card-footer">${ownerTag}<span>${date(p.created_at)}</span><a href="${url}">${safe(action)} ></a></div></article>`;
+      return `<article class="project-card-simple" data-project-id="${safe(p.id)}" data-project-signature="${projectCardSignature(p)}"><a class="project-card-main" href="${url}"><div class="project-card-icon">${stageIndex(p)===4?"OK":archived?"!":"EB"}</div><div class="project-card-copy"><span class="status-badge ${statusClass(p.status||p.project_stage)}">${safe(publicBadge)}</span><h3>${safe(p.name)}</h3><p>${safe(copy)}</p><small>${safe(p.domain||"Dirección por definir")}</small></div><span class="project-chevron">></span></a>${publicLink}<div class="project-card-footer">${ownerTag}<span>${date(p.created_at)}</span><a href="${url}">${safe(action)} ></a></div></article>`;
     }
+
+    function projectCardElement(project){
+      const template=document.createElement("template");
+      template.innerHTML=projectCard(project).trim();
+      return template.content.firstElementChild;
+    }
+
+    function patchProjectGrid(target,projects,emptyMarkup,emptyKey){
+      if(!target)return;
+
+      if(!projects.length){
+        if(target.dataset.emptyKey!==emptyKey){
+          target.innerHTML=emptyMarkup;
+          target.dataset.emptyKey=emptyKey;
+        }
+        return;
+      }
+
+      const cardsById=new Map(
+        [...target.querySelectorAll(":scope > [data-project-id]")]
+          .map(card=>[card.dataset.projectId,card])
+      );
+
+      target.querySelectorAll(":scope > :not([data-project-id])").forEach(node=>node.remove());
+
+      projects.forEach(project=>{
+        const id=String(project.id);
+        const signature=projectCardSignature(project);
+        let card=cardsById.get(id);
+
+        if(!card||card.dataset.projectSignature!==signature){
+          const nextCard=projectCardElement(project);
+          if(card)card.replaceWith(nextCard);
+          else target.append(nextCard);
+          card=nextCard;
+        }
+
+        target.append(card);
+        cardsById.delete(id);
+      });
+
+      cardsById.forEach(card=>card.remove());
+      delete target.dataset.emptyKey;
+    }
+
     const render=()=>{
       const norm=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
       const q=norm(search?.value);
       const match=p=>!q||norm(`${p.name} ${p.domain||""} ${ownerById.get(p.user_id)||""}`).includes(q);
       const own=mine.filter(match), other=others.filter(match);
       const actionable=mine.find(p=>stageIndex(p)<4&&!archivedClientState(p));
-      const box=$("#panel-next-step"); if(actionable){ const [title,copy]=nextStepText(actionable); box.hidden=false; box.innerHTML=`<div class="next-step-icon">></div><div><span>Lo siguiente</span><strong>${safe(title)}</strong><p>${safe(copy)}</p></div><a class="button button-primary" href="${projectPrimaryHref(actionable)}">Continuar</a>`; } else if(box){ box.hidden=true; box.innerHTML=""; }
-      grid.innerHTML=own.length?own.map(projectCard).join(""):`<div class="empty-card"><div class="empty-icon">○</div><h3>${q?"Sin resultados":mine.length?"":"Todavía no tienes proyectos"}</h3>${q?"":mine.length?"":"<p>Cuando aceptes una página con nosotros, aparecerá aquí.</p><a class=\"button button-light\" href=\"https://wa.me/${WHATSAPP}\" target=\"_blank\" rel=\"noopener\">Hablar por WhatsApp</a>"}</div>`;
+      const box=$("#panel-next-step");
+      const nextStepKey=actionable?projectCardSignature(actionable):"none";
+      if(box&&box.dataset.nextStepKey!==nextStepKey){
+        if(actionable){
+          const [title,copy]=nextStepText(actionable);
+          box.hidden=false;
+          box.innerHTML=`<div class="next-step-icon">></div><div><span>Lo siguiente</span><strong>${safe(title)}</strong><p>${safe(copy)}</p></div><a class="button button-primary" href="${projectPrimaryHref(actionable)}">Continuar</a>`;
+        }else{
+          box.hidden=true;
+          box.innerHTML="";
+        }
+        box.dataset.nextStepKey=nextStepKey;
+      }
+      const ownEmpty=`<div class="empty-card"><div class="empty-icon">○</div><h3>${q?"Sin resultados":mine.length?"":"Todavía no tienes proyectos"}</h3>${q?"":mine.length?"":"<p>Cuando aceptes una página con nosotros, aparecerá aquí.</p><a class=\"button button-light\" href=\"https://wa.me/${WHATSAPP}\" target=\"_blank\" rel=\"noopener\">Hablar por WhatsApp</a>"}</div>`;
+      patchProjectGrid(grid,own,ownEmpty,`own:${q}:${mine.length}`);
       const showAll=allBlock&&others.length>0;
       if(allBlock)allBlock.hidden=!showAll;
-      if(showAll){ allGrid.innerHTML=other.length?other.map(projectCard).join(""):`<div class="empty-card"><div class="empty-icon">…</div><h3>Sin resultados</h3><p>Intenta con otro nombre o cliente.</p></div>`; }
+      if(showAll){
+        const otherEmpty=`<div class="empty-card"><div class="empty-icon">…</div><h3>Sin resultados</h3><p>Intenta con otro nombre o cliente.</p></div>`;
+        patchProjectGrid(allGrid,other,otherEmpty,`other:${q}:${others.length}`);
+      }
     };
     const refreshPanel=async()=>{
       const [projectsR,profilesR]=await Promise.all([
@@ -539,6 +655,7 @@ function nextStepText(project) {
       }
       await refreshPanel();
     });
+    liveResyncHandler=refreshPanel;
   }
 
   async function initProfile() {
