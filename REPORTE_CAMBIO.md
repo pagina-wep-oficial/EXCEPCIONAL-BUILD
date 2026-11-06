@@ -13,6 +13,8 @@
   recibir accidentalmente el evento del clic como identificador.
 - Las acciones de ciclo de vida no confirman éxito cuando Supabase devuelve
   cero filas o no puede desvincular el prospecto relacionado.
+- En administración de proyecto, los cambios confirmados por Supabase se
+  reflejan inmediatamente en controles, estado y formulario sin recarga.
 
 ## Qué cambió
 

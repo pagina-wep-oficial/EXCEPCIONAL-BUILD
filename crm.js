@@ -1394,7 +1394,17 @@ if(canManageUsers()) await loadUsers();
     if(idx>=0) state.projects[idx]=saved;
     else state.projects.unshift(saved);
     state.currentProject=saved;
-    try { renderAll(); renderClientDetail(); setProjectForm(saved); } catch(e) { /* Vistas parciales (project-admin standalone) no tienen todos los nodos; el estado ya quedo sincronizado. */ }
+
+    // La administración independiente no contiene las vistas del CRM completo.
+    // El formulario abierto se actualiza primero y cada vista secundaria se
+    // repinta de forma aislada para que una ausencia de nodos no bloquee las
+    // acciones que la persona acaba de confirmar.
+    try { setProjectForm(saved); } catch(error) { console.error("project form sync",error); }
+
+    if(crmPage==="project-admin") return;
+
+    try { renderAll(); } catch(error) { console.error("project list sync",error); }
+    try { renderClientDetail(); } catch(error) { console.error("client detail sync",error); }
   }
   function updateProjectLifecycleUI(project){
     const archived=isArchivedProject(project);

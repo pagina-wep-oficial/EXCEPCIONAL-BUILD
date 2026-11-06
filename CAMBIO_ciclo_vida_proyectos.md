@@ -12,6 +12,8 @@ el estado exacto que tenían antes de archivarse.
   desactualizada.
 - Borrar permanentemente también resuelve el proyecto abierto y exige que
   Supabase confirme la eliminación antes de actualizar la interfaz.
+- La sincronización repinta primero el proyecto abierto y separa las vistas
+  secundarias, evitando que una vista ausente obligue a recargar la página.
 - Los proyectos antiguos sin historial mantienen la recuperación compatible
   basada en su publicación o vista previa.
 
