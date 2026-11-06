@@ -11,6 +11,8 @@
 - La migración requerida está en `crm-project-lifecycle.sql`.
 - El botón de reactivación invoca explícitamente el proyecto abierto, en vez de
   recibir accidentalmente el evento del clic como identificador.
+- Las acciones de ciclo de vida no confirman éxito cuando Supabase devuelve
+  cero filas o no puede desvincular el prospecto relacionado.
 
 ## Qué cambió
 

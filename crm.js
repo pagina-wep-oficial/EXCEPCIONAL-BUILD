@@ -1345,10 +1345,16 @@ if(canManageUsers()) await loadUsers();
     return "Configuración";
   }
   function lifecycleProjectById(id){
-    if(String(state.currentProject?.id||"")===String(id||"")){
+    const projectId=typeof id==="string"?id.trim():"";
+
+    if(
+      state.currentProject?.id&&
+      (!projectId||String(state.currentProject.id)===projectId)
+    ){
       return state.currentProject;
     }
-    return projectById(id);
+
+    return projectId?projectById(projectId):null;
   }
   function restoreStageForProject(project){
     const saved=String(project?.lifecycle_previous_stage||"").trim();
@@ -1843,8 +1849,16 @@ if(canManageUsers()) await loadUsers();
   }
 
   async function deleteProjectPermanently(id=state.currentProject?.id){
-    const project=projectById(id);
-    if(!project?.id||!isArchivedProject(project))return;
+    const project=lifecycleProjectById(id);
+    if(!project?.id){
+      setLine("#project-form-status","No encontramos el proyecto a borrar.","error");
+      toast("No encontramos el proyecto a borrar.");
+      return;
+    }
+    if(!isArchivedProject(project)){
+      setLine("#project-form-status","Solo puedes borrar permanentemente un proyecto cancelado o descontinuado.","error");
+      return;
+    }
     if(!confirm(`¿Borrar permanentemente ${project.name||"este proyecto"}? Esta acción no se puede deshacer.`))return;
     setLine("#project-form-status","Borrando proyecto…");
     const cleanup=await Promise.all([
@@ -1855,9 +1869,26 @@ if(canManageUsers()) await loadUsers();
     ]);
     const cleanupErr=cleanup.find(r=>r.error)?.error;
     if(cleanupErr){setLine("#project-form-status",cleanupErr.message||"No pudimos limpiar el proyecto.","error");return;}
-    if(project.source_prospect_id) await db.from("prospectos").update({client_project_id:null}).eq("id",project.source_prospect_id);
-    const removed=await db.from("client_projects").delete().eq("id",project.id);
-    if(removed.error){setLine("#project-form-status",removed.error.message||"No pudimos borrar el proyecto.","error");return;}
+    if(project.source_prospect_id){
+      const prospectUpdate=await db.from("prospectos")
+        .update({client_project_id:null})
+        .eq("id",project.source_prospect_id);
+
+      if(prospectUpdate.error){
+        setLine("#project-form-status",prospectUpdate.error.message||"No pudimos desvincular el prospecto.","error");
+        return;
+      }
+    }
+    const removed=await db.from("client_projects")
+      .delete()
+      .eq("id",project.id)
+      .select("id")
+      .maybeSingle();
+
+    if(removed.error||!removed.data){
+      setLine("#project-form-status",removed.error?.message||"Supabase no confirmó el borrado del proyecto.","error");
+      return;
+    }
     state.projects=state.projects.filter(p=>p.id!==project.id);
     if(state.currentProject?.id===project.id) state.currentProject=null;
     renderAll();

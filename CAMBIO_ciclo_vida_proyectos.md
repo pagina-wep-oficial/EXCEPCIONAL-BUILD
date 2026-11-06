@@ -10,6 +10,8 @@ el estado exacto que tenían antes de archivarse.
 - Cancelar y descontinuar guardan etapa y estado anteriores.
 - Reactivar usa el proyecto actualmente abierto, aun si la lista local quedó
   desactualizada.
+- Borrar permanentemente también resuelve el proyecto abierto y exige que
+  Supabase confirme la eliminación antes de actualizar la interfaz.
 - Los proyectos antiguos sin historial mantienen la recuperación compatible
   basada en su publicación o vista previa.
 
