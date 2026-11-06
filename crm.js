@@ -1344,6 +1344,45 @@ if(canManageUsers()) await loadUsers();
     if(project?.preview_url||project?.site_url) return "Revisión";
     return "Configuración";
   }
+  function lifecycleProjectById(id){
+    if(String(state.currentProject?.id||"")===String(id||"")){
+      return state.currentProject;
+    }
+    return projectById(id);
+  }
+  function restoreStageForProject(project){
+    const saved=String(project?.lifecycle_previous_stage||"").trim();
+    return saved&&!/(cancelado|descontinuado)/i.test(saved)
+      ? saved
+      : activeStageForRestore(project);
+  }
+  function restoreStatusForProject(project){
+    const saved=String(project?.lifecycle_previous_status||"").trim();
+    return saved&&!/(cancelado|descontinuado)/i.test(saved)
+      ? saved
+      : "Proyecto reactivado";
+  }
+  async function updateProjectLifecycle(id,payload,fallbackPayload){
+    let result=await db.from("client_projects")
+      .update(payload)
+      .eq("id",id)
+      .select()
+      .single();
+
+    if(
+      result.error&&
+      /lifecycle_previous_stage|lifecycle_previous_status|lifecycle_archived_at|lifecycle_archive_reason/i
+        .test(String(result.error.message||""))
+    ){
+      result=await db.from("client_projects")
+        .update(fallbackPayload)
+        .eq("id",id)
+        .select()
+        .single();
+    }
+
+    return result;
+  }
   function syncProjectState(saved){
     const idx=state.projects.findIndex(p=>p.id===saved.id);
     if(idx>=0) state.projects[idx]=saved;
@@ -1747,28 +1786,60 @@ if(canManageUsers()) await loadUsers();
   }
 
   async function archiveProjectState(mode){
-    const project=state.currentProject;
-    if(!project?.id)return;
+    const project=lifecycleProjectById(state.currentProject?.id);
+    if(!project?.id){
+      setLine("#project-form-status","No encontramos el proyecto a actualizar.","error");
+      toast("No encontramos el proyecto a actualizar.");
+      return;
+    }
+    if(isArchivedProject(project)){
+      setLine("#project-form-status","Este proyecto ya está archivado.","error");
+      return;
+    }
     const label=mode==="cancel"?"cancelado":"descontinuado";
     if(!confirm(`¿Marcar ${project.name||"este proyecto"} como ${label}?`))return;
     setLine("#project-form-status",`Marcando como ${label}…`);
-    const payload={project_stage:mode==="cancel"?"Cancelado":"Descontinuado",status:mode==="cancel"?"Proyecto cancelado":"Proyecto descontinuado",updated_at:new Date().toISOString()};
-    const {data,error}=await db.from("client_projects").update(payload).eq("id",project.id).select().single();
+    const updatedAt=new Date().toISOString();
+    const fallbackPayload={project_stage:mode==="cancel"?"Cancelado":"Descontinuado",status:mode==="cancel"?"Proyecto cancelado":"Proyecto descontinuado",updated_at:updatedAt};
+    const payload={
+      ...fallbackPayload,
+      lifecycle_previous_stage:project.project_stage||activeStageForRestore(project),
+      lifecycle_previous_status:project.status||"",
+      lifecycle_archived_at:updatedAt,
+      lifecycle_archive_reason:mode
+    };
+    const {data,error}=await updateProjectLifecycle(project.id,payload,fallbackPayload);
     if(error){setLine("#project-form-status",error.message||"No pudimos cambiar el estado.","error");return;}
-    const idx=state.projects.findIndex(p=>p.id===data.id);if(idx>=0)state.projects[idx]=data;else state.projects.unshift(data);
-    setProjectForm(data);renderAll();renderClientDetail();setLine("#project-form-status",`Proyecto ${label}.`,"success");toast(`Proyecto ${label}.`);
+    syncProjectState(data);
+    setLine("#project-form-status",`Proyecto ${label}.`,"success");toast(`Proyecto ${label}.`);
   }
 
   async function restoreArchivedProject(id=state.currentProject?.id){
-    const project=projectById(id);
-    if(!project?.id||!isArchivedProject(project))return;
+    const project=lifecycleProjectById(id);
+    if(!project?.id){
+      setLine("#project-form-status","No encontramos el proyecto a reactivar.","error");
+      toast("No encontramos el proyecto a reactivar.");
+      return;
+    }
+    if(!isArchivedProject(project)){
+      setLine("#project-form-status","Este proyecto ya está activo.","error");
+      return;
+    }
     if(!confirm(`¿Reactivar ${project.name||"este proyecto"}?`))return;
-    const stage=activeStageForRestore(project);
+    const stage=restoreStageForProject(project);
     setLine("#project-form-status","Reactivando proyecto…");
-    const {data,error}=await db.from("client_projects").update({project_stage:stage,status:"Proyecto reactivado",updated_at:new Date().toISOString()}).eq("id",project.id).select().single();
+    const fallbackPayload={project_stage:stage,status:restoreStatusForProject(project),updated_at:new Date().toISOString()};
+    const payload={
+      ...fallbackPayload,
+      lifecycle_previous_stage:null,
+      lifecycle_previous_status:null,
+      lifecycle_archived_at:null,
+      lifecycle_archive_reason:null
+    };
+    const {data,error}=await updateProjectLifecycle(project.id,payload,fallbackPayload);
     if(error){setLine("#project-form-status",error.message||"No pudimos reactivar el proyecto.","error");return;}
-    const idx=state.projects.findIndex(p=>p.id===data.id);if(idx>=0)state.projects[idx]=data;else state.projects.unshift(data);
-    setProjectForm(data);renderAll();renderClientDetail();setLine("#project-form-status","Proyecto reactivado.","success");toast("Proyecto reactivado.");
+    syncProjectState(data);
+    setLine("#project-form-status","Proyecto reactivado.","success");toast("Proyecto reactivado.");
   }
 
   async function deleteProjectPermanently(id=state.currentProject?.id){

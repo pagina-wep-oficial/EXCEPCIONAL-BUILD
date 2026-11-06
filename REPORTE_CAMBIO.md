@@ -1,5 +1,15 @@
 # Reporte: panel sin recargas completas
 
+## Ciclo de vida de proyectos
+
+- Cancelar o descontinuar conserva la etapa y el estado anteriores en
+  `client_projects`.
+- Reactivar encuentra primero el proyecto que está abierto, por lo que ya no
+  depende únicamente de que la lista local esté sincronizada.
+- La reactivación devuelve el estado previo; para archivos antiguos sin
+  historial conserva la recuperación compatible existente.
+- La migración requerida está en `crm-project-lifecycle.sql`.
+
 ## Qué cambió
 
 - `portal.js` reemplaza el booleano de eventos pendientes por una cola agrupada
