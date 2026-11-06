@@ -9,6 +9,8 @@
 - La reactivación devuelve el estado previo; para archivos antiguos sin
   historial conserva la recuperación compatible existente.
 - La migración requerida está en `crm-project-lifecycle.sql`.
+- El botón de reactivación invoca explícitamente el proyecto abierto, en vez de
+  recibir accidentalmente el evento del clic como identificador.
 
 ## Qué cambió
 
