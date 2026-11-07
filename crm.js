@@ -11,6 +11,8 @@
   let crmRefreshTimer=0;
   let crmLiveBusy=false;
   let crmLiveQueued=false;
+  const storeModeCache=new Map();
+  let storeModeSyncRevision=0;
 
   const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const esc=(v="")=>String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
@@ -1670,8 +1672,42 @@ if(canManageUsers()) await loadUsers();
     toast("Invitación cancelada. El prospecto volvió a Prospectos.");
   }
 
+  function normalizeStoreModeValue(value){
+    return value==="managed_orders"
+      ? "managed_orders"
+      : "whatsapp_catalog";
+  }
+
+  function rememberStoreMode(projectId,value){
+    const id=String(projectId||"").trim();
+    if(!id)return;
+
+    const mode=normalizeStoreModeValue(value);
+    storeModeCache.set(id,mode);
+
+    if(String(state.currentProject?.id||"")!==id)return;
+
+    const control=$("#project-store-mode");
+    if(!control)return;
+
+    control.value=mode;
+    control.dataset.currentMode=mode;
+    delete control.dataset.dirty;
+  }
+
+  function restoreRememberedStoreMode(projectId){
+    const id=String(projectId||"").trim();
+    const mode=storeModeCache.get(id);
+    const control=$("#project-store-mode");
+
+    if(!mode||!control)return;
+
+    control.value=mode;
+    control.dataset.currentMode=mode;
+  }
+
   function setProjectForm(project={}){
-    const f=$("#project-form"),el=f.elements;state.currentProject=project.id?project:null;const savedTab=(project.id?localStorage.getItem(projectTabKey(project.id)):null)||"summary";f.reset();el.id.value=project.id||"";el.source_prospect_id.value=project.source_prospect_id||"";el.name.value=project.name||"";fillClientSelect();el.user_id.value=project.user_id||"";el.project_stage.value=project.project_stage||"Invitación";el.status.value=project.status||"Pendiente de activar cuenta";syncAddressRadios(project.address_type||"gratis",Boolean(project.domain_owned));el.domain.value=project.domain||"";el.hosting_type.value=project.hosting_type||"cloudflare";el.site_visibility.value=project.site_visibility||"hidden";el.site_url.value=project.site_url||"";el.preview_url.value=project.preview_url||"";el.total_price.value=project.total_price??1650;el.deposit_amount.value=project.deposit_amount??825;el.balance_amount.value=project.balance_amount??825;el.payment_method.value=project.payment_method||"Transferencia";el.deposit_paid.checked=Boolean(project.deposit_paid);el.balance_paid.checked=Boolean(project.balance_paid);el.client_note.value=project.client_note||"";$("#project-modal-title").textContent=project.id?project.name:"Nuevo proyecto";setLine("#project-form-status","");setLine("#project-editor-line","");const inv=inviteUrl(project);$("#project-invite-box").hidden=!project.id||Boolean(project.user_id);$("#project-invite-url").textContent=inv||"Guarda el proyecto para generar una invitación.";$("#update-title").value="";$("#update-status").value="";$("#update-description").value="";setProjectTab(savedTab);updateProjectSummary();updateProjectLifecycleUI(project);updateEditorAdminUI(project);resetProjectStoragePanel(project);updateConfigUI();renderHostingPlans(project.id?state.currentSetup?.hosting_plan_id||"":"");resetPublishPanel(project);
+    const f=$("#project-form"),el=f.elements;state.currentProject=project.id?project:null;const savedTab=(project.id?localStorage.getItem(projectTabKey(project.id)):null)||"summary";f.reset();restoreRememberedStoreMode(project.id);el.id.value=project.id||"";el.source_prospect_id.value=project.source_prospect_id||"";el.name.value=project.name||"";fillClientSelect();el.user_id.value=project.user_id||"";el.project_stage.value=project.project_stage||"Invitación";el.status.value=project.status||"Pendiente de activar cuenta";syncAddressRadios(project.address_type||"gratis",Boolean(project.domain_owned));el.domain.value=project.domain||"";el.hosting_type.value=project.hosting_type||"cloudflare";el.site_visibility.value=project.site_visibility||"hidden";el.site_url.value=project.site_url||"";el.preview_url.value=project.preview_url||"";el.total_price.value=project.total_price??1650;el.deposit_amount.value=project.deposit_amount??825;el.balance_amount.value=project.balance_amount??825;el.payment_method.value=project.payment_method||"Transferencia";el.deposit_paid.checked=Boolean(project.deposit_paid);el.balance_paid.checked=Boolean(project.balance_paid);el.client_note.value=project.client_note||"";$("#project-modal-title").textContent=project.id?project.name:"Nuevo proyecto";setLine("#project-form-status","");setLine("#project-editor-line","");const inv=inviteUrl(project);$("#project-invite-box").hidden=!project.id||Boolean(project.user_id);$("#project-invite-url").textContent=inv||"Guarda el proyecto para generar una invitación.";$("#update-title").value="";$("#update-status").value="";$("#update-description").value="";setProjectTab(savedTab);updateProjectSummary();updateProjectLifecycleUI(project);updateEditorAdminUI(project);resetProjectStoragePanel(project);updateConfigUI();renderHostingPlans(project.id?state.currentSetup?.hosting_plan_id||"":"");resetPublishPanel(project);
     // Restaura la configuracion (setup) al formulario: la opcion "ya tiene dominio",
     // los candados y el plan. Sin esto, al guardar/abrir el formulario se repintaba
     // con la opcion equivocada por un instante (parpadeo), porque client_projects
@@ -2014,7 +2050,12 @@ if(canManageUsers()) await loadUsers();
       setLine("#project-form-status","Actualizando el funcionamiento de la tienda…");
       try{
         const nextMode=await updateStoreMode(saved,requestedStoreMode);
-        if(storeModeControl)storeModeControl.dataset.currentMode=nextMode;
+        rememberStoreMode(saved.id,nextMode);
+        if(storeModeControl){
+          storeModeControl.value=nextMode;
+          storeModeControl.dataset.currentMode=nextMode;
+          delete storeModeControl.dataset.dirty;
+        }
       }catch(error){
         setLine("#project-form-status","El proyecto se guardó, pero no pudimos actualizar el funcionamiento de la tienda. Guarda otra vez para reintentarlo.","error");
         return;
@@ -2230,6 +2271,8 @@ $("#project-storage-list")?.addEventListener("change",e=>{
       const note=$("#project-store-admin-note");
       const itmProjectId=String(project.source_itm_project_id||"").trim();
       const mode=$("#project-store-mode");
+      const projectId=String(project.id||"");
+      const requestRevision=++storeModeSyncRevision;
 
       if(enabled)enabled.checked=Boolean(project.store_enabled);
 
@@ -2239,21 +2282,43 @@ $("#project-storage-list")?.addEventListener("change",e=>{
         return;
       }
 
+      restoreRememberedStoreMode(projectId);
       if(mode)mode.disabled=true;
       if(note)note.textContent="Cargando el tipo de atención de esta tienda…";
-      const projectId=String(project.id||"");
       try{
         const currentMode=await requestStoreMode(project);
-        if(String(state.currentProject?.id||"")!==projectId)return;
-        if(mode){mode.value=currentMode;mode.dataset.currentMode=currentMode;mode.disabled=false;}
+        if(
+          requestRevision!==storeModeSyncRevision||
+          String(state.currentProject?.id||"")!==projectId
+        )return;
+
+        storeModeCache.set(projectId,currentMode);
+
+        if(mode){
+          mode.dataset.currentMode=currentMode;
+          if(mode.dataset.dirty!=="true"){
+            mode.value=currentMode;
+          }
+          mode.disabled=false;
+        }
         if(note)note.textContent="El cambio se aplicará cuando guardes el proyecto. El cliente no ve esta configuración.";
       }catch(_){
-        if(String(state.currentProject?.id||"")!==projectId)return;
+        if(
+          requestRevision!==storeModeSyncRevision||
+          String(state.currentProject?.id||"")!==projectId
+        )return;
         if(mode){mode.disabled=true;delete mode.dataset.currentMode;}
         if(note)note.textContent="No pudimos cargar esta configuración. Intenta actualizar el proyecto.";
       }
     };
     sync();
+    const mode=$("#project-store-mode");
+    if(mode&&!mode.dataset.dirtyListenerBound){
+      mode.dataset.dirtyListenerBound="1";
+      mode.addEventListener("change",()=>{
+        mode.dataset.dirty="true";
+      });
+    }
     if(!form.dataset.storeResetBound){
       form.dataset.storeResetBound="1";
       form.addEventListener("reset",()=>queueMicrotask(sync));
