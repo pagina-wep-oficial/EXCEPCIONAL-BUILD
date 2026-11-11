@@ -560,6 +560,30 @@ body[data-portal-page="editor-v2"]{
   display:none;
 }
 
+#editor-history-modal{
+  z-index:200;
+}
+
+#editor-v2-confirm{
+  z-index:300;
+}
+
+#editor-v2-action-confirm{
+  z-index:400;
+}
+
+#editor-photo-modal{
+  z-index:450;
+}
+
+#editor-exit-modal{
+  z-index:500;
+}
+
+#editor-v2-session-expired{
+  z-index:600;
+}
+
 .editor-modal{
   background:var(--editor-panel);
   color:var(--editor-ink);

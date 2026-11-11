@@ -34,6 +34,7 @@
     restorePreviewAssetUrls: {},
     restorePreviewPages: [],
     restorePreviewExpiresAt: "",
+    restoreRequestPending: false,
     exitIntent: false
   };
 
@@ -203,6 +204,7 @@
   function classifyLoadError(error) {
     const raw = String(error?.message || "").trim().toLowerCase();
     if (!raw || raw === "auth_redirect") return "";
+    if (raw === "editor_session_expired") return "";
     if (raw.includes("configur") && raw.includes("repo")) return "EB-LOAD-002";
     if (
       raw.includes("no tienes acceso") ||
@@ -238,18 +240,261 @@
     frameLoadingHideTimer = setTimeout(() => { el.hidden = true; }, 300);
   }
 
+  const EDITOR_RESUME_PREFIX = "eb:editor-v2:resume:";
+  let sessionRefreshTask = null;
+  let sessionExpiredDialogOpen = false;
+
+  function currentEditorUserId() {
+    return String(
+      state.session?.user?.id || state.profile?.id || ""
+    ).trim();
+  }
+
+  function editorResumeStorageKey(
+    projectId = state.project?.id,
+    userId = currentEditorUserId()
+  ) {
+    return projectId && userId
+      ? `${EDITOR_RESUME_PREFIX}${userId}:${projectId}`
+      : "";
+  }
+
+  function saveEditorResumeSnapshot() {
+    const key = editorResumeStorageKey();
+    const userId = currentEditorUserId();
+
+    if (!key || !userId) return false;
+
+    const drafts = [...state.repoDrafts.values()]
+      .filter(draft => readDraftMeta(draft).published === false)
+      .map(draft => ({
+        path: draft.path,
+        original_html: draft.original_html,
+        edited_html: draft.edited_html,
+        elements: draft.elements || {},
+        revision: Number(draft._revision || 0)
+      }));
+
+    if (!drafts.length) return false;
+
+    const snapshot = {
+      project_id: state.project.id,
+      user_id: userId,
+      restore_plan_version_id: String(state.restorePlan?.version_id || ""),
+      current_page_id: state.currentPageId,
+      drafts,
+      saved_at: new Date().toISOString()
+    };
+
+    try {
+      sessionStorage.setItem(key, JSON.stringify(snapshot));
+      return true;
+    } catch (error) {
+      console.warn("No pudimos conservar la edición temporal", error);
+      return false;
+    }
+  }
+
+  function restoreEditorResumeSnapshot() {
+    const key = editorResumeStorageKey();
+
+    if (!key) return false;
+
+    let snapshot;
+
+    try {
+      snapshot = JSON.parse(sessionStorage.getItem(key) || "null");
+    } catch {
+      sessionStorage.removeItem(key);
+      return false;
+    }
+
+    if (
+      !snapshot ||
+      snapshot.project_id !== state.project?.id ||
+      snapshot.user_id !== currentEditorUserId()
+    ) {
+      sessionStorage.removeItem(key);
+      return false;
+    }
+
+    const currentPlanVersionId = String(state.restorePlan?.version_id || "");
+
+    if (
+      String(snapshot.restore_plan_version_id || "") !== currentPlanVersionId
+    ) {
+      sessionStorage.removeItem(key);
+      return false;
+    }
+
+    let restored = 0;
+
+    (Array.isArray(snapshot.drafts) ? snapshot.drafts : []).forEach(saved => {
+      const path = normalizeRepoPath(saved?.path);
+      const draft = state.repoDrafts.get(path);
+
+      if (
+        !draft ||
+        !saved?.elements ||
+        typeof saved.elements !== "object" ||
+        Array.isArray(saved.elements)
+      ) {
+        return;
+      }
+
+      if (typeof saved.original_html === "string") {
+        draft.original_html = saved.original_html;
+      }
+
+      if (typeof saved.edited_html === "string") {
+        draft.edited_html = saved.edited_html;
+      }
+
+      draft.elements = saved.elements;
+      draft._revision = Math.max(
+        Number(draft._revision || 0),
+        Number(saved.revision || 0)
+      ) + 1;
+
+      writeDraftMeta(draft, { published: false });
+      restored += 1;
+    });
+
+    if (state.repoDrafts.has(snapshot.current_page_id)) {
+      state.currentPageId = snapshot.current_page_id;
+    }
+
+    sessionStorage.removeItem(key);
+
+    if (restored) {
+      setStatus("Recuperamos los cambios que estaban abiertos en esta pestaña.", "success");
+    }
+
+    return restored > 0;
+  }
+
+  function createEditorSessionExpiredError() {
+    const error = new Error("EDITOR_SESSION_EXPIRED");
+    error.code = "EDITOR_SESSION_EXPIRED";
+    return error;
+  }
+
+  function isEditorSessionExpiredError(error) {
+    return error?.code === "EDITOR_SESSION_EXPIRED" ||
+      error?.message === "EDITOR_SESSION_EXPIRED";
+  }
+
+  function openEditorSessionExpiredDialog() {
+    saveEditorResumeSnapshot();
+
+    if (sessionExpiredDialogOpen) return;
+
+    sessionExpiredDialogOpen = true;
+
+    const overlay = $("#editor-v2-session-expired");
+    const button = $("#editor-v2-session-expired-login");
+
+    if (!overlay || !button) return;
+
+    overlay.hidden = false;
+
+    button.onclick = () => {
+      saveEditorResumeSnapshot();
+      localStorage.setItem(
+        portal.authNextKey,
+        `editor-v2.html${location.search}`
+      );
+      location.assign("acceso.html");
+    };
+
+    requestAnimationFrame(() => button.focus());
+  }
+
+  async function readEditorSession({ refresh = false } = {}) {
+    try {
+      let result;
+
+      if (refresh) {
+        if (!sessionRefreshTask) {
+          sessionRefreshTask = db.auth
+            .refreshSession()
+            .finally(() => {
+              sessionRefreshTask = null;
+            });
+        }
+
+        result = await sessionRefreshTask;
+      } else {
+        result = await db.auth.getSession();
+      }
+
+      const session = result?.data?.session || null;
+
+      state.session = session;
+
+      return session;
+    } catch (error) {
+      console.warn("No pudimos actualizar la sesión del editor", error);
+      state.session = null;
+      return null;
+    }
+  }
+
   async function getSession() {
-    return (await db.auth.getSession()).data.session;
+    return readEditorSession();
   }
 
   async function requireSession() {
     const session = await getSession();
+
     if (!session) {
       localStorage.setItem(portal.authNextKey, `editor-v2.html${location.search}`);
       location.replace("acceso.html");
       throw new Error("AUTH_REDIRECT");
     }
+
     return session;
+  }
+
+  async function editorApiFetch(resource, options = {}) {
+    const requestWithSession = async refresh => {
+      const session = await readEditorSession({ refresh });
+
+      if (!session?.access_token) return null;
+
+      const headers = new Headers(options.headers || {});
+      headers.set("Authorization", `Bearer ${session.access_token}`);
+
+      return fetch(resource, {
+        ...options,
+        headers
+      });
+    };
+
+    let response = await requestWithSession(false);
+
+    if (!response) {
+      openEditorSessionExpiredDialog();
+      throw createEditorSessionExpiredError();
+    }
+
+    if (![401, 403].includes(response.status)) {
+      return response;
+    }
+
+    response = await requestWithSession(true);
+
+    if (!response) {
+      openEditorSessionExpiredDialog();
+      throw createEditorSessionExpiredError();
+    }
+
+    if (response.status === 401) {
+      openEditorSessionExpiredDialog();
+      throw createEditorSessionExpiredError();
+    }
+
+    return response;
   }
 
   async function getProfile(user) {
@@ -287,6 +532,7 @@
     await loadVersionHistory();
     await loadRestorePreviewAssets();
     await loadRepoPages(project);
+    restoreEditorResumeSnapshot();
 
     $("#editor-v2-project-name").textContent = project.name || "Editor de tu sitio";
     $("#editor-v2-project-copy").textContent = "Edita lo que ves, revisa los cambios y publícalos cuando estés listo.";
@@ -315,6 +561,7 @@
     const list = $("#editor-history-list");
     const capacity = $("#editor-history-capacity");
     const restoreActive = hasActiveRestorePlan();
+    const restoreBlocked = restoreActive || state.restoreRequestPending;
 
     if (!list) return;
 
@@ -345,12 +592,13 @@
         <div class="editor-history-item-actions">
           <button class="button button-small" type="button"
             data-history-restore="${safe(version.id)}"
-            ${restoreActive ? " disabled" : ""}>
+            ${restoreBlocked ? " disabled" : ""}>
             Recuperar
           </button>
           ${protectedVersion ? "" : `
             <button class="button button-small button-danger" type="button"
-              data-history-delete="${safe(version.id)}">
+              data-history-delete="${safe(version.id)}"
+              ${restoreBlocked ? " disabled" : ""}>
               Borrar
             </button>
           `}
@@ -359,20 +607,25 @@
     }).join("");
   }
   async function loadVersionHistory() {
-    if (!state.project?.id || !state.session?.access_token) return;
+    if (!state.project?.id) return;
+
     try {
-      const response = await fetch(`/api/editor-versions?project_id=${encodeURIComponent(state.project.id)}`, {
-        headers: { Authorization: `Bearer ${state.session.access_token}` }
-      });
+      const response = await editorApiFetch(
+        `/api/editor-versions?project_id=${encodeURIComponent(state.project.id)}`
+      );
       const result = await response.json().catch(() => null);
+
       if (!response.ok || !result?.ok) return;
+
       state.versionHistory = Array.isArray(result.versions) ? result.versions : [];
       state.versionLimit = Number(result.limit || 40);
       state.protectedVersionIds = new Set(result.protected_ids || []);
       state.restorePlan = result.restore_plan || null;
       renderVersionHistory();
     } catch (error) {
-      console.error("history load", error);
+      if (!isEditorSessionExpiredError(error)) {
+        console.error("history load", error);
+      }
     }
   }
 
@@ -397,6 +650,11 @@
     const noteEl = $("#editor-v2-action-confirm-note");
     const cancel = $("#editor-v2-action-confirm-cancel");
     const ok = $("#editor-v2-action-confirm-ok");
+    const opener = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    const historyModal = $("#editor-history-modal");
+    const historyWasOpen = Boolean(historyModal && !historyModal.hidden);
 
     if (!overlay || !titleEl || !copyEl || !cancel || !ok) {
       return Promise.resolve(false);
@@ -410,13 +668,24 @@
     ok.textContent = confirmText;
     ok.classList.toggle("button-danger", destructive);
     ok.classList.toggle("button-primary", !destructive);
+
+    if (historyWasOpen) historyModal.inert = true;
+
     overlay.hidden = false;
 
     return new Promise(resolve => {
       const finish = accepted => {
         overlay.hidden = true;
+
+        if (historyWasOpen) historyModal.inert = false;
+
         cancel.onclick = null;
         ok.onclick = null;
+
+        if (opener?.isConnected && !opener.disabled) {
+          opener.focus();
+        }
+
         resolve(accepted);
       };
 
@@ -427,7 +696,7 @@
   }
 
   async function restoreVersion(versionId) {
-    if (hasActiveRestorePlan()) {
+    if (hasActiveRestorePlan() || state.restoreRequestPending) {
       setStatus("Primero publica o cancela la recuperación que estás revisando.", "error");
       return;
     }
@@ -443,16 +712,22 @@
     });
 
     if (!confirmed) return;
+    state.restoreRequestPending = true;
+    renderVersionHistory();
+    setStatus("Recuperando la versión seleccionada…");
     const button = document.querySelector(`[data-history-restore="${CSS.escape(versionId)}"]`);
     if (button) button.disabled = true;
     try {
-      const response = await fetch("/api/editor-versions", {
+      const response = await editorApiFetch("/api/editor-versions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${state.session.access_token}`,
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ project_id: state.project.id, version_id: versionId, action: "restore" })
+        body: JSON.stringify({
+          project_id: state.project.id,
+          version_id: versionId,
+          action: "restore"
+        })
       });
       const result = await response.json().catch(() => null);
       if (!response.ok || !result?.ok) throw new Error(result?.message || "No se pudo recuperar la versión.");
@@ -473,9 +748,13 @@
       updateUndoButtons();
       setStatus("Versión recuperada para revisión. Tus borradores normales siguen intactos.", "success");
     } catch (error) {
+      if (isEditorSessionExpiredError(error)) return;
       console.error("history restore", error);
       setStatus(error.message || "No pudimos recuperar la versión.", "error");
     } finally {
+      state.restoreRequestPending = false;
+      renderVersionHistory();
+
       if (button) button.disabled = false;
     }
   }
@@ -503,12 +782,12 @@
         action: "cancel-restore"
       });
 
-      const response = await fetch(`/api/editor-versions?${params.toString()}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${state.session.access_token}`
+      const response = await editorApiFetch(
+        `/api/editor-versions?${params.toString()}`,
+        {
+          method: "DELETE"
         }
-      });
+      );
 
       const result = await response.json().catch(() => null);
 
@@ -537,6 +816,7 @@
 
       setStatus("Recuperación cancelada. Tus borradores normales siguen intactos.", "success");
     } catch (error) {
+      if (isEditorSessionExpiredError(error)) return;
       console.error("cancel restore", error);
       setStatus(error.message || "No pudimos cancelar la recuperación.", "error");
     } finally {
@@ -559,15 +839,18 @@
     const button = document.querySelector(`[data-history-delete="${CSS.escape(versionId)}"]`);
     if (button) button.disabled = true;
     try {
-      const response = await fetch(`/api/editor-versions?project_id=${encodeURIComponent(state.project.id)}&version_id=${encodeURIComponent(versionId)}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${state.session.access_token}` }
-      });
+      const response = await editorApiFetch(
+        `/api/editor-versions?project_id=${encodeURIComponent(state.project.id)}&version_id=${encodeURIComponent(versionId)}`,
+        {
+          method: "DELETE"
+        }
+      );
       const result = await response.json().catch(() => null);
       if (!response.ok || !result?.ok) throw new Error(result?.message || "No pudimos borrar la versión.");
       await loadVersionHistory();
       setStatus("Versión borrada. El espacio quedó disponible.", "success");
     } catch (error) {
+      if (isEditorSessionExpiredError(error)) return;
       console.error("history delete", error);
       setStatus(error.message || "No pudimos borrar la versión.", "error");
     } finally {
@@ -966,9 +1249,9 @@
       version_id: versionId
     });
 
-    const response = await fetch(`/api/editor-versions?${params.toString()}`, {
-      headers: { Authorization: `Bearer ${state.session.access_token}` }
-    });
+    const response = await editorApiFetch(
+      `/api/editor-versions?${params.toString()}`
+    );
 
     const result = await response.json().catch(() => null);
 
@@ -1177,11 +1460,8 @@
       return;
     }
 
-    const draftResponse = await fetch(
-      `/api/editor-repo-draft?project_id=${encodeURIComponent(project.id)}`,
-      {
-        headers: { Authorization: `Bearer ${state.session.access_token}` }
-      }
+    const draftResponse = await editorApiFetch(
+      `/api/editor-repo-draft?project_id=${encodeURIComponent(project.id)}`
     );
 
     if (draftResponse.ok) {
@@ -2911,20 +3191,24 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
     return next;
   }
 
-  async function persistRepoDraftRecord(draft, payload = repoDraftPayload(draft)) {
-    const response = await fetch("/api/editor-repo-draft", {
+  async function persistRepoDraftRecord(
+    draft,
+    payload = repoDraftPayload(draft)
+  ) {
+    const response = await editorApiFetch("/api/editor-repo-draft", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${state.session.access_token}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify(payload)
     });
 
     const result = await response.json().catch(() => null);
+
     if (!response.ok || !result?.ok) {
       throw new Error(result?.message || "No pudimos guardar el borrador.");
     }
+
     return result?.draft || null;
   }
 
@@ -2943,6 +3227,7 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
       if (!silent) setStatus(EDITOR_STATUS_COPY.draft_saved, "success");
       return true;
     } catch (error) {
+      if (isEditorSessionExpiredError(error)) return false;
       console.error(error);
       showEditorError("EB-DRAFT-001");
       return false;
@@ -2968,6 +3253,7 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
       if (!silent) setStatus(EDITOR_STATUS_COPY.draft_saved, "success");
       return true;
     } catch (error) {
+      if (isEditorSessionExpiredError(error)) return false;
       console.error(error);
       showEditorError("EB-DRAFT-001");
       return false;
@@ -3000,11 +3286,10 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
 
   async function discardDraftsOnServer() {
     if (hasActiveRestorePlan()) return;
-    const response = await fetch(
+    const response = await editorApiFetch(
       `/api/editor-repo-draft?project_id=${encodeURIComponent(state.project.id)}`,
       {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${state.session.access_token}` }
+        method: "DELETE"
       }
     );
     const result = await response.json().catch(() => null);
@@ -3052,8 +3337,13 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
       }
       location.assign(projectReturnUrl());
     } catch (error) {
-      console.error("exit editor", error);
       state.exitIntent = false;
+
+      if (isEditorSessionExpiredError(error)) {
+        return;
+      }
+
+      console.error("exit editor", error);
       showEditorError("EB-DRAFT-001");
     }
   }
@@ -3187,18 +3477,27 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
 
   async function waitForLiveSite() {
     const projectId = state.project?.id;
-    if (!projectId || !state.session?.access_token) return null;
+
+    if (!projectId) return null;
 
     for (let attempt = 0; attempt < 20; attempt += 1) {
       try {
-        const response = await fetch(`/api/editor-site-ready?project_id=${encodeURIComponent(projectId)}`, {
-          headers: { Authorization: `Bearer ${state.session.access_token}`, "Cache-Control": "no-cache" }
-        });
+        const response = await editorApiFetch(
+          `/api/editor-site-ready?project_id=${encodeURIComponent(projectId)}`,
+          {
+            headers: {
+              "Cache-Control": "no-cache"
+            }
+          }
+        );
+
         const result = await response.json().catch(() => null);
+
         if (response.ok && result?.ready) return result;
-      } catch {
-        // El despliegue puede estar entre versiones; seguimos comprobando sin interrumpir al usuario.
+      } catch (error) {
+        if (isEditorSessionExpiredError(error)) return null;
       }
+
       await wait(3000);
     }
     return null;
@@ -3247,10 +3546,9 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
     let result;
 
     try {
-      response = await fetch("/api/editor-repo-publish", {
+      response = await editorApiFetch("/api/editor-repo-publish", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${state.session.access_token}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
@@ -3265,7 +3563,12 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
       });
 
       result = await response.json().catch(() => null);
-    } catch {
+    } catch (error) {
+      if (isEditorSessionExpiredError(error)) {
+        $("#editor-v2-confirm").hidden = true;
+        return;
+      }
+
       if (restoring) {
         await loadVersionHistory();
         syncRestoreReviewInterface();
@@ -3284,7 +3587,7 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
 
       $("#editor-v2-confirm").hidden = true;
       showEditorError(
-        "EB-PUBLISH-001",
+        response.status === 403 ? "EB-PERM-001" : "EB-PUBLISH-001",
         result?.message || "No pudimos publicar tus cambios."
       );
       return;
@@ -4905,6 +5208,16 @@ function readNodeValue(node, type) {
       nodes.forEach(node => {
         applyEntryToNode(node, key, entry);
       });
+    });
+  }
+
+  if (db?.auth?.onAuthStateChange) {
+    db.auth.onAuthStateChange((_event, session) => {
+      state.session = session || null;
+
+      if (session) {
+        sessionExpiredDialogOpen = false;
+      }
     });
   }
 
