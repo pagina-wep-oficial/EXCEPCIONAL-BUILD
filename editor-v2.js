@@ -560,13 +560,40 @@
   function renderVersionHistory() {
     const list = $("#editor-history-list");
     const capacity = $("#editor-history-capacity");
+    const restoreState = $("#editor-history-restore-state");
+    const restoreCopy = $("#editor-history-restore-copy");
     const restoreActive = hasActiveRestorePlan();
     const restoreBlocked = restoreActive || state.restoreRequestPending;
+    const restoringVersion = state.versionHistory.find(
+      version => version.id === state.restorePlan?.version_id
+    );
+    const restoringLabel = restoringVersion
+      ? `la versión ${restoringVersion.version_number || "seleccionada"}`
+      : "la versión recuperada";
+    const blockedAttributes = restoreBlocked
+      ? ` disabled aria-disabled="true"${
+        restoreActive
+          ? ' aria-describedby="editor-history-restore-copy"'
+          : ""
+      }`
+      : "";
 
     if (!list) return;
 
-    if (capacity) capacity.textContent =
-      `${state.versionHistory.length}/${state.versionLimit} versiones disponibles durante los últimos 7 días.`;
+    if (capacity) {
+      capacity.textContent =
+        `${state.versionHistory.length}/${state.versionLimit} versiones disponibles durante los últimos 7 días.`;
+    }
+
+    if (restoreState) restoreState.hidden = !restoreActive;
+
+    if (restoreCopy) {
+      restoreCopy.textContent = restoreActive
+        ? `Estás revisando ${restoringLabel}. Puedes editarla y publicar una copia nueva, o cancelar esta recuperación. Hasta entonces no se puede recuperar ni borrar otra versión.`
+        : "";
+    }
+
+    list.classList.toggle("is-readonly", restoreBlocked);
 
     if (!state.versionHistory.length) {
       list.innerHTML =
@@ -591,14 +618,12 @@
         </div>
         <div class="editor-history-item-actions">
           <button class="button button-small" type="button"
-            data-history-restore="${safe(version.id)}"
-            ${restoreBlocked ? " disabled" : ""}>
+            data-history-restore="${safe(version.id)}"${blockedAttributes}>
             Recuperar
           </button>
           ${protectedVersion ? "" : `
             <button class="button button-small button-danger" type="button"
-              data-history-delete="${safe(version.id)}"
-              ${restoreBlocked ? " disabled" : ""}>
+              data-history-delete="${safe(version.id)}"${blockedAttributes}>
               Borrar
             </button>
           `}
@@ -627,6 +652,16 @@
         console.error("history load", error);
       }
     }
+  }
+
+  function closeVersionHistory() {
+    const modal = $("#editor-history-modal");
+    if (modal) modal.hidden = true;
+  }
+
+  function continueRestoreReview() {
+    closeVersionHistory();
+    $("#editor-v2-publish")?.focus();
   }
 
   function openVersionHistory() {
@@ -773,8 +808,14 @@
 
     if (!confirmed) return;
 
-    const button = $("#editor-v2-cancel-restore");
-    if (button) button.disabled = true;
+    const buttons = [
+      $("#editor-v2-cancel-restore"),
+      $("#editor-history-cancel-restore")
+    ].filter(Boolean);
+
+    buttons.forEach(button => {
+      button.disabled = true;
+    });
 
     try {
       const params = new URLSearchParams({
@@ -820,7 +861,9 @@
       console.error("cancel restore", error);
       setStatus(error.message || "No pudimos cancelar la recuperación.", "error");
     } finally {
-      if (button) button.disabled = false;
+      buttons.forEach(button => {
+        button.disabled = false;
+      });
     }
   }
 
@@ -953,12 +996,25 @@
     const save = $("#editor-v2-save");
     const base = $("#editor-v2-base");
     const reset = $("#editor-v2-reset");
+    const history = $("#editor-v2-history");
 
     if (active) state.mode = "edit";
 
     if (save) save.disabled = active;
     if (base) base.disabled = active;
     if (reset) reset.disabled = false;
+
+    if (history) {
+      history.textContent = active
+        ? "Recuperación en revisión"
+        : "Historial";
+      history.setAttribute(
+        "aria-label",
+        active
+          ? "Recuperación en revisión. Abrir historial y opciones de recuperación."
+          : "Abrir historial de publicaciones"
+      );
+    }
 
     if (publish) {
       publish.disabled = false;
@@ -4868,6 +4924,14 @@ function readNodeValue(node, type) {
       "click",
       cancelRestoreReview
     );
+    $("#editor-history-restore-continue")?.addEventListener(
+      "click",
+      continueRestoreReview
+    );
+    $("#editor-history-cancel-restore")?.addEventListener(
+      "click",
+      cancelRestoreReview
+    );
     $("#editor-v2-back").onclick = event => {
       event.preventDefault();
       exitEditor("ask");
@@ -4898,9 +4962,9 @@ function readNodeValue(node, type) {
       if (event.target.id === "editor-exit-modal") closeExitModal();
     });
 
-    $("#editor-history-close").onclick = () => { $("#editor-history-modal").hidden = true; };
+    $("#editor-history-close").onclick = closeVersionHistory;
     $("#editor-history-modal")?.addEventListener("click", event => {
-      if (event.target.id === "editor-history-modal") $("#editor-history-modal").hidden = true;
+      if (event.target.id === "editor-history-modal") closeVersionHistory();
     });
     $("#editor-history-list")?.addEventListener("click", event => {
       const button = event.target.closest("[data-history-restore]");

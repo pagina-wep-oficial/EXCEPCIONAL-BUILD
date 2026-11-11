@@ -34,7 +34,7 @@
         <button class="button button-light" id="editor-v2-base" type="button" title="Volver a la versión base guardada del proyecto">Usar versión base</button>
         <button class="button button-light" id="editor-v2-reset" type="button" title="Descartar los cambios no publicados de esta página">Restablecer página</button>
         <button class="button button-light" id="editor-v2-preview" type="button">Vista previa</button>
-        <button class="button button-light" id="editor-v2-history" type="button">Historial</button>
+        <button class="button button-light" id="editor-v2-history" type="button" aria-haspopup="dialog">Historial</button>
         <button class="button button-primary" id="editor-v2-publish" type="button">Publicar cambios</button>
       </div>
     </header>
@@ -167,7 +167,26 @@
       <h2 id="editor-history-title">Historial de publicaciones</h2>
       <p class="editor-modal-copy">Recupera una publicación para revisarla. Cuando confirmes, se restaurará como una copia exacta con sus páginas y medios.</p>
       <p class="editor-modal-note" id="editor-history-capacity">0/40 publicaciones dentro de los últimos 7 días.</p>
-      <div class="editor-history-list" id="editor-history-list"></div>
+
+<section
+  class="editor-history-restore-state"
+  id="editor-history-restore-state"
+  aria-live="polite"
+  hidden
+>
+  <strong>Recuperación en revisión</strong>
+  <p id="editor-history-restore-copy"></p>
+  <div class="editor-history-restore-actions">
+    <button class="button button-light button-small" id="editor-history-restore-continue" type="button">
+      Seguir editando
+    </button>
+    <button class="button button-danger button-small" id="editor-history-cancel-restore" type="button">
+      Cancelar recuperación
+    </button>
+  </div>
+</section>
+
+<div class="editor-history-list" id="editor-history-list"></div>
       <div class="editor-modal-actions">
         <button class="button button-light" id="editor-history-close" type="button">Cerrar</button>
       </div>
