@@ -27,6 +27,13 @@
     currentNodeValue: "",
     history: [],
     historyIndex: -1,
+    versionHistory: [],
+    versionLimit: 40,
+    protectedVersionIds: new Set(),
+    restorePlan: null,
+    restorePreviewAssetUrls: {},
+    restorePreviewPages: [],
+    restorePreviewExpiresAt: "",
     exitIntent: false
   };
 
@@ -165,7 +172,7 @@
     if (card) card.hidden = true;
   }
 
-  function showEditorError(code = "EB-UNKNOWN-001") {
+  function showEditorError(code = "EB-UNKNOWN-001", overrideText = "") {
     const copy = EDITOR_ERROR_COPY[code] || EDITOR_ERROR_COPY["EB-UNKNOWN-001"];
     const card = $("#editor-v2-error-card");
     const title = $("#editor-v2-error-title");
@@ -180,7 +187,7 @@
     }
 
     title.textContent = copy.title;
-    text.textContent = copy.text;
+    text.textContent = overrideText || copy.text;
     card.hidden = false;
   }
 
@@ -277,11 +284,14 @@
     }
 
     setFrameLoading("Cargando el contenido…");
+    await loadVersionHistory();
+    await loadRestorePreviewAssets();
     await loadRepoPages(project);
 
     $("#editor-v2-project-name").textContent = project.name || "Editor de tu sitio";
     $("#editor-v2-project-copy").textContent = "Edita lo que ves, revisa los cambios y publícalos cuando estés listo.";
     $("#editor-v2-back").href = `proyecto.html?id=${encodeURIComponent(project.id)}`;
+    syncRestoreReviewInterface();
 
     renderPageTabs();
     renderPreviewNav();
@@ -290,6 +300,185 @@
     renderSidebar();
     pushHistory();
     updateUndoButtons();
+  }
+
+  function versionDate(value) {
+    const date = new Date(value || "");
+    if (Number.isNaN(date.getTime())) return "Fecha no disponible";
+    return new Intl.DateTimeFormat("es-MX", {
+      dateStyle: "medium",
+      timeStyle: "short"
+    }).format(date);
+  }
+
+  function renderVersionHistory() {
+    const list = $("#editor-history-list");
+    const capacity = $("#editor-history-capacity");
+    const restoreActive = hasActiveRestorePlan();
+    if (!list) return;
+    if (capacity) capacity.textContent = `${state.versionHistory.length}/${state.versionLimit} publicaciones dentro de los últimos 7 días.`;
+    if (!state.versionHistory.length) {
+      list.innerHTML = '<p class="editor-history-empty">Todavía no hay publicaciones guardadas en el historial.</p>';
+      return;
+    }
+    list.innerHTML = state.versionHistory.map(version => {
+      const protectedVersion = state.protectedVersionIds.has(version.id);
+      const title = `Publicación ${safe(String(version.version_number || ""))}`;
+      const details = `${safe(versionDate(version.published_at || version.created_at))} · ${safe(version.summary || "Página publicada")}`;
+      return `<article class="editor-history-item">
+        <div><strong>${title}</strong><span>${details}${protectedVersion ? " · Protegida" : ""}</span></div>
+        <div class="editor-history-item-actions">
+          <button class="button button-small" type="button" data-history-restore="${safe(version.id)}"${restoreActive ? " disabled" : ""}>Recuperar</button>
+          ${protectedVersion ? "" : `<button class="button button-small button-danger" type="button" data-history-delete="${safe(version.id)}">Borrar</button>`}
+        </div>
+      </article>`;
+    }).join("");
+  }
+
+  async function loadVersionHistory() {
+    if (!state.project?.id || !state.session?.access_token) return;
+    try {
+      const response = await fetch(`/api/editor-versions?project_id=${encodeURIComponent(state.project.id)}`, {
+        headers: { Authorization: `Bearer ${state.session.access_token}` }
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.ok) return;
+      state.versionHistory = Array.isArray(result.versions) ? result.versions : [];
+      state.versionLimit = Number(result.limit || 40);
+      state.protectedVersionIds = new Set(result.protected_ids || []);
+      state.restorePlan = result.restore_plan || null;
+      renderVersionHistory();
+    } catch (error) {
+      console.error("history load", error);
+    }
+  }
+
+  function openVersionHistory() {
+    renderVersionHistory();
+    const modal = $("#editor-history-modal");
+    if (modal) modal.hidden = false;
+    loadVersionHistory();
+  }
+
+  async function restoreVersion(versionId) {
+    if (hasActiveRestorePlan()) {
+      setStatus("Primero publica o cancela la recuperación que estás revisando.", "error");
+      return;
+    }
+
+    const version = state.versionHistory.find(item => item.id === versionId);
+    if (!version || !confirm(`¿Recuperar la publicación ${version.version_number || "seleccionada"} para revisarla?`)) return;
+    const button = document.querySelector(`[data-history-restore="${CSS.escape(versionId)}"]`);
+    if (button) button.disabled = true;
+    try {
+      const response = await fetch("/api/editor-versions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${state.session.access_token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ project_id: state.project.id, version_id: versionId, action: "restore" })
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.ok) throw new Error(result?.message || "No se pudo recuperar la versión.");
+      state.restorePlan = result.restore_plan || null;
+      await loadRestorePreviewAssets();
+      $("#editor-history-modal").hidden = true;
+      await loadRepoPages(state.project);
+      syncRestoreReviewInterface();
+      renderPageTabs();
+      renderPreviewNav();
+      loadFrame();
+      renderSidebar();
+      state.history = [];
+      state.historyIndex = -1;
+      pushHistory();
+      updateUndoButtons();
+      setStatus("Versión recuperada para revisión. Tus borradores normales siguen intactos.", "success");
+    } catch (error) {
+      console.error("history restore", error);
+      setStatus(error.message || "No pudimos recuperar la versión.", "error");
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
+  async function cancelRestoreReview() {
+    if (!hasActiveRestorePlan()) return;
+
+    if (!confirm("¿Cancelar esta recuperación? Tus borradores normales no se modificarán.")) {
+      return;
+    }
+
+    const button = $("#editor-v2-cancel-restore");
+    if (button) button.disabled = true;
+
+    try {
+      const params = new URLSearchParams({
+        project_id: state.project.id,
+        action: "cancel-restore"
+      });
+
+      const response = await fetch(`/api/editor-versions?${params.toString()}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${state.session.access_token}`
+        }
+      });
+
+      const result = await response.json().catch(() => null);
+
+      if (!response.ok || !result?.ok) {
+        throw new Error(result?.message || "No pudimos cancelar la recuperación.");
+      }
+
+      state.restorePlan = null;
+      clearRestorePreviewAssets();
+
+      await loadVersionHistory();
+      await loadRepoPages(state.project);
+
+      syncRestoreReviewInterface();
+      renderPageTabs();
+      renderPreviewNav();
+      loadFrame();
+      renderSidebar();
+
+      state.history = [];
+      state.historyIndex = -1;
+      pushHistory();
+      updateUndoButtons();
+
+      setStatus("Recuperación cancelada. Tus borradores normales siguen intactos.", "success");
+    } catch (error) {
+      console.error("cancel restore", error);
+      setStatus(error.message || "No pudimos cancelar la recuperación.", "error");
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
+  async function deleteVersion(versionId) {
+    const version = state.versionHistory.find(item => item.id === versionId);
+    if (!version || state.protectedVersionIds.has(versionId)) return;
+    if (!confirm(`¿Borrar la publicación ${version.version_number || "seleccionada"}? Esta acción no se puede deshacer.`)) return;
+    const button = document.querySelector(`[data-history-delete="${CSS.escape(versionId)}"]`);
+    if (button) button.disabled = true;
+    try {
+      const response = await fetch(`/api/editor-versions?project_id=${encodeURIComponent(state.project.id)}&version_id=${encodeURIComponent(versionId)}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${state.session.access_token}` }
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.ok) throw new Error(result?.message || "No pudimos borrar la versión.");
+      await loadVersionHistory();
+      setStatus("Versión borrada. El espacio quedó disponible.", "success");
+    } catch (error) {
+      console.error("history delete", error);
+      setStatus(error.message || "No pudimos borrar la versión.", "error");
+    } finally {
+      if (button) button.disabled = false;
+    }
   }
 
   function normalizeRepoPath(path = "") {
@@ -339,6 +528,94 @@
       .map(path => repoFullPath(project, path));
 
     return [...new Set(pages)];
+  }
+
+  function hasActiveRestorePlan() {
+    return Boolean(
+      state.restorePlan &&
+      ["draft", "publishing", "failed"].includes(
+        String(state.restorePlan.status || "")
+      )
+    );
+  }
+
+  function restorePlanPagePaths(plan = state.restorePlan) {
+    return [...new Set(
+      (Array.isArray(plan?.snapshot_page_paths)
+        ? plan?.snapshot_page_paths
+        : []
+      )
+        .map(normalizeRepoPath)
+        .filter(path =>
+          path &&
+          /\.html?$/i.test(path) &&
+          !path.split("/").some(part => part === "." || part === "..")
+        )
+    )];
+  }
+
+  function clearEditorSelection() {
+    state.currentKey = "";
+    state.currentType = "";
+    state.currentRole = "";
+    state.currentKind = "";
+    state.currentSection = "";
+    state.currentFuture = "";
+    state.currentNodeMode = "active";
+    state.currentNodeValue = "";
+  }
+
+  function syncRestoreReviewInterface() {
+    const active = hasActiveRestorePlan();
+    const notice = $("#editor-v2-restore-notice");
+    const copy = $("#editor-v2-restore-copy");
+    const projectCopy = $("#editor-v2-project-copy");
+    const publish = $("#editor-v2-publish");
+    const preview = $("#editor-v2-preview");
+    const cancelRestore = $("#editor-v2-cancel-restore");
+
+    if (active) {
+      state.mode = "preview";
+      clearEditorSelection();
+    }
+
+    ["editor-v2-save", "editor-v2-base", "editor-v2-reset", "editor-v2-preview"]
+      .forEach(id => {
+        const control = $(`#${id}`);
+        if (control) control.disabled = active;
+      });
+
+    if (publish) {
+      publish.disabled = false;
+      publish.textContent = active
+        ? "Publicar versión recuperada"
+        : "Publicar cambios";
+    }
+
+    if (preview) {
+      preview.textContent = active
+        ? "Vista de recuperación"
+        : state.mode === "preview"
+          ? "Seguir editando"
+          : "Vista previa";
+    }
+
+    if (notice) notice.hidden = !active;
+    if (cancelRestore) cancelRestore.hidden = !active;
+
+    if (copy) {
+      copy.textContent = state.restorePlan?.status === "failed"
+        ? "La publicación anterior no se completó. Puedes revisar esta copia e intentarlo otra vez."
+        : "Esta copia incluye las páginas y medios de la versión seleccionada. Puedes recorrerla, pero no modificarla.";
+    }
+
+    if (projectCopy) {
+      projectCopy.textContent = active
+        ? "Revisa la versión recuperada y publícala cuando estés seguro."
+        : "Edita lo que ves, revisa los cambios y publícalos cuando estés listo.";
+    }
+
+    updateUndoButtons();
   }
 
   function repoApiUrl(project, path = "", mode = "token", branchOverride = "") {
@@ -557,6 +834,91 @@
     return `/api/repo-asset/${prefix}/${fullPath}`;
   }
 
+  let restorePreviewRefreshTimer = 0;
+
+  function clearRestorePreviewAssets() {
+    clearTimeout(restorePreviewRefreshTimer);
+    restorePreviewRefreshTimer = 0;
+    state.restorePreviewAssetUrls = {};
+    state.restorePreviewPages = [];
+    state.restorePreviewExpiresAt = "";
+  }
+
+  function scheduleRestorePreviewRefresh() {
+    clearTimeout(restorePreviewRefreshTimer);
+
+    if (!hasActiveRestorePlan() || !state.restorePreviewExpiresAt) return;
+
+    const refreshAt = new Date(state.restorePreviewExpiresAt).getTime() - 60_000;
+    const delay = Math.max(1_000, refreshAt - Date.now());
+
+    restorePreviewRefreshTimer = window.setTimeout(() => {
+      loadRestorePreviewAssets()
+        .then(() => {
+          if (hasActiveRestorePlan()) loadFrame();
+        })
+        .catch(error => console.error("restore preview refresh", error));
+    }, delay);
+  }
+
+  async function loadRestorePreviewAssets() {
+    if (!hasActiveRestorePlan()) {
+      clearRestorePreviewAssets();
+      return;
+    }
+
+    const versionId = String(state.restorePlan.version_id || "");
+    if (!versionId) throw new Error("No encontramos la versión recuperada.");
+
+    const params = new URLSearchParams({
+      project_id: state.project.id,
+      action: "restore-preview",
+      version_id: versionId
+    });
+
+    const response = await fetch(`/api/editor-versions?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${state.session.access_token}` }
+    });
+
+    const result = await response.json().catch(() => null);
+
+    if (!response.ok || !result?.ok) {
+      throw new Error(result?.message || "No pudimos cargar los medios de la versión recuperada.");
+    }
+
+    state.restorePreviewAssetUrls =
+      result.asset_urls && typeof result.asset_urls === "object"
+        ? result.asset_urls
+        : {};
+
+    const expectedPaths = restorePlanPagePaths();
+    const pagesByPath = new Map();
+
+    (Array.isArray(result.pages) ? result.pages : []).forEach(page => {
+      const path = normalizeRepoPath(page?.path);
+
+      if (path && expectedPaths.includes(path) && !pagesByPath.has(path)) {
+        pagesByPath.set(path, String(page?.html || ""));
+      }
+    });
+
+    const missingPages = expectedPaths.filter(path => !pagesByPath.has(path));
+
+    if (missingPages.length) {
+      throw new Error(
+        `Faltan páginas de la versión recuperada: ${missingPages.join(", ")}.`
+      );
+    }
+
+    state.restorePreviewPages = expectedPaths.map(path => ({
+      path,
+      html: pagesByPath.get(path)
+    }));
+
+    state.restorePreviewExpiresAt = String(result.expires_at || "");
+    scheduleRestorePreviewRefresh();
+  }
+
   function pageNameFromPath(path = "") {
     const file = String(path).split("/").pop() || "pagina.html";
     const name = file.replace(/\.html?$/i, "");
@@ -566,7 +928,7 @@
       .replace(/\b\w/g, c => c.toUpperCase());
   }
 
-  async function readRepoSnapshot(project, branch) {
+  async function readRepoSnapshot(project, branch, options = {}) {
     const result = await listRepoEntries(project, "", branch);
     const entries = Array.isArray(result.entries) ? result.entries : [];
 
@@ -584,12 +946,24 @@
 
         if (hasIndex) {
           project.site_repo_path = "dist";
-          return readRepoSnapshot(project, branch);
+          return readRepoSnapshot(project, branch, options);
         }
       }
     }
 
-    const configuredPaths = editorPagePaths(project);
+    const requestedPaths = Array.isArray(options.pagePaths) && options.pagePaths.length
+      ? options.pagePaths
+      : editorPagePaths(project);
+
+    const configuredPaths = [...new Set(
+      requestedPaths
+        .map(normalizeRepoPath)
+        .filter(path =>
+          path &&
+          /\.html?$/i.test(path) &&
+          !path.split("/").some(part => part === "." || part === "..")
+        )
+    )];
 
     if (!configuredPaths.length) {
       throw new Error("No hay páginas configuradas para este editor.");
@@ -606,7 +980,7 @@
       return !item || !/\.html?$/i.test(item.name || path);
     });
 
-    if (missing.length) {
+    if (missing.length && options.allowMissing !== true) {
       throw new Error(`No encontramos la página editable: ${missing.join(", ")}.`);
     }
 
@@ -622,7 +996,15 @@
     const htmlByPath = new Map();
 
     await Promise.all(pages.map(async page => {
+      const item = entriesByPath.get(page.path);
+
+      if (!item) {
+        htmlByPath.set(page.path, "");
+        return;
+      }
+
       const htmlRes = await fetch(repoRawUrl(project, page.path, branch));
+
       if (!htmlRes.ok) {
         throw new Error(`No pudimos leer ${page.path} en la rama ${branch}.`);
       }
@@ -635,11 +1017,49 @@
 
   async function loadRepoPages(project) {
     const branch = liveRepoBranch(project);
-    const snapshot = await readRepoSnapshot(project, branch);
+    const restorePlan = hasActiveRestorePlan() ? state.restorePlan : null;
+    let snapshot;
+
+    if (restorePlan) {
+      const expectedPaths = restorePlanPagePaths(restorePlan);
+      const pagesByPath = new Map(
+        (Array.isArray(state.restorePreviewPages)
+          ? state.restorePreviewPages
+          : []
+        ).map(page => [
+          normalizeRepoPath(page?.path),
+          String(page?.html || "")
+        ])
+      );
+
+      const missingPages = expectedPaths.filter(path => !pagesByPath.has(path));
+
+      if (missingPages.length) {
+        throw new Error(
+          `No pudimos cargar todas las páginas recuperadas: ${missingPages.join(", ")}.`
+        );
+      }
+
+      snapshot = {
+        source: "version-history",
+        branch,
+        pages: expectedPaths.map((path, index) => ({
+          id: path,
+          slug: path,
+          name: pageNameFromPath(path),
+          path,
+          is_home: index === 0,
+          is_visible: true
+        })),
+        htmlByPath: pagesByPath
+      };
+    } else {
+      snapshot = await readRepoSnapshot(project, branch);
+    }
 
     state.repoPages = snapshot.pages;
     state.pages = snapshot.pages;
-    state.currentPageId = state.pages.find(p => p.is_home)?.id || state.pages[0].id;
+    state.currentPageId = state.pages.find(page => page.is_home)?.id || state.pages[0]?.id || "";
     state.repoDrafts = new Map();
 
     snapshot.pages.forEach(page => {
@@ -652,49 +1072,58 @@
         elements: {},
         _revision: 0
       };
+
       writeDraftMeta(draft, {
         asset_branch: branch,
         save_model: "patch-v2",
         published: true
       });
+
       state.repoDrafts.set(page.id, draft);
     });
 
-    const draftResponse = await fetch(`/api/editor-repo-draft?project_id=${encodeURIComponent(project.id)}`, {
-      headers: { Authorization: `Bearer ${state.session.access_token}` }
-    });
+    if (restorePlan) {
+      setStatus("Versión recuperada lista para revisión.");
+      return;
+    }
+
+    const draftResponse = await fetch(
+      `/api/editor-repo-draft?project_id=${encodeURIComponent(project.id)}`,
+      {
+        headers: { Authorization: `Bearer ${state.session.access_token}` }
+      }
+    );
 
     if (draftResponse.ok) {
       const draftResult = await draftResponse.json().catch(() => null);
+
       (draftResult?.drafts || []).forEach(saved => {
-        const draft = state.repoDrafts.get(saved.page_path);
+        const pagePath = normalizeRepoPath(saved.page_path);
+        const draft = state.repoDrafts.get(pagePath);
+
         if (!draft) return;
+
         const savedDraft = { elements: saved.elements || {} };
         const savedMeta = readDraftMeta(savedDraft);
-        const hasPendingChanges = savedMeta.published === false;
 
-        // Un borrador ya publicado no debe volver a imponerse sobre el HTML
-        // recién leído del repositorio. Solo restauramos cambios pendientes.
-        if (hasPendingChanges) {
-          if (typeof saved.original_html === "string") {
-            draft.original_html = saved.original_html;
-          }
-          if (typeof saved.edited_html === "string") {
-            draft.edited_html = saved.edited_html;
-          } else {
-            draft.edited_html = draft.original_html;
-          }
-          draft.elements = savedDraft.elements;
-        } else {
-          draft.edited_html = draft.original_html;
-          draft.elements = {};
+        if (savedMeta.published !== false) return;
+
+        if (typeof saved.original_html === "string") {
+          draft.original_html = saved.original_html;
         }
+
+        draft.edited_html = typeof saved.edited_html === "string"
+          ? saved.edited_html
+          : draft.original_html;
+
+        draft.elements = savedDraft.elements;
+
         writeDraftMeta(draft, {
-          asset_branch: hasPendingChanges
-            ? (savedMeta.asset_branch || branch)
-            : branch,
+          asset_branch: savedMeta.asset_branch || branch,
           save_model: "patch-v2",
-          published: !hasPendingChanges
+          published: false,
+          restore_plan_version_id: null,
+          restored_version_id: null
         });
       });
     }
@@ -800,18 +1229,139 @@
 
 
   function prepareRepoHtml(html) {
-    const branch = draftAssetBranch(currentDraft());
+    const draft = currentDraft();
+    const branch = draftAssetBranch(draft);
+    const previewHtml = hydrateRestorePreviewHtml(
+      html,
+      draft?.path || ""
+    );
     const base = repoCdnUrl(state.project, "", branch);
     const baseHref = base.endsWith("/") ? base : `${base}/`;
     const baseTag = `<base href="${safe(baseHref)}">`;
 
-    if (/<head[^>]*>/i.test(html)) {
-      return html.replace(/<head([^>]*)>/i, `<head$1>${baseTag}`);
+    if (/<head[^>]*>/i.test(previewHtml)) {
+      return previewHtml.replace(/<head([^>]*)>/i, `<head$1>${baseTag}`);
     }
 
-    return `${baseTag}${html}`;
+    return `${baseTag}${previewHtml}`;
   }
 
+  function restoreAssetPathFromReference(value, pagePath) {
+    const raw = String(value || "").trim();
+
+    if (!raw || raw.startsWith("#") || raw.startsWith("data:")) return "";
+
+    try {
+      const parsed = new URL(raw, "https://editor.local/");
+      const repoAssetPrefix = "/api/repo-asset/";
+
+      if (parsed.pathname.startsWith(repoAssetPrefix)) {
+        const parts = parsed.pathname
+          .slice(repoAssetPrefix.length)
+          .split("/")
+          .map(part => decodeURIComponent(part));
+
+        if (parts.length >= 3) {
+          return normalizeRepoPath(parts.slice(2).join("/"));
+        }
+      }
+    } catch {
+      return "";
+    }
+
+    if (/^(?:https?:)?\/\//i.test(raw)) return "";
+
+    const withoutQuery = raw.split("#")[0].split("?")[0];
+    const directory = normalizeRepoPath(pagePath)
+      .split("/")
+      .slice(0, -1)
+      .join("/");
+
+    try {
+      return normalizeRepoPath(
+        new URL(
+          withoutQuery,
+          `https://editor.local/${directory ? `${directory}/` : ""}`
+        ).pathname
+      );
+    } catch {
+      return "";
+    }
+  }
+
+  function restorePreviewUrl(value, pagePath) {
+    const assetPath = restoreAssetPathFromReference(value, pagePath);
+
+    return state.restorePreviewAssetUrls[assetPath] || value;
+  }
+
+  function rewriteRestoreSrcset(value, pagePath) {
+    return String(value || "")
+      .split(",")
+      .map(candidate => {
+        const trimmed = candidate.trim();
+        const match = trimmed.match(/^(\S+)(\s+.*)?$/);
+
+        if (!match) return candidate;
+
+        const nextUrl = restorePreviewUrl(match[1], pagePath);
+        return `${nextUrl}${match[2] || ""}`;
+      })
+      .join(", ");
+  }
+
+  function rewriteRestoreCssUrls(value, pagePath) {
+    return String(value || "").replace(
+      /url\(\s*([\"']?)(.*?)\1\s*\)/gi,
+      (full, quote, reference) => {
+        const nextUrl = restorePreviewUrl(reference, pagePath);
+        return nextUrl === reference
+          ? full
+          : `url(${quote}${nextUrl}${quote})`;
+      }
+    );
+  }
+
+  function hydrateRestorePreviewHtml(html, pagePath) {
+    if (!hasActiveRestorePlan() || !Object.keys(state.restorePreviewAssetUrls).length) {
+      return html;
+    }
+
+    const doc = new DOMParser().parseFromString(String(html || ""), "text/html");
+
+    doc.querySelectorAll("[src], [poster]").forEach(element => {
+      ["src", "poster"].forEach(attribute => {
+        if (!element.hasAttribute(attribute)) return;
+
+        const current = element.getAttribute(attribute) || "";
+        element.setAttribute(attribute, restorePreviewUrl(current, pagePath));
+      });
+    });
+
+    doc.querySelectorAll("[srcset]").forEach(element => {
+      element.setAttribute(
+        "srcset",
+        rewriteRestoreSrcset(element.getAttribute("srcset"), pagePath)
+      );
+    });
+
+    doc.querySelectorAll("[style]").forEach(element => {
+      element.setAttribute(
+        "style",
+        rewriteRestoreCssUrls(element.getAttribute("style"), pagePath)
+      );
+    });
+
+    doc.querySelectorAll("style").forEach(element => {
+      element.textContent = rewriteRestoreCssUrls(element.textContent, pagePath);
+    });
+
+    const doctype = doc.doctype
+      ? `<!DOCTYPE ${doc.doctype.name}>`
+      : "";
+
+    return `${doctype}${doc.documentElement.outerHTML}`;
+  }
   function renderNodeMetaSummary() {
     const rows = [
       state.currentType ? `Tipo: ${state.currentType}` : "",
@@ -1825,6 +2375,7 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
   }
 
   function updateCurrentValue(rawValue, photoMeta) {
+    if (hasActiveRestorePlan()) return;
     const draft = currentDraft();
     if (!draft || !state.currentKey) return;
 
@@ -1866,8 +2417,8 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
     const undo = $("#editor-v2-undo");
     const redo = $("#editor-v2-redo");
     if (!undo || !redo) return;
-    undo.disabled = state.historyIndex <= 0;
-    redo.disabled = state.historyIndex >= state.history.length - 1;
+    undo.disabled = hasActiveRestorePlan() || state.historyIndex <= 0;
+    redo.disabled = hasActiveRestorePlan() || state.historyIndex >= state.history.length - 1;
   }
 
   function pushHistory() {
@@ -1934,6 +2485,7 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
   }
 
   function undoAction() {
+    if (hasActiveRestorePlan()) return;
     if (state.historyIndex <= 0) return;
     state.historyIndex--;
     restoreSnapshot(state.history[state.historyIndex]);
@@ -1942,6 +2494,7 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
   }
 
   function redoAction() {
+    if (hasActiveRestorePlan()) return;
     if (state.historyIndex >= state.history.length - 1) return;
     state.historyIndex++;
     restoreSnapshot(state.history[state.historyIndex]);
@@ -1951,6 +2504,7 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
 
   // Restaurar la versión base (la original del sitio).
   async function restoreBase() {
+    if (hasActiveRestorePlan()) return;
     const branch = baseRepoBranch();
     if (!confirm("¿Usar la versión base?\n\nSe cargarán los cambios base del proyecto. Nada se publicará hasta que pulses Publicar.")) return;
 
@@ -2276,6 +2830,7 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
   }
 
   async function saveDraft(silent) {
+    if (hasActiveRestorePlan()) return;
     const draft = currentDraft();
     if (!draft) return;
     await saveRepoDraft(silent);
@@ -2292,6 +2847,7 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
   }
 
   async function discardDraftsOnServer() {
+    if (hasActiveRestorePlan()) return;
     const response = await fetch(
       `/api/editor-repo-draft?project_id=${encodeURIComponent(state.project.id)}`,
       {
@@ -2311,6 +2867,11 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
   }
 
   async function exitEditor(action = "ask") {
+    if (hasActiveRestorePlan()) {
+      state.exitIntent = true;
+      location.assign(projectReturnUrl());
+      return;
+    }
     if (action === "ask") {
       if (!hasUnpublishedChanges()) {
         state.exitIntent = true;
@@ -2409,18 +2970,38 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
   function showPublishConfirm() {
     const overlay = $("#editor-v2-confirm");
     if (!overlay) return Promise.resolve(true);
+
     const ok = $("#editor-v2-confirm-ok");
     const cancel = $("#editor-v2-confirm-cancel");
     const doneBtn = $("#editor-v2-confirm-done");
     const title = $("#editor-v2-confirm-title");
     const copy = $("#editor-v2-confirm .editor-modal-copy");
     const note = $("#editor-v2-confirm-note");
-    if (title) title.textContent = "¿Quieres publicar estos cambios?";
-    if (copy) copy.textContent = "Guardaremos tu portada y actualizaremos tu página.";
-    if (note) note.textContent = "Verificaremos la página antes de ofrecerte abrirla.";
+    const restoring = hasActiveRestorePlan();
+
+    if (title) {
+      title.textContent = restoring
+        ? "¿Quieres restaurar esta publicación?"
+        : "¿Quieres publicar estos cambios?";
+    }
+
+    if (copy) {
+      copy.textContent = restoring
+        ? "Publicaremos una copia exacta de la versión recuperada, incluidas sus páginas y medios."
+        : "Guardaremos tu portada y actualizaremos tu página.";
+    }
+
+    if (note) {
+      note.textContent = restoring
+        ? "No se incluirán cambios adicionales durante la restauración."
+        : "Verificaremos la página antes de ofrecerte abrirla.";
+    }
+
     setPublishModal("confirm");
+
     return new Promise(resolve => {
       overlay.hidden = false;
+
       const done = result => {
         overlay.hidden = true;
         ok.onclick = null;
@@ -2428,8 +3009,9 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
         if (doneBtn) doneBtn.onclick = null;
         resolve(result);
       };
-      ok.textContent = "Publicar ahora";
-      cancel.textContent = "Volver a editar";
+
+      ok.textContent = restoring ? "Restaurar ahora" : "Publicar ahora";
+      cancel.textContent = restoring ? "Seguir revisando" : "Volver a editar";
       ok.onclick = () => done(true);
       cancel.onclick = () => done(false);
       if (doneBtn) doneBtn.onclick = () => { overlay.hidden = true; };
@@ -2471,39 +3053,49 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
   }
 
   async function publishDraft() {
-    if (hasPendingVideoStreamProcessing()) {
+    const restoreVersionId = hasActiveRestorePlan()
+      ? String(state.restorePlan.version_id || "")
+      : "";
+
+    const restoring = Boolean(restoreVersionId);
+
+    if (!restoring && hasPendingVideoStreamProcessing()) {
       showEditorError("EB-VIDEO-002");
       return;
     }
 
     if (!(await showPublishConfirm())) return;
+
     if (autoSaveTimer) {
       clearTimeout(autoSaveTimer);
       autoSaveTimer = 0;
     }
-    if (!(await saveRepoDraft())) return;
+
+    if (!restoring && !(await saveRepoDraft())) return;
 
     setPublishModal("loading");
 
-    if (hasPendingVideoStreamProcessing()) {
-      showEditorError("EB-VIDEO-002");
-      return;
-    }
-
     const liveBranch = liveRepoBranch(state.project);
     const baseBranch = baseRepoBranch();
-    const useBaseSnapshot = [...state.repoDrafts.values()].some(draft => draftAssetBranch(draft) === baseBranch);
+    const useBaseSnapshot = !restoring &&
+      [...state.repoDrafts.values()].some(
+        draft => draftAssetBranch(draft) === baseBranch
+      );
+
+    const pages = restoring
+      ? []
+      : [...state.repoDrafts.values()].map(draft => ({
+          path: draft.path,
+          original_html: draft.original_html,
+          edited_html: draft.edited_html,
+          elements: draft.elements || {}
+        }));
 
     setStatus(EDITOR_STATUS_COPY.publishing);
-    const pages = [...state.repoDrafts.values()].map(draft => ({
-      path: draft.path,
-      original_html: draft.original_html,
-      edited_html: draft.edited_html,
-      elements: draft.elements || {}
-    }));
 
     let response;
     let result;
+
     try {
       response = await fetch("/api/editor-repo-publish", {
         method: "POST",
@@ -2515,46 +3107,116 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
           project_id: state.project.id,
           pages,
           use_base_snapshot: useBaseSnapshot,
-          base_branch: baseBranch
+          base_branch: baseBranch,
+          ...(restoreVersionId
+            ? { restore_version_id: restoreVersionId }
+            : {})
         })
       });
+
       result = await response.json().catch(() => null);
     } catch {
-      $("#editor-v2-confirm").hidden = true;
-      showEditorError("EB-PUBLISH-001");
-      return;
-    }
-    if (!response.ok || !result?.ok) {
-      $("#editor-v2-confirm").hidden = true;
-      showEditorError("EB-PUBLISH-001");
-      return;
-    }
-
-    (result?.drafts || []).forEach(saved => {
-      const draft = state.repoDrafts.get(saved.page_path);
-      if (!draft) return;
-      if (typeof saved.edited_html === "string") {
-        draft.edited_html = saved.edited_html;
-        draft.original_html = saved.edited_html;
+      if (restoring) {
+        await loadVersionHistory();
+        syncRestoreReviewInterface();
       }
-      if (saved.elements && typeof saved.elements === "object") draft.elements = saved.elements;
-      writeDraftMeta(draft, {
-        asset_branch: liveBranch,
-        save_model: "patch-v2",
-        published: true
-      });
-    });
 
-    applyDraftToFrame();
-    renderSidebar();
+      $("#editor-v2-confirm").hidden = true;
+      showEditorError("EB-PUBLISH-001");
+      return;
+    }
+
+    if (!response.ok || !result?.ok) {
+      if (restoring) {
+        await loadVersionHistory();
+        syncRestoreReviewInterface();
+      }
+
+      $("#editor-v2-confirm").hidden = true;
+      showEditorError(
+        "EB-PUBLISH-001",
+        result?.message || "No pudimos publicar tus cambios."
+      );
+      return;
+    }
+
+    if (restoring) {
+      state.restorePlan = null;
+      clearRestorePreviewAssets();
+
+      if (result.project && typeof result.project === "object") {
+        state.project = {
+          ...state.project,
+          ...result.project
+        };
+      }
+
+      state.mode = "edit";
+      state.history = [];
+      state.historyIndex = -1;
+
+      await loadVersionHistory();
+      await loadRepoPages(state.project);
+      syncRestoreReviewInterface();
+      renderPageTabs();
+      renderPreviewNav();
+      loadFrame();
+      renderSidebar();
+      pushHistory();
+      updateUndoButtons();
+    } else {
+      (result?.drafts || []).forEach(saved => {
+        const draft = state.repoDrafts.get(saved.page_path);
+        if (!draft) return;
+
+        if (typeof saved.edited_html === "string") {
+          draft.edited_html = saved.edited_html;
+          draft.original_html = saved.edited_html;
+        }
+
+        if (saved.elements && typeof saved.elements === "object") {
+          draft.elements = saved.elements;
+        }
+
+        writeDraftMeta(draft, {
+          asset_branch: liveBranch,
+          save_model: "patch-v2",
+          published: true
+        });
+      });
+
+      applyDraftToFrame();
+      renderSidebar();
+      void loadVersionHistory();
+    }
+
     setPublishModal("checking");
+
     const publishedSite = await waitForLiveSite();
-    const liveUrl = publishedSite?.live_url || state.project.site_live_url || state.project.site_url || state.project.preview_url || "";
+    const liveUrl = publishedSite?.live_url ||
+      state.project.site_live_url ||
+      state.project.site_url ||
+      state.project.preview_url ||
+      "";
+
     setPublishModal(publishedSite ? "done" : "pending", liveUrl);
-    setStatus(publishedSite ? "Cambios publicados y página actualizada." : "Cambios guardados. Cloudflare sigue actualizando tu página.", "success");
+
+    const successMessage = restoring
+      ? "La versión recuperada ya se publicó."
+      : "Cambios publicados y página actualizada.";
+
+    const pendingMessage = restoring
+      ? "La restauración quedó guardada. Cloudflare sigue actualizando tu página."
+      : "Cambios guardados. Cloudflare sigue actualizando tu página.";
+
+    setStatus(
+      publishedSite ? successMessage : pendingMessage,
+      "success"
+    );
   }
 
   async function resetDraft() {
+    if (hasActiveRestorePlan()) return;
     const draft = currentDraft();
     if (draft) {
       draft.edited_html = draft.original_html;
@@ -2580,6 +3242,12 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
   }
 
   function togglePreview() {
+    if (hasActiveRestorePlan()) {
+      state.mode = "preview";
+      syncRestoreReviewInterface();
+      loadFrame();
+      return;
+    }
     state.mode = state.mode === "edit" ? "preview" : "edit";
     state.currentKey = "";
     state.currentType = "";
@@ -3747,12 +4415,21 @@ function readNodeValue(node, type) {
     $("#editor-v2-undo").onclick = undoAction;
     $("#editor-v2-redo").onclick = redoAction;
     $("#editor-v2-base").onclick = restoreBase;
+    $("#editor-v2-history").onclick = openVersionHistory;
+    $("#editor-v2-cancel-restore")?.addEventListener(
+      "click",
+      cancelRestoreReview
+    );
     $("#editor-v2-back").onclick = event => {
       event.preventDefault();
       exitEditor("ask");
     };
 
     document.addEventListener("keydown", e => {
+      if (hasActiveRestorePlan()) {
+        e.preventDefault();
+        return;
+      }
       if (!(e.ctrlKey || e.metaKey)) return;
       const key = e.key.toLowerCase();
       if (key === "z" && !e.shiftKey) {
@@ -3775,6 +4452,17 @@ function readNodeValue(node, type) {
     $("#editor-exit-discard").onclick = () => exitEditor("discard");
     $("#editor-exit-modal")?.addEventListener("click", event => {
       if (event.target.id === "editor-exit-modal") closeExitModal();
+    });
+
+    $("#editor-history-close").onclick = () => { $("#editor-history-modal").hidden = true; };
+    $("#editor-history-modal")?.addEventListener("click", event => {
+      if (event.target.id === "editor-history-modal") $("#editor-history-modal").hidden = true;
+    });
+    $("#editor-history-list")?.addEventListener("click", event => {
+      const button = event.target.closest("[data-history-restore]");
+      if (button) restoreVersion(button.dataset.historyRestore);
+      const deleteButton = event.target.closest("[data-history-delete]");
+      if (deleteButton) deleteVersion(deleteButton.dataset.historyDelete);
     });
 
     $("#editor-photo-zoom-in").onclick = () => zoomPhotoBy(1.25);

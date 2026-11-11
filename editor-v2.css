@@ -599,6 +599,57 @@ body[data-portal-page="editor-v2"]{
   padding:.6rem .8rem;
 }
 
+.editor-history-modal{
+  max-width:560px;
+}
+
+.editor-history-list{
+  display:grid;
+  gap:.65rem;
+  max-height:52dvh;
+  overflow:auto;
+  margin:0 0 1rem;
+  padding-right:.2rem;
+}
+
+.editor-history-item{
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:.7rem;
+  align-items:center;
+  border:1px solid var(--editor-line);
+  border-radius:12px;
+  padding:.75rem;
+  background:var(--editor-soft);
+}
+
+.editor-history-item strong,
+.editor-history-item span{
+  display:block;
+}
+
+.editor-history-item span{
+  color:var(--editor-muted);
+  font-size:12px;
+  line-height:1.45;
+}
+
+.editor-history-item .button{
+  white-space:nowrap;
+}
+
+.editor-history-item-actions{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+  gap:.35rem;
+}
+
+.editor-history-empty{
+  color:var(--editor-muted);
+  padding:.6rem 0;
+}
+
 .editor-modal-actions{
   display:flex;
   flex-wrap:wrap;
@@ -710,4 +761,59 @@ body[data-portal-page="editor-v2"]{
   background:
     linear-gradient(90deg, rgba(255,255,255,.9) 2px, transparent 2px) 0 50%/100% 100%,
     linear-gradient(0deg, rgba(255,255,255,.9) 2px, transparent 2px) 50% 0/100% 100%;
+}
+
+.editor-restore-notice{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:1rem;
+  margin:1rem 0;
+  padding:.85rem 1rem;
+  border:1px solid rgba(183,255,74,.5);
+  border-radius:14px;
+  background:rgba(183,255,74,.1);
+}
+
+.editor-restore-notice strong,
+.editor-restore-notice p,
+.editor-restore-notice span{
+  display:block;
+}
+
+.editor-restore-notice p{
+  margin:.2rem 0 0;
+  color:var(--editor-muted);
+  font-size:.9rem;
+  line-height:1.45;
+}
+
+.editor-restore-actions{
+  flex:0 0 auto;
+  display:flex;
+  align-items:center;
+  gap:.65rem;
+}
+
+.editor-restore-actions > span{
+  color:var(--editor-accent, #b7ff4a);
+  font-size:.82rem;
+  font-weight:700;
+  text-align:right;
+}
+
+@media (max-width: 680px){
+  .editor-restore-notice{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+
+  .editor-restore-actions{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+
+  .editor-restore-actions > span{
+    text-align:left;
+  }
 }

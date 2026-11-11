@@ -5,6 +5,7 @@
 !/.env.example
 supabase-config.local.js
 node_modules/
+.wrangler/
 cdp-control.js
 cdp-supabase-info.js
 check-chrome.ps1

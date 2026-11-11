@@ -1,0 +1,10 @@
+name = "editor-version-cleaner"
+main = "editor-version-cleaner.js"
+compatibility_date = "2026-10-26"
+
+[triggers]
+crons = ["0 6 * * *"]
+
+[[r2_buckets]]
+binding = "EDITOR_VERSIONS"
+bucket_name = "excepcional-editor-versions"

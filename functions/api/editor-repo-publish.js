@@ -1,4 +1,18 @@
 import { bearer, getUser, supabaseConfig } from "../_lib/supabase.js";
+import {
+  createPendingVersion,
+  failVersion,
+  getVersion,
+  markVersionPublished,
+  readVersionAssetFiles,
+  readVersionManifest,
+  versionErrorMessage
+} from "../_lib/editor-versions.js";
+import {
+  markRestorePlanCompleted,
+  markRestorePlanFailed,
+  markRestorePlanPublishing
+} from "../_lib/editor-restore-plans.js";
 
 const json = (data, status = 200) => new Response(JSON.stringify(data), {
   status,
@@ -140,6 +154,176 @@ async function resolveEditorProject(project, token) {
 
 async function githubGetBlob(token, owner, repo, sha) {
   return githubJson(`${GITHUB_API}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/blobs/${encodeURIComponent(sha)}`, token);
+}
+
+function isSafeGitPath(value = "") {
+  const raw = String(value || "").replace(/\\/g, "/").replace(/^\/+/, "");
+  const path = normalizePath(raw);
+
+  return Boolean(
+    raw &&
+    raw === path &&
+    !path.split("/").some(part => part === "." || part === "..")
+  );
+}
+
+async function githubCommitFilesAtomically({
+  token,
+  owner,
+  repo,
+  branch,
+  writes = [],
+  deletes = [],
+  message
+}) {
+  const writeByPath = new Map();
+
+  for (const entry of Array.isArray(writes) ? writes : []) {
+    const path = normalizePath(entry?.path);
+
+    if (!isSafeGitPath(path) || typeof entry?.data !== "string") {
+      throw new Error("GITHUB_ATOMIC_WRITE_INVALID");
+    }
+
+    writeByPath.set(path, {
+      path,
+      data: entry.data
+    });
+  }
+
+  if (!writeByPath.size) {
+    throw new Error("GITHUB_ATOMIC_WRITE_EMPTY");
+  }
+
+  const deletePaths = [...new Set(
+    (Array.isArray(deletes) ? deletes : [])
+      .map(normalizePath)
+      .filter(path =>
+        isSafeGitPath(path) &&
+        !writeByPath.has(path) &&
+        !isProtectedRepoPath(path)
+      )
+  )];
+
+  const ref = await githubJson(
+    `${GITHUB_API}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/ref/heads/${encodeURIComponent(branch)}`,
+    token
+  );
+
+  const parentSha = String(ref?.object?.sha || "");
+  if (!parentSha) throw new Error("GITHUB_ATOMIC_BRANCH_MISSING");
+
+  const parentCommit = await githubJson(
+    `${GITHUB_API}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/commits/${encodeURIComponent(parentSha)}`,
+    token
+  );
+
+  const treeEntries = [];
+
+  for (const entry of writeByPath.values()) {
+    const blob = await githubJson(
+      `${GITHUB_API}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/blobs`,
+      token,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: entry.data,
+          encoding: "base64"
+        })
+      }
+    );
+
+    if (!blob?.sha) throw new Error("GITHUB_ATOMIC_BLOB_FAILED");
+
+    treeEntries.push({
+      path: entry.path,
+      mode: "100644",
+      type: "blob",
+      sha: blob.sha
+    });
+  }
+
+  deletePaths.forEach(path => {
+    treeEntries.push({
+      path,
+      mode: "100644",
+      type: "blob",
+      sha: null
+    });
+  });
+
+  const tree = await githubJson(
+    `${GITHUB_API}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/trees`,
+    token,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        base_tree: parentCommit?.tree?.sha,
+        tree: treeEntries
+      })
+    }
+  );
+
+  if (!tree?.sha) throw new Error("GITHUB_ATOMIC_TREE_FAILED");
+
+  if (tree.sha === parentCommit?.tree?.sha) {
+    return {
+      sha: parentSha,
+      parent_sha: parentSha,
+      writes: [...writeByPath.keys()],
+      deletes: deletePaths,
+      already_applied: true
+    };
+  }
+
+  const commit = await githubJson(
+    `${GITHUB_API}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/commits`,
+    token,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: String(message || "Publica cambios desde Excepcional Build"),
+        tree: tree.sha,
+        parents: [parentSha]
+      })
+    }
+  );
+
+  if (!commit?.sha) throw new Error("GITHUB_ATOMIC_COMMIT_FAILED");
+
+  const refResponse = await fetch(
+    `${GITHUB_API}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/refs/heads/${encodeURIComponent(branch)}`,
+    {
+      method: "PATCH",
+      headers: githubHeaders(token, { "Content-Type": "application/json" }),
+      body: JSON.stringify({
+        sha: commit.sha,
+        force: false
+      })
+    }
+  );
+
+  if (!refResponse.ok) {
+    const details = await refResponse.text().catch(() => "");
+
+    if (refResponse.status === 409 || refResponse.status === 422) {
+      throw new Error("GITHUB_BRANCH_CONFLICT");
+    }
+
+    throw new Error(
+      `GITHUB_ATOMIC_REF_${refResponse.status}${details ? `: ${details.slice(0, 160)}` : ""}`
+    );
+  }
+
+  return {
+    sha: commit.sha,
+    parent_sha: parentSha,
+    writes: [...writeByPath.keys()],
+    deletes: deletePaths
+  };
 }
 
 async function copyBranchSnapshot({ token, owner, repo, fromBranch, toBranch, rootPath = "" }) {
@@ -696,7 +880,98 @@ async function applyEditorPatchesToHtml(sourceHtml, elements = {}) {
     .text();
 }
 
-async function bundleRepoImages(pages, env, project) {
+function editorAssetPathFromReference(project, pagePath, value) {
+  const raw = String(value || "").trim();
+  if (!raw || raw.startsWith("#") || raw.startsWith("data:")) return "";
+
+  const withoutQuery = raw.split("#")[0].split("?")[0];
+  const fromApi = extractRepoAssetPath(withoutQuery, project);
+  const assetRoot = editorAssetDirectory(project);
+
+  if (fromApi) {
+    return fromApi.startsWith(`${assetRoot}/`) ? fromApi : "";
+  }
+
+  if (/^(?:https?:)?\/\//i.test(withoutQuery)) return "";
+
+  try {
+    const pageDirectory = normalizePath(pagePath).split("/").slice(0, -1).join("/");
+    const base = `https://editor.local/${pageDirectory ? `${pageDirectory}/` : ""}`;
+    const resolved = normalizePath(new URL(withoutQuery, base).pathname);
+    return resolved.startsWith(`${assetRoot}/`) ? resolved : "";
+  } catch {
+    return "";
+  }
+}
+
+function collectEditorAssetReferences(value, pagePath, project, output) {
+  const add = reference => {
+    const path = editorAssetPathFromReference(project, pagePath, reference);
+    if (path) output.add(path);
+  };
+
+  if (typeof value === "string") {
+    add(value);
+
+    const attributeRe = /\b(?:src|poster)\s*=\s*(["'])(.*?)\1/gi;
+    const srcsetRe = /\bsrcset\s*=\s*(["'])(.*?)\1/gi;
+    const cssUrlRe = /url\(\s*(["']?)(.*?)\1\s*\)/gi;
+
+    let match;
+    while ((match = attributeRe.exec(value)) !== null) add(match[2]);
+
+    while ((match = srcsetRe.exec(value)) !== null) add(match[2]);
+
+    while ((match = cssUrlRe.exec(value)) !== null) add(match[2]);
+
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    value.forEach(entry => collectEditorAssetReferences(entry, pagePath, project, output));
+    return;
+  }
+
+  if (value && typeof value === "object") {
+    Object.values(value).forEach(entry => {
+      collectEditorAssetReferences(entry, pagePath, project, output);
+    });
+  }
+}
+
+async function readExistingEditorAssets({ paths, token, owner, repo, branch }) {
+  if (!paths.size) return [];
+
+  const tree = await githubGetBranchTree({ token, owner, repo, branch });
+  const filesByPath = new Map(
+    tree
+      .filter(entry => entry?.type === "blob" && entry?.path)
+      .map(entry => [normalizePath(entry.path), entry])
+  );
+
+  const assets = [];
+
+  for (const path of [...paths].sort()) {
+    const file = filesByPath.get(path);
+
+    if (!file) {
+      throw new Error("VERSION_SNAPSHOT_ASSET_MISSING");
+    }
+
+    const blob = await githubGetBlob(token, owner, repo, file.sha);
+    const data = String(blob?.content || "").replace(/\s/g, "");
+
+    if (!data) {
+      throw new Error("VERSION_SNAPSHOT_ASSET_MISSING");
+    }
+
+    assets.push({ path, data });
+  }
+
+  return assets;
+}
+
+async function bundleRepoImages(pages, env, project, github) {
   const supabasePrefix = storagePublicPrefix(env);
   const repoPrefix = editorAssetPrefix(project);
   const supabaseRe = new RegExp(escapeRegExp(supabasePrefix) + "[^\"'\\s<>)\\\\]*", "g");
@@ -712,13 +987,21 @@ async function bundleRepoImages(pages, env, project) {
   }
 
   const assetsByUrl = new Map();
+  const referencedAssetPaths = new Set();
   const usedPaths = new Set();
 
   repoUrls.forEach(url => {
     const repoPath = extractRepoAssetPath(url, project);
     if (!repoPath) return;
+
     usedPaths.add(repoPath);
-    assetsByUrl.set(url, { repoPath, editorUrl: editorAssetUrl(project, repoPath), copied: false });
+    referencedAssetPaths.add(repoPath);
+
+    assetsByUrl.set(url, {
+      repoPath,
+      editorUrl: editorAssetUrl(project, repoPath),
+      copied: false
+    });
   });
 
   const assetFiles = [];
@@ -772,7 +1055,43 @@ async function bundleRepoImages(pages, env, project) {
     };
   }));
 
-  return { pages: nextPages, assetFiles, copied, failed };
+nextPages.forEach(page => {
+  collectEditorAssetReferences(
+    page.published_html,
+    page.path,
+    project,
+    referencedAssetPaths
+  );
+});
+
+const newAssetsByPath = new Map(
+  assetFiles.map(asset => [asset.path, asset])
+);
+
+const existingAssetPaths = new Set(
+  [...referencedAssetPaths].filter(path => !newAssetsByPath.has(path))
+);
+
+const existingAssets = await readExistingEditorAssets({
+  paths: existingAssetPaths,
+  token: github.token,
+  owner: github.owner,
+  repo: github.repo,
+  branch: github.branch
+});
+
+const snapshotAssets = [
+  ...assetFiles,
+  ...existingAssets
+];
+
+return {
+  pages: nextPages,
+  assetFiles,
+  snapshotAssets,
+  copied,
+  failed
+};
 }
 
 async function updateDraftRecord(context, access, page) {
@@ -802,13 +1121,247 @@ async function updateDraftRecord(context, access, page) {
   return rows?.[0] || null;
 }
 
+function samePathSet(first = [], second = []) {
+  const left = new Set((Array.isArray(first) ? first : []).map(normalizePath).filter(Boolean));
+  const right = new Set((Array.isArray(second) ? second : []).map(normalizePath).filter(Boolean));
+
+  return left.size === right.size && [...left].every(path => right.has(path));
+}
+
+function editorConfigPath(project, fullPath) {
+  const root = normalizePath(project?.site_repo_path || "");
+  const path = normalizePath(fullPath);
+
+  if (root && path.startsWith(`${root}/`)) {
+    return path.slice(root.length + 1);
+  }
+
+  return path;
+}
+
+async function updateProjectEditorPages(context, projectId, pagePaths) {
+  const { url, key } = supabaseConfig(context.env);
+
+  const response = await fetch(
+    `${url}/rest/v1/client_projects?id=eq.${encodeURIComponent(projectId)}`,
+    {
+      method: "PATCH",
+      headers: {
+        apikey: key,
+        Authorization: bearer(context.request),
+        "Content-Type": "application/json",
+        Prefer: "return=representation"
+      },
+      body: JSON.stringify({
+        site_editor_pages: pagePaths
+      })
+    }
+  );
+
+  if (!response.ok) throw new Error(await response.text());
+
+  const rows = await response.json().catch(() => []);
+  return rows?.[0] || null;
+}
+
+async function prepareRestorePublication({
+  context,
+  access,
+  project,
+  token,
+  owner,
+  repo,
+  branch,
+  versionId
+}) {
+  let plan = null;
+  let pendingVersion = null;
+
+  try {
+    const sourceVersion = await getVersion(
+      context.request,
+      context.env,
+      project.id,
+      versionId
+    );
+
+    if (!sourceVersion || sourceVersion.status !== "published") {
+      throw new Error("VERSION_NOT_FOUND");
+    }
+
+    plan = await markRestorePlanPublishing({
+      request: context.request,
+      env: context.env,
+      projectId: project.id,
+      versionId: sourceVersion.id
+    });
+
+    const manifest = await readVersionManifest(
+      context.request,
+      context.env,
+      sourceVersion
+    );
+
+    const snapshotPagePaths = manifest.pages.map(page => normalizePath(page.path));
+    const snapshotAssetPaths = manifest.assets.map(asset => normalizePath(asset.path));
+
+    if (
+      !samePathSet(plan.snapshot_page_paths, snapshotPagePaths) ||
+      !samePathSet(plan.snapshot_asset_paths, snapshotAssetPaths)
+    ) {
+      throw new Error("RESTORE_PLAN_SNAPSHOT_MISMATCH");
+    }
+
+    const restoredAssets = await readVersionAssetFiles(
+      context.request,
+      context.env,
+      sourceVersion,
+      manifest
+    );
+
+    const bundled = {
+      pages: manifest.pages.map(page => ({
+        path: page.path,
+        published_html: page.html,
+        draft_html: page.html,
+        draft_elements: {}
+      })),
+      assetFiles: restoredAssets.map(asset => ({
+        path: asset.path,
+        data: asset.data,
+        message: `Restaura ${asset.path} desde el historial`
+      })),
+      snapshotAssets: restoredAssets,
+      copied: restoredAssets.length,
+      failed: 0
+    };
+
+    pendingVersion = await createPendingVersion({
+      request: context.request,
+      env: context.env,
+      project,
+      user: access.user,
+      pages: bundled.pages,
+      bundled
+    });
+
+    const snapshotSet = new Set(snapshotPagePaths);
+    const pagesToDelete = projectEditorPages(project)
+      .filter(path => !snapshotSet.has(path));
+
+    const commit = await githubCommitFilesAtomically({
+      token,
+      owner,
+      repo,
+      branch,
+      writes: [
+        ...bundled.assetFiles.map(asset => ({
+          path: asset.path,
+          data: asset.data
+        })),
+        ...bundled.pages.map(page => ({
+          path: page.path,
+          data: textToBase64(page.published_html)
+        }))
+      ],
+      deletes: pagesToDelete,
+      message: `Restaura publicación ${sourceVersion.version_number} desde Excepcional Build`
+    });
+
+    const archiveVersionId = pendingVersion.id;
+    pendingVersion = null;
+
+    const publishedVersion = await markVersionPublished(
+      context.request,
+      context.env,
+      archiveVersionId,
+      commit.sha
+    );
+
+    const savedDrafts = [];
+
+    for (const page of bundled.pages) {
+      const draftElements = withDraftAssetBranch({}, branch, {
+        published: true,
+        restored_version_id: sourceVersion.id
+      });
+
+      const saved = await updateDraftRecord(context, access, {
+        ...page,
+        draft_elements: draftElements
+      });
+
+      savedDrafts.push({
+        page_path: page.path,
+        edited_html: saved?.edited_html || page.draft_html,
+        elements: saved?.elements || draftElements
+      });
+    }
+
+    const configPaths = snapshotPagePaths.map(path =>
+      editorConfigPath(project, path)
+    );
+
+    const updatedProject = await updateProjectEditorPages(
+      context,
+      project.id,
+      configPaths
+    );
+
+    const completedPlan = await markRestorePlanCompleted({
+      request: context.request,
+      env: context.env,
+      projectId: project.id,
+      versionId: sourceVersion.id
+    });
+
+    return {
+      restored: true,
+      published: bundled.pages.map(page => page.path),
+      deleted: commit.deletes,
+      drafts: savedDrafts,
+      copied: bundled.assetFiles.length,
+      failed: 0,
+      version: publishedVersion,
+      project: updatedProject,
+      restore_plan: completedPlan
+    };
+  } catch (error) {
+    if (plan) {
+      await markRestorePlanFailed({
+        request: context.request,
+        env: context.env,
+        projectId: project.id,
+        versionId: plan.version_id,
+        error
+      }).catch(planError => {
+        console.error("No pudimos marcar el plan de restauración como fallido", planError);
+      });
+    }
+
+    if (pendingVersion) {
+      await failVersion({
+        request: context.request,
+        env: context.env,
+        version: pendingVersion
+      }).catch(versionError => {
+        console.error("No pudimos limpiar la versión pendiente", versionError);
+      });
+    }
+
+    throw error;
+  }
+}
+
 export async function onRequestPost(context) {
+  let pendingVersion = null;
   try {
     const token = context.env.GITHUB_TOKEN;
     if (!token) return json({ ok: false, message: "Falta configurar GITHUB_TOKEN en Cloudflare Pages." }, 500);
 
     const body = await context.request.json().catch(() => ({}));
     const projectId = String(body.project_id || "");
+    const restoreVersionId = String(body.restore_version_id || "");
     const baseBranch = DEFAULT_BASE_BRANCH;
     const useBaseSnapshot = body.use_base_snapshot === true;
     const pages = (Array.isArray(body.pages) ? body.pages : [])
@@ -820,12 +1373,44 @@ export async function onRequestPost(context) {
       }))
       .filter(page => page.path && (page.original_html || page.edited_html));
 
-    if (!projectId || !pages.length) return json({ ok: false, message: "Faltan páginas para publicar." }, 400);
+    if (!projectId || (!restoreVersionId && !pages.length)) {
+      return json({ ok: false, message: "Faltan páginas para publicar." }, 400);
+    }
 
     const access = await projectAccess(context.request, context.env, projectId);
     if (!access) return json({ ok: false, message: "No tienes acceso a este proyecto." }, 403);
 
     const project = await resolveEditorProject(access.project, token);
+    const owner = project.site_repo_owner;
+    const repo = project.site_repo_name;
+    const branch = liveBranch(project);
+
+    if (!owner || !repo) {
+      return json({
+        ok: false,
+        message: "Este proyecto no tiene repo configurado."
+      }, 400);
+    }
+
+    if (restoreVersionId) {
+      const restored = await prepareRestorePublication({
+        context,
+        access,
+        project,
+        token,
+        owner,
+        repo,
+        branch,
+        versionId: restoreVersionId
+      });
+
+      return json({
+        ok: true,
+        ...restored,
+        warnings: []
+      });
+    }
+
     const allowedPages = new Set(projectEditorPages(project));
     const requestedPages = pages.map(page => normalizePath(page.path));
     const forbiddenPages = requestedPages.filter(path => !allowedPages.has(path));
@@ -837,12 +1422,20 @@ export async function onRequestPost(context) {
       }, 403);
     }
 
-    const owner = project.site_repo_owner;
-    const repo = project.site_repo_name;
-    const branch = liveBranch(project);
-    if (!owner || !repo) return json({ ok: false, message: "Este proyecto no tiene repo configurado." }, 400);
-
-    const bundled = await bundleRepoImages(pages, context.env, project);
+    const bundled = await bundleRepoImages(pages, context.env, project, {
+      token,
+      owner,
+      repo,
+      branch
+    });
+    pendingVersion = await createPendingVersion({
+      request: context.request,
+      env: context.env,
+      project,
+      user: access.user,
+      pages,
+      bundled
+    });
 
     let syncedBaseFiles = 0;
     let deletedBaseFiles = 0;
@@ -899,6 +1492,17 @@ export async function onRequestPost(context) {
       });
     }
 
+    const commitRef = await githubJson(
+      `${GITHUB_API}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/ref/heads/${encodeURIComponent(branch)}`,
+      token
+    );
+    const publishedVersion = await markVersionPublished(
+      context.request,
+      context.env,
+      pendingVersion.id,
+      commitRef?.object?.sha || null
+    );
+
     const warnings = [];
     if (syncedBaseFiles) warnings.push(`${syncedBaseFiles} archivo(s) de la versión base se copiaron a la rama publicada.`);
     if (deletedBaseFiles) warnings.push(`${deletedBaseFiles} archivo(s) sobrante(s) se borraron de la rama publicada para dejarla alineada con la versión base.`);
@@ -911,10 +1515,30 @@ export async function onRequestPost(context) {
       drafts: savedDrafts,
       copied: bundled.copied,
       failed: bundled.failed,
+      version: publishedVersion,
       warnings
     });
   } catch (error) {
+    if (pendingVersion?.id) {
+      await failVersion({ request: context.request, env: context.env, version: pendingVersion }).catch(cleanupError => {
+        console.error("No pudimos limpiar la versión pendiente", cleanupError);
+      });
+    }
     console.error(error);
-    return json({ ok: false, message: "No pudimos publicar en GitHub." }, 500);
+    const code = String(error?.message || "");
+    const status = code === "VERSION_NOT_FOUND"
+      ? 404
+      : [
+          "VERSION_LIMIT_REACHED",
+          "RESTORE_PLAN_NOT_FOUND",
+          "RESTORE_PLAN_NOT_READY",
+          "RESTORE_PLAN_SNAPSHOT_MISMATCH",
+          "GITHUB_BRANCH_CONFLICT"
+        ].includes(code)
+      ? 409
+      : code === "VERSION_STORAGE_NOT_CONFIGURED"
+        ? 503
+        : 500;
+    return json({ ok: false, code: code || "EDITOR_PUBLISH_FAILED", message: versionErrorMessage(error) }, status);
   }
 }

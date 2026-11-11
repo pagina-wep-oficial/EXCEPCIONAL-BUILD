@@ -34,9 +34,23 @@
         <button class="button button-light" id="editor-v2-base" type="button" title="Volver a la versión base guardada del proyecto">Usar versión base</button>
         <button class="button button-light" id="editor-v2-reset" type="button" title="Descartar los cambios no publicados de esta página">Restablecer página</button>
         <button class="button button-light" id="editor-v2-preview" type="button">Vista previa</button>
+        <button class="button button-light" id="editor-v2-history" type="button">Historial</button>
         <button class="button button-primary" id="editor-v2-publish" type="button">Publicar cambios</button>
       </div>
     </header>
+
+    <section class="editor-restore-notice" id="editor-v2-restore-notice" role="status" hidden>
+      <div>
+        <strong>Revisión de una versión recuperada</strong>
+        <p id="editor-v2-restore-copy"></p>
+      </div>
+      <div class="editor-restore-actions">
+        <span>No se puede editar durante esta revisión.</span>
+        <button class="button button-light button-small" id="editor-v2-cancel-restore" type="button">
+          Cancelar recuperación
+        </button>
+      </div>
+    </section>
 
     <section class="editor-page-tabs" id="editor-v2-page-tabs"></section>
 
@@ -108,6 +122,19 @@
         <button class="button button-primary" id="editor-v2-confirm-ok" type="button">Sí, publicar</button>
         <a class="button button-primary" id="editor-v2-confirm-view" href="#" target="_blank" rel="noopener" hidden>Abrir página actualizada</a>
         <button class="button button-light" id="editor-v2-confirm-done" type="button" hidden>Seguir editando</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="editor-modal-backdrop" id="editor-history-modal" hidden>
+    <div class="editor-modal editor-history-modal" role="dialog" aria-modal="true" aria-labelledby="editor-history-title">
+      <p class="editor-eyebrow">Versiones</p>
+      <h2 id="editor-history-title">Historial de publicaciones</h2>
+      <p class="editor-modal-copy">Recupera una publicación para revisarla. Cuando confirmes, se restaurará como una copia exacta con sus páginas y medios.</p>
+      <p class="editor-modal-note" id="editor-history-capacity">0/40 publicaciones dentro de los últimos 7 días.</p>
+      <div class="editor-history-list" id="editor-history-list"></div>
+      <div class="editor-modal-actions">
+        <button class="button button-light" id="editor-history-close" type="button">Cerrar</button>
       </div>
     </div>
   </div>
