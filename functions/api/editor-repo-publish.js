@@ -423,12 +423,11 @@ async function syncBranchSnapshotExact({ token, owner, repo, fromBranch, toBranc
   return { copiedFiles, deletedFiles };
 }
 
-async function syncSelectedFilesFromBranch({
+async function readSelectedFilesFromBranch({
   token,
   owner,
   repo,
   fromBranch,
-  toBranch,
   paths = []
 }) {
   const wanted = [...new Set(
@@ -437,7 +436,7 @@ async function syncSelectedFilesFromBranch({
       .filter(Boolean)
   )];
 
-  if (!wanted.length) return { copiedFiles: [] };
+  if (!wanted.length) return [];
 
   const tree = await githubGetBranchTree({
     token,
@@ -453,29 +452,23 @@ async function syncSelectedFilesFromBranch({
   );
 
   const missing = wanted.filter(path => !filesByPath.has(path));
+
   if (missing.length) {
     throw new Error(`La versión base no contiene: ${missing.join(", ")}`);
   }
 
-  for (const path of wanted) {
+  return Promise.all(wanted.map(async path => {
     const source = filesByPath.get(path);
     const blob = await githubGetBlob(token, owner, repo, source.sha);
-    const data = String(blob?.content || "").replace(/\n/g, "");
+    const data = String(blob?.content || "").replace(/\s/g, "");
 
-    await upsertGitHubFile({
-      token,
-      owner,
-      repo,
-      branch: toBranch,
-      path,
-      data,
-      message: `Restaura ${path} desde ${fromBranch}`
-    });
-  }
+    if (!data) {
+      throw new Error(`No pudimos leer ${path} desde la versión base.`);
+    }
 
-  return { copiedFiles: wanted };
+    return { path, data };
+  }));
 }
-
 function basePresentationPaths(pages = []) {
   const paths = new Set();
 
@@ -1172,7 +1165,8 @@ async function prepareRestorePublication({
   owner,
   repo,
   branch,
-  versionId
+  versionId,
+  pages
 }) {
   let plan = null;
   let pendingVersion = null;
@@ -1205,12 +1199,25 @@ async function prepareRestorePublication({
     const snapshotPagePaths = manifest.pages.map(page => normalizePath(page.path));
     const snapshotAssetPaths = manifest.assets.map(asset => normalizePath(asset.path));
 
-    if (
-      !samePathSet(plan.snapshot_page_paths, snapshotPagePaths) ||
-      !samePathSet(plan.snapshot_asset_paths, snapshotAssetPaths)
-    ) {
+    const requestedPages = (Array.isArray(pages) ? pages : [])
+      .map(page => ({
+        path: normalizePath(page?.path),
+        elements: page?.elements && typeof page.elements === "object"
+          ? page.elements
+          : {}
+      }))
+      .filter(page => page.path);
+
+    if (!samePathSet(
+      requestedPages.map(page => page.path),
+      snapshotPagePaths
+    )) {
       throw new Error("RESTORE_PLAN_SNAPSHOT_MISMATCH");
     }
+
+    const editsByPath = new Map(
+      requestedPages.map(page => [page.path, page.elements])
+    );
 
     const restoredAssets = await readVersionAssetFiles(
       context.request,
@@ -1219,16 +1226,40 @@ async function prepareRestorePublication({
       manifest
     );
 
+    const recoveredPages = await Promise.all(
+      manifest.pages.map(async page => {
+        const path = normalizePath(page.path);
+        const elements = editsByPath.get(path) || {};
+
+        const safeElements = Object.fromEntries(
+          Object.entries(elements).filter(([key, entry]) =>
+            key !== DRAFT_META_KEY &&
+            entry &&
+            typeof entry === "object" &&
+            ["text", "link"].includes(entry.type)
+          )
+        );
+
+        const publishedHtml = await applyEditorPatchesToHtml(
+          String(page.html || ""),
+          safeElements
+        );
+
+        return {
+          path,
+          published_html: publishedHtml,
+          draft_html: publishedHtml,
+          draft_elements: {}
+        };
+      })
+    );
+
     const bundled = {
-      pages: manifest.pages.map(page => ({
-        path: page.path,
-        published_html: page.html,
-        draft_html: page.html,
-        draft_elements: {}
-      })),
+      pages: recoveredPages,
       assetFiles: restoredAssets.map(asset => ({
         path: asset.path,
         data: asset.data,
+        content_type: asset.content_type,
         message: `Restaura ${asset.path} desde el historial`
       })),
       snapshotAssets: restoredAssets,
@@ -1355,6 +1386,7 @@ async function prepareRestorePublication({
 
 export async function onRequestPost(context) {
   let pendingVersion = null;
+  let commitAccepted = false;
   try {
     const token = context.env.GITHUB_TOKEN;
     if (!token) return json({ ok: false, message: "Falta configurar GITHUB_TOKEN en Cloudflare Pages." }, 500);
@@ -1401,7 +1433,8 @@ export async function onRequestPost(context) {
         owner,
         repo,
         branch,
-        versionId: restoreVersionId
+        versionId: restoreVersionId,
+        pages
       });
 
       return json({
@@ -1437,71 +1470,69 @@ export async function onRequestPost(context) {
       bundled
     });
 
-    let syncedBaseFiles = 0;
-    let deletedBaseFiles = 0;
-    if (useBaseSnapshot && baseBranch !== branch) {
-      const baseSync = await syncSelectedFilesFromBranch({
-        token,
-        owner,
-        repo,
-        fromBranch: baseBranch,
-        toBranch: branch,
-        paths: basePresentationPaths(pages)
-      });
+    const baseWrites = useBaseSnapshot && baseBranch !== branch
+      ? await readSelectedFilesFromBranch({
+          token,
+          owner,
+          repo,
+          fromBranch: baseBranch,
+          paths: basePresentationPaths(pages)
+        })
+      : [];
 
-      syncedBaseFiles = baseSync.copiedFiles.length;
-    }
+    const syncedBaseFiles = baseWrites.length;
+    const deletedBaseFiles = 0;
 
-    const published = [];
+    const commit = await githubCommitFilesAtomically({
+      token,
+      owner,
+      repo,
+      branch,
+      writes: [
+        ...baseWrites,
+        ...bundled.assetFiles.map(asset => ({
+          path: asset.path,
+          data: asset.data
+        })),
+        ...bundled.pages.map(page => ({
+          path: page.path,
+          data: textToBase64(page.published_html)
+        }))
+      ],
+      deletes: [],
+      message: "Publica cambios desde el editor Excepcional Build"
+    });
+
+    commitAccepted = true;
+
+    const publishedVersion = await markVersionPublished(
+      context.request,
+      context.env,
+      pendingVersion.id,
+      commit.sha
+    );
+
+    pendingVersion = null;
+
+    const published = bundled.pages.map(page => page.path);
     const savedDrafts = [];
 
-    for (const asset of bundled.assetFiles) {
-      await upsertGitHubFile({
-        token,
-        owner,
-        repo,
-        branch,
-        path: asset.path,
-        data: asset.data,
-        message: asset.message
-      });
-    }
-
     for (const page of bundled.pages) {
-      await upsertGitHubFile({
-        token,
-        owner,
-        repo,
-        branch,
-        path: page.path,
-        data: textToBase64(page.published_html),
-        message: `Actualiza ${page.path} desde editor Excepcional Build`
+      const nextDraftElements = withDraftAssetBranch({}, branch, {
+        published: true
       });
 
-      const nextDraftElements = withDraftAssetBranch({}, branch, { published: true });
       const saved = await updateDraftRecord(context, access, {
         ...page,
         draft_elements: nextDraftElements
       });
 
-      published.push(page.path);
       savedDrafts.push({
         page_path: page.path,
         edited_html: saved?.edited_html || page.draft_html,
         elements: saved?.elements || nextDraftElements
       });
     }
-
-    const commitRef = await githubJson(
-      `${GITHUB_API}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/ref/heads/${encodeURIComponent(branch)}`,
-      token
-    );
-    const publishedVersion = await markVersionPublished(
-      context.request,
-      context.env,
-      pendingVersion.id,
-      commitRef?.object?.sha || null
-    );
 
     const warnings = [];
     if (syncedBaseFiles) warnings.push(`${syncedBaseFiles} archivo(s) de la versión base se copiaron a la rama publicada.`);
@@ -1519,7 +1550,7 @@ export async function onRequestPost(context) {
       warnings
     });
   } catch (error) {
-    if (pendingVersion?.id) {
+    if (pendingVersion?.id && !commitAccepted) {
       await failVersion({ request: context.request, env: context.env, version: pendingVersion }).catch(cleanupError => {
         console.error("No pudimos limpiar la versión pendiente", cleanupError);
       });

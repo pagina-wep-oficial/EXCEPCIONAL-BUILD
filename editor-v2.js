@@ -315,26 +315,49 @@
     const list = $("#editor-history-list");
     const capacity = $("#editor-history-capacity");
     const restoreActive = hasActiveRestorePlan();
+
     if (!list) return;
-    if (capacity) capacity.textContent = `${state.versionHistory.length}/${state.versionLimit} publicaciones dentro de los últimos 7 días.`;
+
+    if (capacity) capacity.textContent =
+      `${state.versionHistory.length}/${state.versionLimit} versiones disponibles durante los últimos 7 días.`;
+
     if (!state.versionHistory.length) {
-      list.innerHTML = '<p class="editor-history-empty">Todavía no hay publicaciones guardadas en el historial.</p>';
+      list.innerHTML =
+        '<p class="editor-history-empty">Todavía no hay publicaciones guardadas en el historial.</p>';
       return;
     }
-    list.innerHTML = state.versionHistory.map(version => {
+
+    list.innerHTML = state.versionHistory.map((version, index) => {
       const protectedVersion = state.protectedVersionIds.has(version.id);
-      const title = `Publicación ${safe(String(version.version_number || ""))}`;
-      const details = `${safe(versionDate(version.published_at || version.created_at))} · ${safe(version.summary || "Página publicada")}`;
+      const position = index + 1;
+      const total = state.versionHistory.length;
+      const title = `Versión ${safe(String(version.version_number || ""))}`;
+      const details =
+        `${position} de ${total} disponibles · ` +
+        `${safe(versionDate(version.published_at || version.created_at))} · ` +
+        `${safe(version.summary || "Página publicada")}`;
+
       return `<article class="editor-history-item">
-        <div><strong>${title}</strong><span>${details}${protectedVersion ? " · Protegida" : ""}</span></div>
+        <div>
+          <strong>${title}</strong>
+          <span>${details}${protectedVersion ? " · Protegida" : ""}</span>
+        </div>
         <div class="editor-history-item-actions">
-          <button class="button button-small" type="button" data-history-restore="${safe(version.id)}"${restoreActive ? " disabled" : ""}>Recuperar</button>
-          ${protectedVersion ? "" : `<button class="button button-small button-danger" type="button" data-history-delete="${safe(version.id)}">Borrar</button>`}
+          <button class="button button-small" type="button"
+            data-history-restore="${safe(version.id)}"
+            ${restoreActive ? " disabled" : ""}>
+            Recuperar
+          </button>
+          ${protectedVersion ? "" : `
+            <button class="button button-small button-danger" type="button"
+              data-history-delete="${safe(version.id)}">
+              Borrar
+            </button>
+          `}
         </div>
       </article>`;
     }).join("");
   }
-
   async function loadVersionHistory() {
     if (!state.project?.id || !state.session?.access_token) return;
     try {
@@ -360,6 +383,49 @@
     loadVersionHistory();
   }
 
+  function confirmEditorAction({
+    title,
+    copy,
+    note = "",
+    confirmText = "Continuar",
+    cancelText = "Cancelar",
+    destructive = false
+  }) {
+    const overlay = $("#editor-v2-action-confirm");
+    const titleEl = $("#editor-v2-action-confirm-title");
+    const copyEl = $("#editor-v2-action-confirm-copy");
+    const noteEl = $("#editor-v2-action-confirm-note");
+    const cancel = $("#editor-v2-action-confirm-cancel");
+    const ok = $("#editor-v2-action-confirm-ok");
+
+    if (!overlay || !titleEl || !copyEl || !cancel || !ok) {
+      return Promise.resolve(false);
+    }
+
+    titleEl.textContent = title;
+    copyEl.textContent = copy;
+    noteEl.textContent = note;
+    noteEl.hidden = !note;
+    cancel.textContent = cancelText;
+    ok.textContent = confirmText;
+    ok.classList.toggle("button-danger", destructive);
+    ok.classList.toggle("button-primary", !destructive);
+    overlay.hidden = false;
+
+    return new Promise(resolve => {
+      const finish = accepted => {
+        overlay.hidden = true;
+        cancel.onclick = null;
+        ok.onclick = null;
+        resolve(accepted);
+      };
+
+      cancel.onclick = () => finish(false);
+      ok.onclick = () => finish(true);
+      ok.focus();
+    });
+  }
+
   async function restoreVersion(versionId) {
     if (hasActiveRestorePlan()) {
       setStatus("Primero publica o cancela la recuperación que estás revisando.", "error");
@@ -367,7 +433,16 @@
     }
 
     const version = state.versionHistory.find(item => item.id === versionId);
-    if (!version || !confirm(`¿Recuperar la publicación ${version.version_number || "seleccionada"} para revisarla?`)) return;
+    if (!version) return;
+
+    const confirmed = await confirmEditorAction({
+      title: `¿Recuperar la versión ${version.version_number || "seleccionada"}?`,
+      copy: "Crearás una copia temporal para revisarla y editarla. Tu sitio y tus borradores normales no cambiarán todavía.",
+      confirmText: "Recuperar versión",
+      cancelText: "Cancelar"
+    });
+
+    if (!confirmed) return;
     const button = document.querySelector(`[data-history-restore="${CSS.escape(versionId)}"]`);
     if (button) button.disabled = true;
     try {
@@ -383,6 +458,8 @@
       if (!response.ok || !result?.ok) throw new Error(result?.message || "No se pudo recuperar la versión.");
       state.restorePlan = result.restore_plan || null;
       await loadRestorePreviewAssets();
+      clearEditorSelection();
+      state.mode = "edit";
       $("#editor-history-modal").hidden = true;
       await loadRepoPages(state.project);
       syncRestoreReviewInterface();
@@ -406,9 +483,16 @@
   async function cancelRestoreReview() {
     if (!hasActiveRestorePlan()) return;
 
-    if (!confirm("¿Cancelar esta recuperación? Tus borradores normales no se modificarán.")) {
-      return;
-    }
+    const confirmed = await confirmEditorAction({
+      title: "¿Cancelar esta recuperación?",
+      copy: "Los cambios hechos en esta copia temporal se descartarán.",
+      note: "Tus borradores normales y tu sitio publicado no cambiarán.",
+      confirmText: "Cancelar recuperación",
+      cancelText: "Seguir editando",
+      destructive: true
+    });
+
+    if (!confirmed) return;
 
     const button = $("#editor-v2-cancel-restore");
     if (button) button.disabled = true;
@@ -434,6 +518,8 @@
 
       state.restorePlan = null;
       clearRestorePreviewAssets();
+      clearEditorSelection();
+      state.mode = "edit";
 
       await loadVersionHistory();
       await loadRepoPages(state.project);
@@ -461,7 +547,15 @@
   async function deleteVersion(versionId) {
     const version = state.versionHistory.find(item => item.id === versionId);
     if (!version || state.protectedVersionIds.has(versionId)) return;
-    if (!confirm(`¿Borrar la publicación ${version.version_number || "seleccionada"}? Esta acción no se puede deshacer.`)) return;
+    const confirmed = await confirmEditorAction({
+      title: `¿Borrar la versión ${version.version_number || "seleccionada"}?`,
+      copy: "Se eliminará del historial y no podrás recuperarla después.",
+      confirmText: "Borrar versión",
+      cancelText: "Conservar versión",
+      destructive: true
+    });
+
+    if (!confirmed) return;
     const button = document.querySelector(`[data-history-delete="${CSS.escape(versionId)}"]`);
     if (button) button.disabled = true;
     try {
@@ -573,51 +667,47 @@
     const publish = $("#editor-v2-publish");
     const preview = $("#editor-v2-preview");
     const cancelRestore = $("#editor-v2-cancel-restore");
+    const save = $("#editor-v2-save");
+    const base = $("#editor-v2-base");
+    const reset = $("#editor-v2-reset");
 
-    if (active) {
-      state.mode = "preview";
-      clearEditorSelection();
-    }
+    if (active) state.mode = "edit";
 
-    ["editor-v2-save", "editor-v2-base", "editor-v2-reset", "editor-v2-preview"]
-      .forEach(id => {
-        const control = $(`#${id}`);
-        if (control) control.disabled = active;
-      });
+    if (save) save.disabled = active;
+    if (base) base.disabled = active;
+    if (reset) reset.disabled = false;
 
     if (publish) {
       publish.disabled = false;
       publish.textContent = active
-        ? "Publicar versión recuperada"
+        ? "Publicar copia recuperada"
         : "Publicar cambios";
     }
 
     if (preview) {
-      preview.textContent = active
-        ? "Vista de recuperación"
-        : state.mode === "preview"
-          ? "Seguir editando"
-          : "Vista previa";
+      preview.disabled = false;
+      preview.textContent = state.mode === "preview"
+        ? "Seguir editando"
+        : "Vista previa";
     }
 
     if (notice) notice.hidden = !active;
     if (cancelRestore) cancelRestore.hidden = !active;
 
     if (copy) {
-      copy.textContent = state.restorePlan?.status === "failed"
-        ? "La publicación anterior no se completó. Puedes revisar esta copia e intentarlo otra vez."
-        : "Esta copia incluye las páginas y medios de la versión seleccionada. Puedes recorrerla, pero no modificarla.";
+      copy.textContent = active
+        ? "Estás editando una copia temporal de la versión recuperada. Nada cambia en tu sitio hasta publicar esta copia."
+        : "";
     }
 
     if (projectCopy) {
       projectCopy.textContent = active
-        ? "Revisa la versión recuperada y publícala cuando estés seguro."
+        ? "Edita esta copia, revisa el resultado y publícala cuando estés listo."
         : "Edita lo que ves, revisa los cambios y publícalos cuando estés listo.";
     }
 
     updateUndoButtons();
   }
-
   function repoApiUrl(project, path = "", mode = "token", branchOverride = "") {
     const fullPath = repoFullPath(project, path);
     const branch = String(branchOverride || liveRepoBranch(project)).trim() || "main";
@@ -1406,6 +1496,34 @@
     `;
   }
 
+  function refreshCurrentSelectionFromFrame() {
+    if (!state.currentKey || state.mode !== "edit") return;
+
+    const frame = $("#editor-v2-frame");
+    const doc = frame?.contentDocument;
+    const node = doc?.querySelector(
+      `[data-eb-key="${CSS.escape(state.currentKey)}"]`
+    );
+
+    if (!node) {
+      clearEditorSelection();
+      return;
+    }
+
+    const meta = readNodeMeta(node);
+
+    state.currentKey = meta.key;
+    state.currentType = meta.type || "text";
+    state.currentRole = meta.role;
+    state.currentKind = meta.kind;
+    state.currentSection = meta.section;
+    state.currentFuture = meta.future;
+    state.currentNodeMode = meta.nodeMode;
+    state.currentNodeValue = meta.nodeMode === "active"
+      ? readNodeValue(node, meta.type)
+      : "";
+  }
+
   function renderSidebar() {
     const empty = $("#editor-v2-sidebar-empty");
     const form = $("#editor-v2-form");
@@ -1429,6 +1547,21 @@
 
     if (state.currentNodeMode === "future") {
       fields.innerHTML = `${renderNodeMetaSummary()}${renderFutureNotice()}`;
+      return;
+    }
+
+    if (
+      hasActiveRestorePlan() &&
+      !["text", "link"].includes(type)
+    ) {
+      fields.innerHTML = `
+        ${renderNodeMetaSummary()}
+        <div class="editor-history-empty">
+          Esta copia conserva sus imágenes, videos y contenido histórico.
+          Para que cancelar no deje archivos nuevos sin publicar, durante una
+          recuperación sólo puedes editar texto y enlaces.
+        </div>
+      `;
       return;
     }
 
@@ -2375,7 +2508,12 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
   }
 
   function updateCurrentValue(rawValue, photoMeta) {
-    if (hasActiveRestorePlan()) return;
+    if (
+      hasActiveRestorePlan() &&
+      !["text", "link"].includes(state.currentType)
+    ) {
+      return;
+    }
     const draft = currentDraft();
     if (!draft || !state.currentKey) return;
 
@@ -2417,8 +2555,8 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
     const undo = $("#editor-v2-undo");
     const redo = $("#editor-v2-redo");
     if (!undo || !redo) return;
-    undo.disabled = hasActiveRestorePlan() || state.historyIndex <= 0;
-    redo.disabled = hasActiveRestorePlan() || state.historyIndex >= state.history.length - 1;
+    undo.disabled = state.historyIndex <= 0;
+    redo.disabled = state.historyIndex >= state.history.length - 1;
   }
 
   function pushHistory() {
@@ -2485,7 +2623,6 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
   }
 
   function undoAction() {
-    if (hasActiveRestorePlan()) return;
     if (state.historyIndex <= 0) return;
     state.historyIndex--;
     restoreSnapshot(state.history[state.historyIndex]);
@@ -2494,7 +2631,6 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
   }
 
   function redoAction() {
-    if (hasActiveRestorePlan()) return;
     if (state.historyIndex >= state.history.length - 1) return;
     state.historyIndex++;
     restoreSnapshot(state.history[state.historyIndex]);
@@ -2506,7 +2642,14 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
   async function restoreBase() {
     if (hasActiveRestorePlan()) return;
     const branch = baseRepoBranch();
-    if (!confirm("¿Usar la versión base?\n\nSe cargarán los cambios base del proyecto. Nada se publicará hasta que pulses Publicar.")) return;
+    const confirmed = await confirmEditorAction({
+      title: "¿Usar la versión base?",
+      copy: "Se cargarán los cambios base del proyecto. Nada se publicará hasta que pulses Publicar cambios.",
+      confirmText: "Usar versión base",
+      cancelText: "Seguir editando"
+    });
+
+    if (!confirmed) return;
 
     const baseBtn = $("#editor-v2-base");
     if (baseBtn) baseBtn.disabled = true;
@@ -2807,6 +2950,8 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
   }
 
   async function saveRepoDraft(silent = false) {
+    if (hasActiveRestorePlan()) return true;
+
     syncRepoDraftFromFrame();
 
     const draft = currentDraft();
@@ -2829,11 +2974,18 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
     }
   }
 
-  async function saveDraft(silent) {
-    if (hasActiveRestorePlan()) return;
+  async function saveDraft(silent = false) {
     const draft = currentDraft();
-    if (!draft) return;
-    await saveRepoDraft(silent);
+    if (!draft) return true;
+
+    if (hasActiveRestorePlan()) {
+      if (!silent) {
+        setStatus("Cambios guardados sólo en esta copia temporal.");
+      }
+      return true;
+    }
+
+    return saveRepoDraft(silent);
   }
 
   function hasUnpublishedChanges() {
@@ -2987,13 +3139,13 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
 
     if (copy) {
       copy.textContent = restoring
-        ? "Publicaremos una copia exacta de la versión recuperada, incluidas sus páginas y medios."
+        ? "Publicaremos una nueva versión con los cambios que hiciste sobre la copia recuperada. La versión original no se modifica."
         : "Guardaremos tu portada y actualizaremos tu página.";
     }
 
     if (note) {
       note.textContent = restoring
-        ? "No se incluirán cambios adicionales durante la restauración."
+        ? "Se conservarán los medios históricos y se aplicarán los textos y enlaces que editaste."
         : "Verificaremos la página antes de ofrecerte abrirla.";
     }
 
@@ -3082,14 +3234,12 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
         draft => draftAssetBranch(draft) === baseBranch
       );
 
-    const pages = restoring
-      ? []
-      : [...state.repoDrafts.values()].map(draft => ({
-          path: draft.path,
-          original_html: draft.original_html,
-          edited_html: draft.edited_html,
-          elements: draft.elements || {}
-        }));
+    const pages = [...state.repoDrafts.values()].map(draft => ({
+      path: draft.path,
+      original_html: draft.original_html,
+      edited_html: draft.edited_html,
+      elements: draft.elements || {}
+    }));
 
     setStatus(EDITOR_STATUS_COPY.publishing);
 
@@ -3143,6 +3293,7 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
     if (restoring) {
       state.restorePlan = null;
       clearRestorePreviewAssets();
+      clearEditorSelection();
 
       if (result.project && typeof result.project === "object") {
         state.project = {
@@ -3186,6 +3337,7 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
       });
 
       applyDraftToFrame();
+      refreshCurrentSelectionFromFrame();
       renderSidebar();
       void loadVersionHistory();
     }
@@ -3216,7 +3368,6 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
   }
 
   async function resetDraft() {
-    if (hasActiveRestorePlan()) return;
     const draft = currentDraft();
     if (draft) {
       draft.edited_html = draft.original_html;
@@ -3242,12 +3393,6 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
   }
 
   function togglePreview() {
-    if (hasActiveRestorePlan()) {
-      state.mode = "preview";
-      syncRestoreReviewInterface();
-      loadFrame();
-      return;
-    }
     state.mode = state.mode === "edit" ? "preview" : "edit";
     state.currentKey = "";
     state.currentType = "";
@@ -4426,10 +4571,6 @@ function readNodeValue(node, type) {
     };
 
     document.addEventListener("keydown", e => {
-      if (hasActiveRestorePlan()) {
-        e.preventDefault();
-        return;
-      }
       if (!(e.ctrlKey || e.metaKey)) return;
       const key = e.key.toLowerCase();
       if (key === "z" && !e.shiftKey) {

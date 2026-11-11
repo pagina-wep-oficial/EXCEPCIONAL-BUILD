@@ -45,7 +45,7 @@
         <p id="editor-v2-restore-copy"></p>
       </div>
       <div class="editor-restore-actions">
-        <span>No se puede editar durante esta revisión.</span>
+        <span>Puedes editar texto y enlaces. Estos cambios sólo existen aquí hasta publicar.</span>
         <button class="button button-light button-small" id="editor-v2-cancel-restore" type="button">
           Cancelar recuperación
         </button>
@@ -110,6 +110,23 @@
     </div>
   </main>
 
+  <div class="editor-modal-backdrop" id="editor-v2-action-confirm" hidden>
+    <div class="editor-modal" role="dialog" aria-modal="true"
+      aria-labelledby="editor-v2-action-confirm-title">
+      <p class="editor-eyebrow">Confirmación</p>
+      <h2 id="editor-v2-action-confirm-title"></h2>
+      <p class="editor-modal-copy" id="editor-v2-action-confirm-copy"></p>
+      <p class="editor-modal-note" id="editor-v2-action-confirm-note" hidden></p>
+      <div class="editor-modal-actions">
+        <button class="button button-light" id="editor-v2-action-confirm-cancel" type="button">
+          Cancelar
+        </button>
+        <button class="button button-primary" id="editor-v2-action-confirm-ok" type="button">
+          Continuar
+        </button>
+      </div>
+    </div>
+  </div>
   <div class="editor-modal-backdrop" id="editor-v2-confirm" hidden>
     <div class="editor-modal" role="dialog" aria-modal="true" aria-labelledby="editor-v2-confirm-title">
       <p class="editor-eyebrow">Confirmación</p>
