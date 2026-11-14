@@ -96,3 +96,13 @@ https://a0f3097d.excepcional-build.pages.dev. En el navegador se comprobó tambi
 el cambio a Catálogo, sus dos ofertas ficticias, navegación sin carrito/pedidos y
 detalle con aviso y Ver oferta. La última revisión ajusta además el título de la
 pestaña para no decir Hacer pedido cuando se administra Catálogo.
+
+Publicación final: https://c4a03769.excepcional-build.pages.dev
+Código publicado: `e8e31f8`; URL estable: https://excepcional-build.pages.dev/demo.html
+En móvil de 390 px se comprobaron dos columnas de productos de 178 px, sin
+desbordamiento horizontal. Detalle de Catálogo cargado con Ver oferta y aviso;
+consola sin errores. Se restauró el tamaño del navegador y se dejó abierta la
+entrada de la demo. Evidencia: `/tmp/casa-nopal-demo-publicada.jpg`.
+Los commits de implementación son locales en la rama aislada; no se envió a
+GitHub ni se sobrescribió main remoto. La publicación se hizo directamente al
+proyecto Pages existente con el commit indicado y desde el stage limpio.
