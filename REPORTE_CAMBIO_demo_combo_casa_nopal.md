@@ -81,3 +81,14 @@ El estado local v3 se mantiene aislado y no altera las claves antiguas.
 8. Revisar en móvil y restablecer demo tras confirmar; no cambia ningún proyecto real.
 
 La validación visual final del usuario se realiza en la URL publicada, no en local.
+
+## Resultado de publicación
+Primera publicación completada: https://916d492e.excepcional-build.pages.dev
+Se comprobaron por HTTP los 103 archivos públicos del stage: todos devolvieron
+200 y SHA-256 idéntico al archivo local, incluida la portada y demo.html.
+En el navegador sobre la URL pública se verificaron la entrada, panel, proyecto,
+administración, guardado de un producto ficticio y su aparición con descuento.
+La revisión encontró y corrigió una inconsistencia de etiquetas de visibilidad
+en productos antiguos sin `enabled`: se conserva el comportamiento visible por
+defecto que tenían, sin modificar sus claves v2. El panel nombra el recorrido
+Tienda o Catálogo según corresponda. Se publica una revisión final con estos ajustes.

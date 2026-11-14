@@ -12,6 +12,9 @@
   document.querySelector("#project-mode-label").textContent = window.DemoStore.catalogType === "external_catalog" ? "Presentación + Catálogo" : "Presentación + Tienda";
   document.querySelectorAll("#project-back-link,#project-back-top,#project-back-bottom,#project-mobile-back").forEach((link) => { link.href = panelUrl; });
   document.querySelector("#project-site-link").href = siteUrl;
+  const catalogLabel = window.DemoStore.catalogType === "external_catalog" ? "Catálogo" : "Tienda";
+  document.querySelector("#project-catalog-card h2").textContent = catalogLabel;
+  document.querySelector("#project-catalog-link").textContent = `Ver ${catalogLabel.toLowerCase()} →`;
   const tools = document.querySelector("#project-tools-list");
   document.querySelector("#project-tools-summary-icon").innerHTML = siteToolIcon("tools");
   const tool = (href, title, copy, kind) => `<section class="site-tool"><span class="site-tool-icon site-tool-${kind}" aria-hidden="true">${siteToolIcon(kind)}</span><div class="site-tool-copy"><span>Herramienta</span><strong>${title}</strong><p>${copy}</p></div><div class="site-tool-action"><a class="button button-primary tool-open-button" href="${href}">Abrir →</a></div></section>`;

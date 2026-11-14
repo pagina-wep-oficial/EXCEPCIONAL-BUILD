@@ -40,6 +40,7 @@
       const source = saved.catalogs?.[type];
       if (!source) continue;
       for (const key of ["products", "categories", "customUnits"]) if (Array.isArray(source[key])) base.catalogs[type][key] = source[key];
+      base.catalogs[type].products.forEach(item => { item.enabled = item.enabled !== false; });
       if (type === "external_catalog") base.catalogs[type].settings = { ...base.catalogs[type].settings, ...source.settings };
     }
     return base;
@@ -52,6 +53,7 @@
     const migrated = normalize(legacy);
     for (const key of ["products", "categories", "customUnits"]) if (Array.isArray(legacy[key])) migrated.catalogs.commerce[key] = clone(legacy[key]);
     migrated.catalogs.commerce.products.forEach(item => {
+      item.enabled = item.enabled !== false;
       item.currency_id ||= "demo-mxn";
       item.media = (item.media || []).map(media => ({ type: "image", ...media }));
     });
