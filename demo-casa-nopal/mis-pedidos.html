@@ -1,0 +1,85 @@
+﻿<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Mis pedidos | Casa Nopal</title>
+    <meta name="description" content="Seguimiento de pedidos realizados desde este dispositivo.">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231b6b5f'/%3E%3Cpath d='M18 23h28l-3 22H21L18 23Z' fill='%23fff7e8'/%3E%3Cpath d='M24 23a8 8 0 0 1 16 0' fill='none' stroke='%23f4b942' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="store-design.css?v=3">
+    <link rel="stylesheet" href="../demo-combo.css?v=3">
+    <script src="store-design.js?v=3" defer></script>
+  </head>
+  <body class="orders-page" data-page="mis-pedidos" data-store-design="clay" data-store-shadow="custom" data-shadow-method="free" data-shadow-kind="drop" data-shadow-rounding="theme" data-shadow-fill="theme" data-catalog-state="pending">
+    <header class="topbar">
+      <a class="brand" href="index.html" aria-label="Inicio">
+        <img class="brand-mark" src="assets/casa-nopal-logo.svg" alt="" aria-hidden="true">
+        <span>Casa Nopal</span>
+      </a>
+      <nav class="nav" aria-label="Principal">
+        <a href="tienda.html">Hacer pedido</a>
+        <a class="cart-link" href="carrito.html" data-commerce-only>Carrito <span data-cart-count>0</span></a>
+        <a class="active" href="mis-pedidos.html" data-commerce-only>Mis pedidos</a>
+      </nav>
+      <button class="profile-corner" data-profile-corner type="button" aria-label="Abrir perfil demo"><span class="profile-avatar" data-profile-avatar aria-hidden="true">CD</span></button>
+    </header>
+
+    <main class="section">
+      <div class="orders-hero">
+        <div>
+          <p class="orders-eyebrow">TU CUENTA</p>
+          <h1>Mis pedidos</h1>
+          <p class="orders-copy">
+            Consulta el avance de tus compras y pedidos.
+          </p>
+        </div>
+        <span class="orders-hero-orbit" aria-hidden="true"></span>
+      </div>
+
+      <section class="notice" id="historyNotice"></section>
+
+      <section class="orders-workspace" id="ordersWorkspace" hidden>
+        <aside class="orders-queue">
+          <div class="orders-queue-heading">
+            <p>EN ATENCI&#211;N</p>
+            <h2>Pedidos en curso</h2>
+          </div>
+          <section
+            class="orders-queue-list"
+            id="currentOrders"
+          ></section>
+        </aside>
+
+        <section class="orders-detail" id="currentOrderDetail" hidden></section>
+      </section>
+      <section class="current-orders" id="currentOrders" hidden></section>
+
+      <div class="page-title page-title-small" id="completedOrdersHeading" hidden>
+        <div>
+          <p class="section-kicker">Compras anteriores</p>
+          <h2>Historial de pedidos</h2>
+        </div>
+      </div>
+      <section class="history-list" id="completedOrders" hidden></section>
+
+      <div class="page-title page-title-small" id="whatsappOrdersHeading" hidden>
+        <div>
+          <p class="section-kicker">Conversaciones</p>
+          <h2>Pedidos por WhatsApp</h2>
+        </div>
+        <button
+          class="button danger"
+          id="clearWhatsappHistoryBtn"
+          type="button"
+          hidden
+        >
+          Quitar pedidos guardados aquí
+        </button>
+      </div>
+      <section class="current-orders" id="whatsappOrders" hidden></section>
+    </main>
+
+<script src="../demo-state.js?v=3"></script><script src="demo-casa-nopal.js?v=3"></script>
+  </body>
+</html>

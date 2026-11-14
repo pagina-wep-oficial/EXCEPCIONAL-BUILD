@@ -1,0 +1,15 @@
+.demo-project-header{position:sticky;top:0;z-index:1000;background:rgba(255,254,250,.97);backdrop-filter:blur(12px)}
+.demo-project-heading{margin-top:5px}
+.status-published{background:#dff2e5;color:#236342}
+.demo-disabled-card{background:#fafbf8}
+.demo-disabled-badge{display:inline-flex;align-items:center;min-height:24px;padding:0 9px;border-radius:999px;background:#f1f3ef;color:#71807a;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.05em}
+.demo-disabled-action{opacity:.62;cursor:not-allowed}
+.demo-disabled-action:disabled{color:var(--ink)}
+.demo-disabled-copy{margin:12px 0 0;padding:12px;border-radius:12px;background:#f1f3ef;color:#71807a;font-size:10px;line-height:1.45}
+.demo-info-card{margin-top:13px}
+.demo-account-avatar{display:grid;place-items:center;width:34px;height:34px;border-radius:11px;background:var(--ink);color:var(--lime);font-weight:900}
+.demo-account-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 14px;border-radius:14px;background:#f5f8f4}
+.demo-account-row strong{font-size:13px}.demo-account-row span{color:var(--muted);font-size:10px}
+.demo-project-bottom{display:flex;margin:20px 0 60px}.demo-project-bottom .button{width:auto}
+.demo-tool-icon{background:var(--ink)!important;color:var(--lime)!important}
+@media(max-width:760px){.demo-project-bottom .button{width:100%;justify-content:center}.demo-project-header .portal-nav{align-items:flex-start;flex-wrap:wrap}.demo-project-header .demo-panel-badge{order:3;margin-left:0}}

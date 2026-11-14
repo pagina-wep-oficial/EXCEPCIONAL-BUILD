@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="theme-color" content="#102a24">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="portal.css">
+  <link rel="stylesheet" href="demo-project.css">
+  <title>Mi proyecto · Casa Nopal Demo</title>
+</head>
+<body data-portal-page="project">
+  <header class="portal-header demo-project-header">
+    <div class="portal-shell portal-nav">
+      <a class="portal-brand" href="demo-panel.html?mode=store" id="project-brand" aria-label="Excepcional Build, demo"><span class="portal-mark">EB</span><span>EXCEPCIONAL BUILD</span></a>
+      <span class="demo-panel-badge">Modo demo · <span id="project-mode-label">Presentación + Tienda</span></span>
+      <nav class="desktop-nav" aria-label="Navegación"><a class="is-active" href="demo-panel.html" id="project-back-top">Mis páginas</a><a href="demo.html">Elegir recorrido</a></nav>
+    </div>
+  </header>
+
+  <main class="portal-main"><div class="portal-shell portal-shell-project">
+    <a class="back-link" href="demo-panel.html" id="project-back-link">← Mis páginas</a>
+    <section class="project-heading-simple demo-project-heading">
+      <div><p class="eyebrow">Tu proyecto</p><h1>Casa Nopal Demo</h1><div><span class="status-badge status-published">Publicado</span></div></div>
+    </section>
+
+    <article class="content-card progress-card">
+      <div class="card-heading"><div><h2>Estado actual</h2><p>Tu página está publicada y disponible en internet.</p></div></div>
+      <div class="stage-track stage-track-client published-only"><div class="stage-step current"><i>✓</i><span>Publicada</span><small>Ahora</small></div></div>
+    </article>
+
+    <article class="content-card public-site-card" id="public-site-card">
+      <div class="card-heading"><div><p class="eyebrow">Página de internet</p><h2>Casa Nopal Demo</h2><p>Abre tu página para verla como visitante.</p></div></div>
+      <div class="public-site-actions"><a class="button button-primary" id="project-site-link" href="demo-casa-nopal/index.html?mode=store">Abrir mi página →</a></div>
+      <p class="public-site-note">Esta es una página local de demostración. No modifica ningún proyecto real.</p>
+    </article>
+
+    <article class="content-card demo-disabled-card" id="project-actions-card">
+      <div class="card-heading"><div><h2>¿Qué necesitas hacer ahora?</h2><p>En un proyecto real aquí pedirías cambios, mantenimiento o ayuda.</p></div><span class="demo-disabled-badge">Solo demo</span></div>
+      <div class="actions-grid"><button class="action-card demo-disabled-action" type="button" disabled><b>Solicitar un cambio</b><span>Disponible en un proyecto real.</span></button><button class="action-card demo-disabled-action" type="button" disabled><b>Pedir mantenimiento</b><span>Esta cuenta demo no puede enviar solicitudes.</span></button></div>
+      <p class="demo-disabled-copy">Esta cuenta es de demostración; estas acciones están visibles para mostrar cómo funcionaría el proyecto, pero no se pueden utilizar.</p>
+    </article>
+
+    <article class="content-card project-tools-card" id="project-tools-card">
+      <details class="site-tools-disclosure" id="project-tools-disclosure">
+        <summary><span class="site-tools-summary-icon" id="project-tools-summary-icon" aria-hidden="true"></span><span class="site-tools-summary-copy"><strong>Herramientas del sitio</strong><small id="project-tools-count">Cargando herramientas…</small></span><span class="site-tools-chevron" aria-hidden="true">⌄</span></summary>
+        <div class="site-tools-list" id="project-tools-list"></div>
+      </details>
+    </article>
+
+    <article class="content-card demo-info-card"><div class="card-heading"><div><h2>Novedades del proyecto</h2><p>Actualizaciones y mensajes relacionados con tu página.</p></div><span class="demo-disabled-badge">Demo</span></div><div class="empty-inline">No hay novedades en este proyecto de demostración.</div></article>
+    <article class="content-card demo-info-card"><div class="card-heading"><div><h2>Solicitudes y cambios</h2><p>Aquí verías tus solicitudes de mantenimiento y cambios.</p></div><span class="demo-disabled-badge">Demo</span></div><div class="empty-inline">Las solicitudes están desactivadas en la demo.</div></article>
+    <article class="content-card demo-info-card" id="project-catalog-card" hidden><div class="card-heading"><div><p class="eyebrow">Tienda</p><h2>Catálogo</h2><p>Consulta los productos de demostración conectados a tu página.</p></div></div><a class="button button-light" id="project-catalog-link" href="demo-casa-nopal/tienda.html?mode=store">Ver catálogo →</a></article>
+    <div class="demo-project-bottom"><a class="button button-light" href="demo-panel.html" id="project-back-bottom">← Volver a Mis páginas</a></div>
+  </div></main>
+  <nav class="mobile-nav" aria-label="Navegación principal"><a class="active" href="demo-panel.html" id="project-mobile-back"><span aria-hidden="true">←</span><b>Mis páginas</b></a><a class="mobile-nav-main" href="acceso.html"><span aria-hidden="true">＋</span><b>Crear cuenta</b></a></nav>
+  <script src="demo-state.js?v=3"></script><script src="demo-project.js"></script>
+</body>
+</html>

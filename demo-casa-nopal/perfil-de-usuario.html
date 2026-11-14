@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mi perfil | Casa Nopal</title>
+  <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="store-design.css?v=3">
+    <link rel="stylesheet" href="../demo-combo.css?v=3">
+    <script src="store-design.js?v=3" defer></script>
+</head>
+<body data-page="perfil" data-store-design="clay" data-store-shadow="custom" data-shadow-method="free" data-shadow-kind="drop" data-shadow-rounding="theme" data-shadow-fill="theme" data-catalog-state="pending">
+  <header class="topbar">
+    <a class="brand" href="index.html" aria-label="Inicio">
+      <img class="brand-mark" src="assets/casa-nopal-logo.svg" alt="">
+      <span>Casa Nopal</span>
+    </a>
+
+    <nav class="nav" aria-label="Principal">
+      <a href="tienda.html">Hacer pedido</a>
+      <a class="cart-link" href="carrito.html" data-commerce-only>
+        Carrito <span data-cart-count>0</span>
+      </a>
+      <a href="mis-pedidos.html" data-commerce-only>Mis pedidos</a>
+    </nav>
+    <button class="profile-corner" data-profile-corner type="button" aria-label="Abrir perfil demo"><span class="profile-avatar" data-profile-avatar aria-hidden="true">CD</span></button>
+  </header>
+
+  <main class="section">
+    <div class="page-title">
+      <div>
+        <p class="section-kicker">Cuenta del cliente</p>
+        <h1>Mi perfil</h1>
+      </div>
+    </div>
+
+    <section class="panel customer-account" id="customer-account">
+      <h2>Datos para tus pedidos</h2>
+
+      <p class="muted" id="customer-account-status" hidden aria-live="polite"></p>
+
+      <form id="customer-profile-form" hidden>
+        <label>
+          <span>Nombre</span>
+          <input id="customerName" type="text" required>
+        </label>
+
+        <label>
+          <span>WhatsApp</span>
+          <input id="customerPhone" type="tel">
+        </label>
+
+        <label>
+          <span>Dirección habitual</span>
+          <textarea id="manualLocation" rows="3"></textarea>
+        </label>
+
+        <label>
+          <span>Referencia</span>
+          <textarea id="customerReference" rows="2"></textarea>
+        </label>
+
+        <div class="customer-profile-actions">
+          <button class="button primary" id="save-customer-profile-btn" type="submit" hidden disabled>
+            Guardar cambios
+          </button>
+          <a class="button secondary" href="tienda.html">Ver catálogo</a>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <script src="../demo-state.js?v=3"></script><script src="demo-casa-nopal.js?v=3"></script>
+</body>
+</html>

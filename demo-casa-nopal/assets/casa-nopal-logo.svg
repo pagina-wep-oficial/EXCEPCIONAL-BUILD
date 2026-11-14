@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 96" role="img" aria-labelledby="title desc">
+  <title id="title">Casa Nopal</title>
+  <desc id="desc">Logotipo de Casa Nopal</desc>
+  <rect width="320" height="96" rx="24" fill="#37261e"/>
+  <path d="M66 70V48c0-9 7-16 16-16h8v-8c0-7 5-12 12-12s12 5 12 12v8h8c9 0 16 7 16 16v22H66Z" fill="#d3a34f"/>
+  <path d="M78 48h48M94 32v11M110 32v11" fill="none" stroke="#37261e" stroke-width="6" stroke-linecap="round"/>
+  <text x="154" y="59" fill="#fffdf8" font-family="Georgia,serif" font-size="28" font-weight="700">Casa Nopal</text>
+</svg>
