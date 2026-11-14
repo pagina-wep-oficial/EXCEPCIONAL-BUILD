@@ -91,4 +91,8 @@ administración, guardado de un producto ficticio y su aparición con descuento.
 La revisión encontró y corrigió una inconsistencia de etiquetas de visibilidad
 en productos antiguos sin `enabled`: se conserva el comportamiento visible por
 defecto que tenían, sin modificar sus claves v2. El panel nombra el recorrido
-Tienda o Catálogo según corresponda. Se publica una revisión final con estos ajustes.
+Tienda o Catálogo según corresponda. La revisión publicada con estos ajustes fue
+https://a0f3097d.excepcional-build.pages.dev. En el navegador se comprobó también
+el cambio a Catálogo, sus dos ofertas ficticias, navegación sin carrito/pedidos y
+detalle con aviso y Ver oferta. La última revisión ajusta además el título de la
+pestaña para no decir Hacer pedido cuando se administra Catálogo.

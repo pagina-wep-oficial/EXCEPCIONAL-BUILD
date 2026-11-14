@@ -796,6 +796,7 @@
     if (back) back.textContent = external ? "Volver al catálogo" : "Volver a tienda";
     if (page === "tienda") {
       const heading = document.querySelector(".page-title h1"); if (heading) heading.textContent = external ? "Explora el catálogo" : "Elige tu pedido";
+      document.title = `${external ? "Catálogo" : "Tienda"} | Casa Nopal Demo`;
       const kicker = document.querySelector(".page-title .section-kicker"); if (kicker) kicker.textContent = external ? "Productos disponibles" : "Pedidos por WhatsApp";
       document.querySelectorAll(".store-hours").forEach(node => { node.hidden = external; });
       if (params.has("catalog_notice")) document.querySelector("main")?.insertAdjacentHTML("afterbegin", '<p class="notice">En Catálogo no se usan carrito ni pedidos. Puedes explorar los productos aquí.</p>');
