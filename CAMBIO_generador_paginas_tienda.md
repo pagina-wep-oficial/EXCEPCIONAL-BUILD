@@ -70,3 +70,11 @@ No aplicar las migraciones ni desplegar los endpoints deja producción intacta. 
   carga igual en repositorios privados y públicos.
 - El servidor de recursos del iframe usa la misma credencial de servidor para
   entregar CSS, JavaScript, imágenes y fuentes de esos repositorios privados.
+
+## Activación de invitaciones con Google
+
+- El portal conserva la sesión que Google devuelve al abrir una invitación.
+- Antes, la invitación pendiente provocaba un cierre de sesión al volver del
+  callback de Google y el cliente quedaba atrapado en la pantalla de acceso.
+- La asignación del proyecto sigue ejecutándose mediante `claim_client_project`
+  después de completar el perfil.

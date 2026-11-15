@@ -439,8 +439,6 @@ function nextStepText(project) {
     const claim=pendingClaim();
     if(claim){ const box=$("#access-context"); box.hidden=false; box.innerHTML=`<strong>Tu proyecto${claim.name?` ${safe(claim.name)}`:""} ya está preparado.</strong><br>Entra con Google para activarlo y continuar.`; }
     let session=await getSession();
-    const invited = Boolean(getParam("claim")||getParam("invite")||claim);
-    if(session&&invited){ await db.auth.signOut(); session=null; }
     const login=$("#login-view"), profileView=$("#profile-view");
     if(session){
       const profile=await getProfile(session.user);
