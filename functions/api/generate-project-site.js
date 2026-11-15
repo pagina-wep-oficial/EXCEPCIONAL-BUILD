@@ -225,15 +225,15 @@ async function cf(token, path, options = {}, allow404 = false) {
   return body.result;
 }
 
-async function createGitPagesProject(token, accountId, name, repository) {
-  let project = await cf(token, `/accounts/${encodeURIComponent(accountId)}/pages/projects/${encodeURIComponent(name)}`, {}, true);
+async function createGitPagesProject(cfToken, githubToken, accountId, name, repository) {
+  let project = await cf(cfToken, `/accounts/${encodeURIComponent(accountId)}/pages/projects/${encodeURIComponent(name)}`, {}, true);
   if (project) {
     const source = project?.source?.config || {};
     if (!(String(source.owner || "") === repository.owner && String(source.repo_name || "") === repository.name)) {
       throw new Error("PAGES_PROJECT_NAME_CONFLICT");
     }
   } else {
-    project = await cf(token, `/accounts/${encodeURIComponent(accountId)}/pages/projects`, {
+    project = await cf(cfToken, `/accounts/${encodeURIComponent(accountId)}/pages/projects`, {
       method: "POST",
       body: JSON.stringify({
         name,
@@ -260,13 +260,13 @@ async function createGitPagesProject(token, accountId, name, repository) {
   // crear que al adoptar el proyecto.
   const repoPath = `/repos/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.name)}`;
   const stamp = new Date().toISOString();
-  const currentReadme = await gh(token, `${repoPath}/contents/README.md`, {}, true);
+  const currentReadme = await gh(githubToken, `${repoPath}/contents/README.md`, {}, true);
   const readmeBody = {
     message: `Disparar primer build ${stamp}`,
     content: btoa(`Generado por Excepcional Build ${stamp}\n`)
   };
   if (currentReadme?.sha) readmeBody.sha = currentReadme.sha;
-  await gh(token, `${repoPath}/contents/README.md`, {
+  await gh(githubToken, `${repoPath}/contents/README.md`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(readmeBody)
@@ -370,7 +370,7 @@ export async function onRequestPost(context) {
     const pagesName = String(generation.cloudflare_project || slug);
     if (!generation.cloudflare_project) {
       generation = await saveGeneration(request, env, projectId, { status: "creating_pages" });
-      await createGitPagesProject(cfToken, cfAccount, pagesName, repository);
+      await createGitPagesProject(cfToken, githubToken, cfAccount, pagesName, repository);
       generation = await saveGeneration(request, env, projectId, { cloudflare_project: pagesName });
     }
 
