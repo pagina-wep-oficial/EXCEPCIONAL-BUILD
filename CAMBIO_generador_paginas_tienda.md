@@ -78,3 +78,10 @@ No aplicar las migraciones ni desplegar los endpoints deja producción intacta. 
   callback de Google y el cliente quedaba atrapado en la pantalla de acceso.
 - La asignación del proyecto sigue ejecutándose mediante `claim_client_project`
   después de completar el perfil.
+
+## Navegación móvil del panel
+
+- Cuando no aplica la acción “Nueva página”, el enlace oculto ya no puede
+  recuperar `display:flex` por la regla general de la barra.
+- Inicio y Mi cuenta quedan alineados en las dos columnas disponibles; con la
+  acción habilitada, los tres accesos conservan sus tres columnas.
