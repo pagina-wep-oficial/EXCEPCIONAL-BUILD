@@ -60,3 +60,11 @@ No aplicar las migraciones ni desplegar los endpoints deja producción intacta. 
 - Al reintentar un sitio existente, el generador actualiza exclusivamente
   `dist/store-config.json` si aún no tiene eventos en vivo; conserva el resto
   del repositorio y dispara el despliegue automático de Pages.
+
+## Editor de repositorios privados
+
+- Los repositorios creados por el generador son privados. El editor detecta la
+  respuesta 404 de la API pública de GitHub y cambia al lector autenticado del
+  servidor, sin exponer el token al navegador.
+- El mismo respaldo se usa para leer el HTML editable; así la presentación
+  carga igual en repositorios privados y públicos.

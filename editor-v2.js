@@ -1186,7 +1186,12 @@
       const rate = readRateLimitHeaders(response.headers);
 
       if (response.status === 404) {
-        throw makeHardRepoError("No encontramos ese repo/carpeta/rama en GitHub. Revisa owner, repo, rama y carpeta.");
+        enableRepoReaderFallback(project, 0, message || "github_404");
+        return {
+          ok: false,
+          fallback: true,
+          reason: message || "GitHub requiere acceso autenticado."
+        };
       }
 
       if (response.status === 403 || response.status === 429) {
@@ -1230,6 +1235,56 @@
       entries: Array.isArray(data) ? data : [],
       source: "token"
     };
+  }
+
+  function decodeRepoFileContent(value = "") {
+    const normalized = String(value || "").replace(/\s/g, "");
+    const binary = atob(normalized);
+    const bytes = Uint8Array.from(binary, character => character.charCodeAt(0));
+    return new TextDecoder().decode(bytes);
+  }
+
+  async function fetchRepoFileWithToken(project, path = "", branchOverride = "") {
+    const response = await fetch(repoApiUrl(project, path, "token", branchOverride));
+    const { data, text } = await readJsonPayload(response);
+
+    if (!response.ok) {
+      const message = String(data?.message || text || "").trim();
+      throw new Error(message || `No pudimos leer ${path} con el respaldo.`);
+    }
+
+    if (!data || data.type !== "file" || typeof data.content !== "string") {
+      throw new Error(`GitHub no devolvió el archivo editable ${path}.`);
+    }
+
+    try {
+      return decodeRepoFileContent(data.content);
+    } catch {
+      throw new Error(`No pudimos decodificar ${path} desde GitHub.`);
+    }
+  }
+
+  async function fetchRepoPageHtml(project, path = "", branchOverride = "", source = "direct") {
+    if (source === "token" || getActiveRepoReaderState(project).mode === "token") {
+      return fetchRepoFileWithToken(project, path, branchOverride);
+    }
+
+    try {
+      const response = await fetch(repoRawUrl(project, path, branchOverride));
+      if (response.ok) return response.text();
+
+      if ([401, 403, 404].includes(response.status)) {
+        enableRepoReaderFallback(project, 0, `raw_${response.status}`);
+        return fetchRepoFileWithToken(project, path, branchOverride);
+      }
+
+      throw new Error(`No pudimos leer ${path} en la rama ${branchOverride}.`);
+    } catch (error) {
+      if (error?.message?.startsWith("No pudimos leer")) throw error;
+
+      enableRepoReaderFallback(project, 0, error?.message || "raw_fetch_failed");
+      return fetchRepoFileWithToken(project, path, branchOverride);
+    }
   }
 
   async function listRepoEntries(project, path = "", branchOverride = "") {
@@ -1432,13 +1487,10 @@
         return;
       }
 
-      const htmlRes = await fetch(repoRawUrl(project, page.path, branch));
-
-      if (!htmlRes.ok) {
-        throw new Error(`No pudimos leer ${page.path} en la rama ${branch}.`);
-      }
-
-      htmlByPath.set(page.path, await htmlRes.text());
+      htmlByPath.set(
+        page.path,
+        await fetchRepoPageHtml(project, page.path, branch, result.source)
+      );
     }));
 
     return { source: result.source, branch, pages, htmlByPath };
