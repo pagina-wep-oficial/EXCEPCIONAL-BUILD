@@ -111,9 +111,13 @@ async function gh(token, path, options = {}, allow404 = false) {
     ...options,
     headers: ghHeaders(token, options.headers || {})
   });
+  const body = await response.json().catch(() => null);
   if (allow404 && (response.status === 404 || response.status === 409)) return null;
-  if (!response.ok) throw new Error(`GITHUB_${response.status}`);
-  return response.status === 204 ? null : response.json();
+  if (!response.ok) {
+    const detail = body && body.message ? `: ${String(body.message).slice(0, 120)}` : "";
+    throw new Error(`GITHUB_${response.status}${detail}`);
+  }
+  return response.status === 204 ? null : body;
 }
 
 async function githubIdentity(token, configuredOwner) {
