@@ -68,3 +68,5 @@ No aplicar las migraciones ni desplegar los endpoints deja producción intacta. 
   servidor, sin exponer el token al navegador.
 - El mismo respaldo se usa para leer el HTML editable; así la presentación
   carga igual en repositorios privados y públicos.
+- El servidor de recursos del iframe usa la misma credencial de servidor para
+  entregar CSS, JavaScript, imágenes y fuentes de esos repositorios privados.

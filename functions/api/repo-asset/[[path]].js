@@ -30,6 +30,46 @@ function mimeFor(path) {
   return MIME[String(path).toLowerCase().slice(dot)] || "application/octet-stream";
 }
 
+function encodedPath(path) {
+  return String(path || "").split("/").map(segment => encodeURIComponent(segment)).join("/");
+}
+
+function decodeGitHubContent(value) {
+  const binary = atob(String(value || "").replace(/\s/g, ""));
+  return Uint8Array.from(binary, character => character.charCodeAt(0));
+}
+
+async function readRepoAsset(env, owner, repo, branch, assetPath) {
+  const token = String(env.GITHUB_TOKEN || "").trim();
+  const rawUrl = `https://raw.githubusercontent.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/${encodeURIComponent(branch)}/${encodedPath(assetPath)}`;
+  const rawResponse = await fetch(rawUrl);
+
+  if (rawResponse.ok) return { ok: true, body: rawResponse.body };
+
+  if (![401, 403, 404].includes(rawResponse.status) || !token) {
+    return { ok: false, status: rawResponse.status };
+  }
+
+  const api = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodedPath(assetPath)}?ref=${encodeURIComponent(branch)}`;
+  const response = await fetch(api, {
+    headers: {
+      Accept: "application/vnd.github+json",
+      Authorization: `Bearer ${token}`,
+      "User-Agent": "excepcional-build-editor"
+    }
+  });
+
+  if (response.ok) {
+    const data = await response.json();
+    if (data?.type === "file" && typeof data.content === "string") {
+      return { ok: true, body: decodeGitHubContent(data.content) };
+    }
+    return { ok: false, status: 404 };
+  }
+
+  return { ok: false, status: response.status };
+}
+
 export async function onRequestGet(context) {
   try {
     const segs = (context.params.path || []).map(s => String(s));
@@ -47,16 +87,15 @@ export async function onRequestGet(context) {
       return new Response("Ruta inválida.", { status: 400 });
     }
 
-    const url = `https://raw.githubusercontent.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/${encodeURIComponent(branch)}/${assetPath}`;
-    const response = await fetch(url);
+    const asset = await readRepoAsset(context.env, owner, repo, branch, assetPath);
 
-    if (!response.ok) {
-      return new Response("No encontrado en el repo.", { status: response.status === 404 ? 404 : 502 });
+    if (!asset.ok) {
+      return new Response("No encontrado en el repo.", { status: asset.status === 404 ? 404 : 502 });
     }
 
     const isHtml = /\.html?$/i.test(assetPath);
     const isImage = /\.(png|jpe?g|gif|webp|svg|ico|avif|woff2?|ttf|otf)$/i.test(assetPath);
-    return new Response(response.body, {
+    return new Response(asset.body, {
       status: 200,
       headers: {
         "Content-Type": mimeFor(assetPath),
