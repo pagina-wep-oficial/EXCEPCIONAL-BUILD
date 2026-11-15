@@ -234,7 +234,7 @@ async function createGitPagesProject(token, accountId, name, repository) {
     }
     throw new Error("PAGES_PROJECT_NAME_CONFLICT");
   }
-  return cf(token, `/accounts/${encodeURIComponent(accountId)}/pages/projects`, {
+  const project = await cf(token, `/accounts/${encodeURIComponent(accountId)}/pages/projects`, {
     method: "POST",
     body: JSON.stringify({
       name,
@@ -250,9 +250,48 @@ async function createGitPagesProject(token, accountId, name, repository) {
           pr_comments_enabled: false
         }
       },
-      build_config: { build_command: "", destination_dir: "dist", root_dir: "" }
+      build_config: { build_command: "", destination_dir: "", root_dir: "" }
     })
   });
+
+  // El contenido se subio antes de conectar el proyecto, asi que el webhook
+  // no disparo ningun build: se publica un commit nuevo para activarlo.
+  const repoPath = `/repos/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.name)}`;
+  const head = await gh(token, `${repoPath}/git/ref/heads/main`, {}, true);
+  const stamp = new Date().toISOString();
+  const triggerBlob = await gh(token, `${repoPath}/git/blobs`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content: btoa(`Generado por Excepcional Build ${stamp}\n`), encoding: "base64" })
+  });
+  const triggerTree = await gh(token, `${repoPath}/git/trees`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tree: [{ path: "README.md", mode: "100644", type: "blob", sha: triggerBlob.sha }] })
+  });
+  const triggerCommit = await gh(token, `${repoPath}/git/commits`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message: `Disparar primer build ${stamp}`,
+      tree: triggerTree.sha,
+      parents: head ? [head.object.sha] : []
+    })
+  });
+  if (head) {
+    await gh(token, `${repoPath}/git/refs/heads/main`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sha: triggerCommit.sha, force: false })
+    });
+  } else {
+    await gh(token, `${repoPath}/git/refs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ref: "refs/heads/main", sha: triggerCommit.sha })
+    });
+  }
+  return project;
 }
 
 async function provisionStore(env, exceptionalProjectId, name) {
