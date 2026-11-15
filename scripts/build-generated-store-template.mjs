@@ -33,6 +33,7 @@ const template = Object.fromEntries(entries);
 const module = String.raw`// ARCHIVO GENERADO por scripts/build-generated-store-template.mjs.
 // No editar a mano: cambia scripts/fonda-neutral/ y vuelve a ejecutar el script.
 const ITM_ORIGIN = "https://itm-void-excepcional.pages.dev";
+const DEFAULT_STORE_LIVE_PUBLIC_URL = "https://itm-store-live.ontiverosfrancisco059.workers.dev";
 
 const TEMPLATE = ${JSON.stringify(template, null, 2)};
 
@@ -86,12 +87,23 @@ function render(text, file, projectName, itmProjectId) {
     .split("__EB_ITM_PROJECT_ID__").join(itmProjectId);
 }
 
-export function buildGeneratedSiteFiles({ projectId, itmProjectId, projectName }) {
+function storeLiveUrl(value) {
+  const candidate = String(value || DEFAULT_STORE_LIVE_PUBLIC_URL).trim().replace(/\/+$/, "");
+  try {
+    const url = new URL(candidate);
+    return url.protocol === "https:" ? url.toString().replace(/\/+$/, "") : DEFAULT_STORE_LIVE_PUBLIC_URL;
+  } catch {
+    return DEFAULT_STORE_LIVE_PUBLIC_URL;
+  }
+}
+
+export function buildGeneratedSiteFiles({ projectId, itmProjectId, projectName, storeLiveUrl: configuredStoreLiveUrl }) {
   const name = String(projectName || "Mi negocio").trim().slice(0, 160) || "Mi negocio";
   const config = JSON.stringify({
     project_id: String(itmProjectId),
     exceptional_project_id: String(projectId),
     api_origin: ITM_ORIGIN,
+    store_live_url: storeLiveUrl(configuredStoreLiveUrl),
     site_name: name,
     whatsapp_number: "",
     version: 4

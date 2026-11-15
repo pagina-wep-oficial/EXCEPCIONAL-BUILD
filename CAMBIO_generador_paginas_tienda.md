@@ -48,3 +48,15 @@ No aplicar las migraciones ni desplegar los endpoints deja producción intacta. 
   respuestas ni sitios generados.
 - Si falta la credencial o su permiso, la generación queda en estado reintentable
   sin duplicar la tienda, el repositorio ni el proyecto Pages.
+
+## Catálogo en vivo de sitios nuevos
+
+- La configuración inicial de cada tienda generada incluye la URL pública del
+  servicio de eventos, igual que Fonda Mexicana.
+- Así los cambios de productos, inventario y configuración emitidos por ITM se
+  reflejan en las pestañas abiertas sin recargar la página.
+- La URL puede reemplazarse mediante `ITM_STORE_LIVE_PUBLIC_URL` en el entorno
+  del generador; valores no HTTPS vuelven al servicio público predeterminado.
+- Al reintentar un sitio existente, el generador actualiza exclusivamente
+  `dist/store-config.json` si aún no tiene eventos en vivo; conserva el resto
+  del repositorio y dispara el despliegue automático de Pages.

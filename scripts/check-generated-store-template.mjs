@@ -42,6 +42,7 @@ if (
   config.project_id !== itmProjectId ||
   config.exceptional_project_id !== projectId ||
   config.api_origin !== "https://itm-void-excepcional.pages.dev" ||
+  config.store_live_url !== "https://itm-store-live.ontiverosfrancisco059.workers.dev" ||
   config.whatsapp_number !== ""
 ) {
   throw new Error("GENERATED_TEMPLATE_IDENTITY_INVALID");

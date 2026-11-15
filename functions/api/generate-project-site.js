@@ -5,6 +5,7 @@ import { buildGeneratedSiteFiles } from "../_lib/generated-store-template.js";
 const GITHUB_API = "https://api.github.com";
 const CF_API = "https://api.cloudflare.com/client/v4";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const DEFAULT_STORE_LIVE_PUBLIC_URL = "https://itm-store-live.ontiverosfrancisco059.workers.dev";
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -13,6 +14,30 @@ const json = (body, status = 200) => new Response(JSON.stringify(body), {
 
 function validUuid(value) {
   return UUID_RE.test(String(value || ""));
+}
+
+function storeLiveUrl(value) {
+  const candidate = String(value || DEFAULT_STORE_LIVE_PUBLIC_URL).trim().replace(/\/+$/, "");
+  try {
+    const url = new URL(candidate);
+    return url.protocol === "https:" ? url.toString().replace(/\/+$/, "") : DEFAULT_STORE_LIVE_PUBLIC_URL;
+  } catch {
+    return DEFAULT_STORE_LIVE_PUBLIC_URL;
+  }
+}
+
+function decodeBase64(value) {
+  const binary = atob(String(value || "").replace(/\s/g, ""));
+  return new TextDecoder().decode(Uint8Array.from(binary, character => character.charCodeAt(0)));
+}
+
+function encodeBase64(value) {
+  const bytes = new TextEncoder().encode(value);
+  let binary = "";
+  for (let index = 0; index < bytes.length; index += 8192) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + 8192));
+  }
+  return btoa(binary);
 }
 
 function slugify(value) {
@@ -212,6 +237,35 @@ async function createRepository(token, owner, repoName, files) {
   return { id: String(repo.id), owner, name: repoName, url: repo.html_url };
 }
 
+async function ensureGeneratedStoreLiveConfig(token, repository, itmProjectId, liveUrl) {
+  if (!repository?.owner || !repository?.name || !validUuid(itmProjectId)) {
+    throw new Error("STORE_CONFIG_SYNC_INVALID");
+  }
+  const repoPath = `/repos/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.name)}`;
+  const current = await gh(token, `${repoPath}/contents/dist%2Fstore-config.json`);
+  let config;
+  try {
+    config = JSON.parse(decodeBase64(current.content));
+  } catch {
+    throw new Error("STORE_CONFIG_SYNC_INVALID");
+  }
+  if (String(config.project_id || "") !== String(itmProjectId)) {
+    throw new Error("STORE_CONFIG_PROJECT_MISMATCH");
+  }
+  if (String(config.store_live_url || "").replace(/\/+$/, "") === liveUrl) return false;
+  const content = JSON.stringify({ ...config, store_live_url: liveUrl }, null, 2) + "\n";
+  await gh(token, `${repoPath}/contents/dist%2Fstore-config.json`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message: "Activar actualizacion en vivo de la tienda",
+      content: encodeBase64(content),
+      sha: current.sha
+    })
+  });
+  return true;
+}
+
 async function cf(token, path, options = {}, allow404 = false) {
   const response = await fetch(`${CF_API}${path}`, {
     ...options,
@@ -311,8 +365,15 @@ export async function onRequestPost(context) {
     if (!project) return json({ ok: false, code: "PROJECT_NOT_FOUND" }, 404);
 
     generation = await readGeneration(request, env, projectId);
+    const githubToken = String(env.GITHUB_TOKEN || "").trim();
+    if (!githubToken) throw new Error("GITHUB_NOT_CONFIGURED");
+    const configuredStoreLiveUrl = storeLiveUrl(env.ITM_STORE_LIVE_PUBLIC_URL);
     if (generation?.status === "published") {
       const pagesName = String(generation.cloudflare_project || generation.slug || "");
+      await ensureGeneratedStoreLiveConfig(githubToken, {
+        owner: generation.github_owner,
+        name: generation.github_repo
+      }, generation.itm_project_id, configuredStoreLiveUrl);
       await ensureFirebaseAuthorizedDomain(env, `${pagesName}.pages.dev`);
       return json({
         ok: true,
@@ -348,8 +409,6 @@ export async function onRequestPost(context) {
       await updateProject(request, env, projectId, { source_itm_project_id: itmProjectId, store_enabled: true, updated_at: new Date().toISOString() });
     }
 
-    const githubToken = String(env.GITHUB_TOKEN || "").trim();
-    if (!githubToken) throw new Error("GITHUB_NOT_CONFIGURED");
     const repoName = slug;
     let repository;
     if (generation.github_owner && generation.github_repo) {
@@ -363,7 +422,12 @@ export async function onRequestPost(context) {
     } else {
       generation = await saveGeneration(request, env, projectId, { status: "creating_repository" });
       const owner = await githubIdentity(githubToken, env.GITHUB_SITE_OWNER);
-      repository = await createRepository(githubToken, owner, repoName, buildGeneratedSiteFiles({ projectId, itmProjectId, projectName: project.name }));
+      repository = await createRepository(githubToken, owner, repoName, buildGeneratedSiteFiles({
+        projectId,
+        itmProjectId,
+        projectName: project.name,
+        storeLiveUrl: configuredStoreLiveUrl
+      }));
       generation = await saveGeneration(request, env, projectId, { github_owner: repository.owner, github_repo: repository.name, status: "creating_pages" });
     }
 
@@ -378,6 +442,7 @@ export async function onRequestPost(context) {
     }
 
     const publicUrl = `https://${pagesName}.pages.dev`;
+    await ensureGeneratedStoreLiveConfig(githubToken, repository, itmProjectId, configuredStoreLiveUrl);
     await ensureFirebaseAuthorizedDomain(env, `${pagesName}.pages.dev`);
     const verification = await fetch(publicUrl, { redirect: "follow" }).catch(() => null);
     const published = Boolean(verification?.ok);
