@@ -125,9 +125,14 @@ async function createRepository(token, owner, repoName, files) {
   const existing = await gh(token, `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repoName)}`, {}, true);
   if (existing) throw new Error("SITE_REPOSITORY_NAME_CONFLICT");
 
-  const endpoint = owner.includes("-") || owner !== (await gh(token, "/user")).login
+  const me = (await gh(token, "/user")).login;
+  const ownerProfile = await gh(token, `/users/${encodeURIComponent(owner)}`);
+  const endpoint = ownerProfile.type === "Organization"
     ? `/orgs/${encodeURIComponent(owner)}/repos`
-    : "/user/repos";
+    : owner === me
+      ? "/user/repos"
+      : null;
+  if (!endpoint) throw new Error("SITE_REPOSITORY_OWNER_TOKEN_MISMATCH");
   const repo = await gh(token, endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
