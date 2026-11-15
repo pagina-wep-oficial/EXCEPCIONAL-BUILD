@@ -24,4 +24,15 @@ No aplicar las migraciones ni desplegar los endpoints deja producción intacta. 
 - Configurar secretos de provisión y la identidad administradora ITM.
 - Autorizar una vez la aplicación Cloudflare Workers and Pages en la organización GitHub.
 - Desplegar ambos proyectos, crear una página de prueba y verificar GitHub → Cloudflare Pages.
+
+## Corrección de plantilla visual
+
+- La plantilla v3 genera una portada neutral con hero, destacados, historia,
+  comentarios públicos y contacto.
+- La tienda incluye catálogo, detalle, carrito, pedidos, perfil y adaptación
+  para Catálogo externo, sin identidad ni datos de Fonda.
+- El generador ahora detiene la creación si guardar el proyecto falla; no crea
+  recursos externos a partir de datos no confirmados.
+- Los repositorios ya generados no se sobrescriben automáticamente. Su cambio
+  de plantilla requiere una migración explícita con respaldo.
 - Configurar Firebase Auth y rotar credenciales temporales.

@@ -25,5 +25,12 @@ Fase 1 y Fase 2 están implementadas en worktrees aislados y no se han aplicado 
 
 - Aplicación de SQL en Supabase y Neon.
 - Deploy, push, creación real de repositorio o Cloudflare Pages.
+
+## Pendiente de validación publicada
+
+- Publicar la plantilla visual v3 en Excepcional Build.
+- Crear un proyecto nuevo para comprobar la versión v3 sin reutilizar datos.
+- Migrar los repositorios de prueba existentes únicamente tras respaldo.
+- Configurar dominio y Firebase Auth al final del flujo.
 - Autorización de GitHub para Pages.
 - Configuración Firebase Auth.

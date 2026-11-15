@@ -1829,7 +1829,8 @@ if(canManageUsers()) await loadUsers();
     button.disabled=true;button.textContent="Creando…";
     setLine("#generated-site-status","Guardando el proyecto y preparando recursos…");
     try{
-      await saveProject({preventDefault(){},currentTarget:form});
+      const savedProject=await saveProject({preventDefault(){},currentTarget:form});
+      if(!savedProject)throw new Error("PROJECT_SAVE_FAILED");
       const response=await fetch("/api/generate-project-site",{method:"POST",headers:{Authorization:`Bearer ${state.session.access_token}`,"Content-Type":"application/json"},body:JSON.stringify({project_id:projectId})});
       const data=await response.json().catch(()=>({ok:false,code:"SITE_GENERATION_RESPONSE_INVALID"}));
       if(!response.ok||!data.ok)throw new Error(data.code||data.message||"SITE_GENERATION_FAILED");
@@ -2038,7 +2039,7 @@ if(canManageUsers()) await loadUsers();
     const payload={...repoFields,...editorVisibilityFields,user_id:userId,name:String(fd.get("name")||"").trim(),project_stage:stage,status:String(fd.get("status")||"").trim()||stage,address_type:String(fd.get("address_type")||"gratis"),domain:String(fd.get("domain")||"").trim()||null,hosting_type:String(fd.get("hosting_type")||"cloudflare"),site_visibility:String(fd.get("site_visibility")||"hidden"),site_url:String(fd.get("site_url")||"").trim()||null,preview_url:String(fd.get("preview_url")||"").trim()||null,store_enabled:fd.get("store_enabled")==="on",store_button_label:old?.store_button_label||"Gestionar tienda",store_admin_url:old?.store_admin_url||null,total_price:fd.get("total_price")?Number(fd.get("total_price")):null,deposit_amount:fd.get("deposit_amount")?Number(fd.get("deposit_amount")):null,balance_amount:fd.get("balance_amount")?Number(fd.get("balance_amount")):null,payment_method:String(fd.get("payment_method")||"").trim()||null,deposit_paid:fd.get("deposit_paid")==="on",balance_paid:fd.get("balance_paid")==="on",client_note:String(fd.get("client_note")||"").trim()||null,source_prospect_id:String(fd.get("source_prospect_id")||"")||null,updated_at:new Date().toISOString()};
     if(stage==="Revisión"&&!old?.review_ready_at)payload.review_ready_at=new Date().toISOString();if(stage==="Publicado"&&!old?.published_at)payload.published_at=new Date().toISOString();
     setLine("#project-form-status","Guardando…");const result=id?await db.from("client_projects").update(payload).eq("id",id).select().single():(async()=>{const {data,error}=await db.from("client_projects").insert({...payload,claim_token:null,accepted_at:new Date().toISOString()}).select().single();if(!error&&data&&!userId){const {data:updated}=await db.from("client_projects").update({claim_token:crypto.randomUUID()}).eq("id",data.id).select().single();if(updated)Object.assign(data,updated);await ensureInvite(data);}return {data,error};})();
-    if(result.error){setLine("#project-form-status",result.error.message||"No pudimos guardar.","error");return;}
+    if(result.error){setLine("#project-form-status",result.error.message||"No pudimos guardar.","error");return null;}
     let saved=result.data;
 
     const ownerChanged=Boolean(id)&&
@@ -2062,7 +2063,7 @@ if(canManageUsers()) await loadUsers();
           "El proyecto se guardó, pero no se pudo retirar el acceso anterior. Guarda otra vez para reintentarlo.",
           "error"
         );
-        return;
+        return null;
       }
     }
     // Guardado explícito: la casilla del editor debe sobrevivir a la recarga
@@ -2070,9 +2071,9 @@ if(canManageUsers()) await loadUsers();
     if(id&&$("#project-editor-visible")){
       const editorVisible=Boolean($("#project-editor-visible").checked);
       const visibilityResult=await db.from("client_projects").update({editor_visible_to_client:editorVisible,updated_at:new Date().toISOString()}).eq("id",id).select().single();
-      if(visibilityResult.error){setLine("#project-form-status",visibilityResult.error.message||"No pudimos guardar la visibilidad del editor.","error");return;}
+      if(visibilityResult.error){setLine("#project-form-status",visibilityResult.error.message||"No pudimos guardar la visibilidad del editor.","error");return null;}
       saved=visibilityResult.data||saved;
-      if(Boolean(saved.editor_visible_to_client)!==editorVisible){setLine("#project-form-status","Supabase no confirmó la visibilidad del editor.","error");return;}
+      if(Boolean(saved.editor_visible_to_client)!==editorVisible){setLine("#project-form-status","Supabase no confirmó la visibilidad del editor.","error");return null;}
     }
     if(
       id&&
@@ -2091,13 +2092,13 @@ if(canManageUsers()) await loadUsers();
         }
       }catch(error){
         setLine("#project-form-status","El proyecto se guardó, pero no pudimos actualizar el funcionamiento de la tienda. Guarda otra vez para reintentarlo.","error");
-        return;
+        return null;
       }
     }
     const idx=state.projects.findIndex(p=>p.id===saved.id);if(idx>=0)state.projects[idx]=saved;else state.projects.unshift(saved);
     if(saved.source_prospect_id)await db.from("prospectos").update({client_user_id:userId,client_project_id:saved.id}).eq("id",saved.source_prospect_id).then(()=>{});
     await saveProjectSetup(saved,fd);
-    setProjectForm(saved);if(crmPage!=="project-admin")renderAll();renderClientDetail();setLine("#project-form-status","Proyecto guardado.","success");toast("Proyecto actualizado.");
+    setProjectForm(saved);if(crmPage!=="project-admin")renderAll();renderClientDetail();setLine("#project-form-status","Proyecto guardado.","success");toast("Proyecto actualizado.");return saved;
   }
   async function saveProjectSetup(saved,fd){
     const setupAnterior=state.currentSetup&&state.currentSetup.project_id===saved.id?state.currentSetup:null;
