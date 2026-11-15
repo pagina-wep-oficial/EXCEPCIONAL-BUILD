@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mi perfil | __EB_PROJECT_NAME__</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-page="perfil" data-catalog-state="pending">
+  <header class="topbar">
+    <a class="brand" href="index.html" aria-label="Inicio">
+      <img class="brand-mark" src="assets/logo-neutral.svg" alt="">
+      <span>__EB_PROJECT_NAME__</span>
+    </a>
+
+    <nav class="nav" aria-label="Principal">
+      <a href="tienda.html" data-commerce-only>Hacer pedido</a>
+      <a class="cart-link" href="carrito.html" data-commerce-only>
+        Carrito <span data-cart-count>0</span>
+      </a>
+      <a href="mis-pedidos.html" data-commerce-only>Mis pedidos</a>
+    </nav>
+  </header>
+
+  <main class="section">
+    <div class="page-title">
+      <div>
+        <p class="section-kicker">Cuenta del cliente</p>
+        <h1>Mi perfil</h1>
+      </div>
+    </div>
+
+    <section class="panel customer-account" id="customer-account">
+      <h2 data-profile-account-heading>Datos para tus pedidos</h2>
+
+      <p class="muted" id="customer-account-status" hidden aria-live="polite"></p>
+
+      <form id="customer-profile-form" hidden>
+        <label>
+          <span>Nombre</span>
+          <input id="customerName" type="text" required>
+        </label>
+
+        <label>
+          <span>WhatsApp</span>
+          <input id="customerPhone" type="tel">
+        </label>
+
+        <label data-commerce-profile-field>
+          <span>Dirección habitual</span>
+          <textarea id="manualLocation" rows="3"></textarea>
+        </label>
+
+        <label data-commerce-profile-field>
+          <span>Referencia</span>
+          <textarea id="customerReference" rows="2"></textarea>
+        </label>
+
+        <div class="customer-profile-actions">
+          <button class="button primary" id="save-customer-profile-btn" type="submit" hidden disabled>
+            Guardar cambios
+          </button>
+          <a class="button secondary" href="tienda.html" data-profile-catalog-link>Ver catálogo</a>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

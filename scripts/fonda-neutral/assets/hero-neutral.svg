@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1067" viewBox="0 0 1600 1067" preserveAspectRatio="xMidYMid slice" role="img" aria-label="">
+  <defs>
+    <linearGradient id="hero-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4a131a"/>
+      <stop offset="0.55" stop-color="#7c2433"/>
+      <stop offset="1" stop-color="#b5532f"/>
+    </linearGradient>
+    <radialGradient id="hero-glow" cx="0.78" cy="0.22" r="0.6">
+      <stop offset="0" stop-color="#e0a24a" stop-opacity="0.38"/>
+      <stop offset="1" stop-color="#e0a24a" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1600" height="1067" fill="url(#hero-bg)"/>
+  <rect width="1600" height="1067" fill="url(#hero-glow)"/>
+  <g fill="none" stroke="#f3d9b1" stroke-opacity="0.10" stroke-width="2">
+    <circle cx="1180" cy="330" r="150"/>
+    <circle cx="1180" cy="330" r="230"/>
+    <circle cx="1180" cy="330" r="310"/>
+    <path d="M1180 180 1330 330 1180 480 1030 330Z"/>
+    <path d="M1180 240 1270 330 1180 420 1090 330Z"/>
+  </g>
+  <g fill="#f3d9b1" fill-opacity="0.07">
+    <circle cx="220" cy="820" r="6"/>
+    <circle cx="300" cy="760" r="4"/>
+    <circle cx="380" cy="860" r="5"/>
+    <circle cx="150" cy="700" r="4"/>
+  </g>
+</svg>

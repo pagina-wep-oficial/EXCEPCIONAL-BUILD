@@ -332,6 +332,7 @@ export async function onRequestPost(context) {
         project_id: projectId,
         created_by: user?.id || null,
         slug,
+        template_version: "fonda-v1",
         status: "provisioning_store"
       });
     }
