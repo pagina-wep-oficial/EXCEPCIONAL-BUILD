@@ -111,7 +111,7 @@ async function gh(token, path, options = {}, allow404 = false) {
     ...options,
     headers: ghHeaders(token, options.headers || {})
   });
-  if (allow404 && response.status === 404) return null;
+  if (allow404 && (response.status === 404 || response.status === 409)) return null;
   if (!response.ok) throw new Error(`GITHUB_${response.status}`);
   return response.status === 204 ? null : response.json();
 }
