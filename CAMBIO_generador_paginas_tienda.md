@@ -1,0 +1,27 @@
+# Generador de páginas y tiendas
+
+## Objetivo
+
+Crear desde un proyecto CRM una página de presentación y una tienda ITM aislada, con repositorio GitHub privado y Cloudflare Pages enlazado al repositorio.
+
+## Fase 1 y 2 implementadas localmente
+
+- Endpoint CRM `generate-project-site` con operación persistente, reintentos y bloqueo de sobrescritura.
+- SQL de Supabase para `client_site_generations`.
+- Endpoint ITM firmado para crear una tienda vacía con Tienda, Catálogo y monedas base.
+- Plantilla neutral con `dist/`, presentación editable, tienda, detalle, carrito, pedidos y perfil.
+- Creación de repo privado con `main` y `editor-base`.
+- Creación de Cloudflare Pages de origen GitHub, no Direct Upload, para publicar cada push a `main`.
+- Botón `Guardar y crear página` independiente del publicador manual existente.
+
+## Reversión
+
+No aplicar las migraciones ni desplegar los endpoints deja producción intacta. Si ya se crean recursos externos, se eliminan únicamente usando los identificadores guardados en `client_site_generations`; nunca por nombre aproximado.
+
+## Fase 3 pendiente
+
+- Aplicar migración ITM y SQL Supabase con respaldos.
+- Configurar secretos de provisión y la identidad administradora ITM.
+- Autorizar una vez la aplicación Cloudflare Workers and Pages en la organización GitHub.
+- Desplegar ambos proyectos, crear una página de prueba y verificar GitHub → Cloudflare Pages.
+- Configurar Firebase Auth y rotar credenciales temporales.

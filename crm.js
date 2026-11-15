@@ -1809,6 +1809,39 @@ if(canManageUsers()) await loadUsers();
     ["dragover","dragenter"].forEach(ev=>dropzone.addEventListener(ev,e=>{e.preventDefault();dropzone.classList.add("dragging");}));
     ["dragleave","drop"].forEach(ev=>dropzone.addEventListener(ev,e=>{e.preventDefault();dropzone.classList.remove("dragging");}));
     dropzone.addEventListener("drop",e=>addPublishFiles(e.dataTransfer.files));
+    $("#generated-site-create")?.addEventListener("click",createGeneratedSite);
+  }
+
+  function setGeneratedSiteResult(data){
+    const resources=data?.resources||{};
+    const open=$("#generated-site-open"),repo=$("#generated-site-repo");
+    if(open){open.hidden=!resources.public_url;open.onclick=()=>window.open(resources.public_url,"_blank","noopener");}
+    if(repo){repo.hidden=!resources.repository;repo.onclick=()=>window.open(resources.repository,"_blank","noopener");}
+  }
+
+  async function createGeneratedSite(){
+    const form=$("#project-form");
+    const projectId=String(form?.elements?.id?.value||"").trim();
+    if(!projectId){toast("Guarda primero el proyecto.");return;}
+    const button=$("#generated-site-create");
+    if(button?.disabled)return;
+    if(!confirm("Se creará una tienda propia, repositorio privado y Cloudflare Pages para este proyecto. No se reemplazará una página ya generada."))return;
+    button.disabled=true;button.textContent="Creando…";
+    setLine("#generated-site-status","Guardando el proyecto y preparando recursos…");
+    try{
+      await saveProject({preventDefault(){},currentTarget:form});
+      const response=await fetch("/api/generate-project-site",{method:"POST",headers:{Authorization:`Bearer ${state.session.access_token}`,"Content-Type":"application/json"},body:JSON.stringify({project_id:projectId})});
+      const data=await response.json().catch(()=>({ok:false,code:"SITE_GENERATION_RESPONSE_INVALID"}));
+      if(!response.ok||!data.ok)throw new Error(data.code||data.message||"SITE_GENERATION_FAILED");
+      setLine("#generated-site-status",data.pending?"Repositorio y Pages creados. Cloudflare está compilando el primer despliegue; vuelve a intentar en unos minutos para comprobarlo.":"Listo: página creada.",data.pending?"":"success");
+      setGeneratedSiteResult(data);
+      const current=projectById(projectId);
+      if(current){current.source_itm_project_id=data.resources?.itm_project_id||current.source_itm_project_id;current.site_live_url=data.resources?.public_url||current.site_live_url;current.site_url=data.resources?.public_url||current.site_url;current.preview_url=data.resources?.public_url||current.preview_url;current.store_enabled=true;updateEditorAdminUI(current);}
+      toast(data.pending?"Cloudflare Pages está compilando.":"Página creada.");
+    }catch(error){
+      setLine("#generated-site-status","No se completó: "+String(error.message||"SITE_GENERATION_FAILED")+". Puedes reintentar sin crear otra página.","error");
+      toast("No se pudo completar la creación.");
+    }finally{button.disabled=false;button.textContent="Guardar y crear página";}
   }
 
   async function loadProjectDetails(id,showDialog=true){
