@@ -36,3 +36,15 @@ No aplicar las migraciones ni desplegar los endpoints deja producción intacta. 
 - Los repositorios ya generados no se sobrescriben automáticamente. Su cambio
   de plantilla requiere una migración explícita con respaldo.
 - Configurar Firebase Auth y rotar credenciales temporales.
+
+## Firebase Auth automático
+
+- Cada página generada registra su hostname exacto `*.pages.dev` en los dominios
+  autorizados de Firebase Auth antes de quedar publicada.
+- El registro es idempotente: conserva los dominios ya existentes y no duplica
+  el hostname si se reintenta una creación.
+- La credencial privada se lee únicamente desde el secreto de Cloudflare
+  `FIREBASE_AUTH_SERVICE_ACCOUNT_JSON`; nunca se incluye en repositorios,
+  respuestas ni sitios generados.
+- Si falta la credencial o su permiso, la generación queda en estado reintentable
+  sin duplicar la tienda, el repositorio ni el proyecto Pages.

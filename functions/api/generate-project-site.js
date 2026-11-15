@@ -1,4 +1,5 @@
 import { bearer, getUser, supabaseConfig } from "../_lib/supabase.js";
+import { ensureFirebaseAuthorizedDomain } from "../_lib/firebase-authorized-domains.js";
 import { buildGeneratedSiteFiles } from "../_lib/generated-store-template.js";
 
 const GITHUB_API = "https://api.github.com";
@@ -311,6 +312,8 @@ export async function onRequestPost(context) {
 
     generation = await readGeneration(request, env, projectId);
     if (generation?.status === "published") {
+      const pagesName = String(generation.cloudflare_project || generation.slug || "");
+      await ensureFirebaseAuthorizedDomain(env, `${pagesName}.pages.dev`);
       return json({
         ok: true,
         reused: true,
@@ -375,6 +378,7 @@ export async function onRequestPost(context) {
     }
 
     const publicUrl = `https://${pagesName}.pages.dev`;
+    await ensureFirebaseAuthorizedDomain(env, `${pagesName}.pages.dev`);
     const verification = await fetch(publicUrl, { redirect: "follow" }).catch(() => null);
     const published = Boolean(verification?.ok);
     generation = await saveGeneration(request, env, projectId, {
@@ -413,7 +417,7 @@ export async function onRequestPost(context) {
     const code = safeError(error);
     console.error("project site generation failed", code);
     if (generation && projectId) {
-      await saveGeneration(request, env, projectId, { status: code.includes("CLOUDFLARE") ? "needs_authorization" : "failed", last_error_code: code, last_error_message: "La creación se detuvo. Puedes reintentar sin duplicar los recursos ya registrados." }).catch(() => {});
+      await saveGeneration(request, env, projectId, { status: code.includes("CLOUDFLARE") || code.includes("FIREBASE_AUTH") ? "needs_authorization" : "failed", last_error_code: code, last_error_message: "La creación se detuvo. Puedes reintentar sin duplicar los recursos ya registrados." }).catch(() => {});
     }
     return json({ ok: false, code, message: "No se completó la creación. Revisa el estado y vuelve a intentarlo." }, 500);
   }
