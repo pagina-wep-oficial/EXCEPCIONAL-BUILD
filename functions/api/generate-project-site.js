@@ -114,8 +114,9 @@ async function gh(token, path, options = {}, allow404 = false) {
   const body = await response.json().catch(() => null);
   if (allow404 && (response.status === 404 || response.status === 409)) return null;
   if (!response.ok) {
-    const detail = body && body.message ? `: ${String(body.message).slice(0, 120)}` : "";
-    throw new Error(`GITHUB_${response.status}${detail}`);
+    const method = options.method || "GET";
+    const detail = body && body.message ? `: ${String(body.message).slice(0, 100)}` : "";
+    throw new Error(`GITHUB_${response.status}${detail} (${method} ${path.slice(0, 80)})`);
   }
   return response.status === 204 ? null : body;
 }
@@ -149,39 +150,58 @@ async function createRepository(token, owner, repoName, files) {
       body: JSON.stringify({
         name: repoName,
         private: true,
-        auto_init: false,
+        auto_init: true,
         description: "Sitio generado por Excepcional Build"
       })
     });
   }
 
-  const mainRef = await gh(token, `${repoPath}/git/ref/heads/main`, {}, true);
-  if (!mainRef) {
-    const blobs = [];
-    for (const file of files) {
-      const blob = await gh(token, `${repoPath}/git/blobs`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: file.data, encoding: "base64" })
-      });
-      blobs.push({ path: file.path, mode: "100644", type: "blob", sha: blob.sha });
-    }
+  let head = await gh(token, `${repoPath}/git/ref/heads/main`, {}, true);
+  if (!head) {
+    await gh(token, `${repoPath}/contents/README.md`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: "Inicializar repositorio del sitio",
+        content: btoa("Sitio generado por Excepcional Build\n")
+      })
+    });
+    head = await gh(token, `${repoPath}/git/ref/heads/main`, {}, true);
+    if (!head) throw new Error("SITE_REPOSITORY_INIT_FAILED");
+  }
 
-    const tree = await gh(token, `${repoPath}/git/trees`, {
+  const blobs = [];
+  for (const file of files) {
+    const blob = await gh(token, `${repoPath}/git/blobs`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tree: blobs })
+      body: JSON.stringify({ content: file.data, encoding: "base64" })
     });
-    const commit = await gh(token, `${repoPath}/git/commits`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: "Crear sitio desde plantilla Excepcional Build", tree: tree.sha, parents: [] })
-    });
-    await gh(token, `${repoPath}/git/refs`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ref: "refs/heads/main", sha: commit.sha })
-    });
+    blobs.push({ path: file.path, mode: "100644", type: "blob", sha: blob.sha });
+  }
+
+  const tree = await gh(token, `${repoPath}/git/trees`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tree: blobs })
+  });
+  const commit = await gh(token, `${repoPath}/git/commits`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message: "Crear sitio desde plantilla Excepcional Build",
+      tree: tree.sha,
+      parents: [head.object.sha]
+    })
+  });
+  await gh(token, `${repoPath}/git/refs/heads/main`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sha: commit.sha, force: false })
+  });
+
+  const editorRef = await gh(token, `${repoPath}/git/ref/heads/editor-base`, {}, true);
+  if (!editorRef) {
     await gh(token, `${repoPath}/git/refs`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
