@@ -226,37 +226,38 @@ async function cf(token, path, options = {}, allow404 = false) {
 }
 
 async function createGitPagesProject(token, accountId, name, repository) {
-  const existing = await cf(token, `/accounts/${encodeURIComponent(accountId)}/pages/projects/${encodeURIComponent(name)}`, {}, true);
-  if (existing) {
-    const source = existing?.source?.config || {};
-    if (String(source.owner || "") === repository.owner && String(source.repo_name || "") === repository.name) {
-      return existing;
+  let project = await cf(token, `/accounts/${encodeURIComponent(accountId)}/pages/projects/${encodeURIComponent(name)}`, {}, true);
+  if (project) {
+    const source = project?.source?.config || {};
+    if (!(String(source.owner || "") === repository.owner && String(source.repo_name || "") === repository.name)) {
+      throw new Error("PAGES_PROJECT_NAME_CONFLICT");
     }
-    throw new Error("PAGES_PROJECT_NAME_CONFLICT");
+  } else {
+    project = await cf(token, `/accounts/${encodeURIComponent(accountId)}/pages/projects`, {
+      method: "POST",
+      body: JSON.stringify({
+        name,
+        production_branch: "main",
+        source: {
+          type: "github",
+          config: {
+            owner: repository.owner,
+            repo_name: repository.name,
+            repo_id: repository.id,
+            production_branch: "main",
+            preview_deployment_setting: "all",
+            pr_comments_enabled: false
+          }
+        },
+        build_config: { build_command: "", destination_dir: "dist", root_dir: "" }
+      })
+    });
   }
-  const project = await cf(token, `/accounts/${encodeURIComponent(accountId)}/pages/projects`, {
-    method: "POST",
-    body: JSON.stringify({
-      name,
-      production_branch: "main",
-      source: {
-        type: "github",
-        config: {
-          owner: repository.owner,
-          repo_name: repository.name,
-          repo_id: repository.id,
-          production_branch: "main",
-          preview_deployment_setting: "all",
-          pr_comments_enabled: false
-        }
-      },
-      build_config: { build_command: "", destination_dir: "dist", root_dir: "" }
-    })
-  });
 
   // El contenido se subio antes de conectar el proyecto, asi que el webhook
   // no disparo ningun build: se actualiza README.md con la API de contents
-  // (conserva el resto del arbol) para disparar el primer build.
+  // (conserva el resto del arbol) para disparar el build. Aplica igual al
+  // crear que al adoptar el proyecto.
   const repoPath = `/repos/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.name)}`;
   const stamp = new Date().toISOString();
   const currentReadme = await gh(token, `${repoPath}/contents/README.md`, {}, true);
