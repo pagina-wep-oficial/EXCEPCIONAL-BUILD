@@ -122,58 +122,68 @@ async function githubIdentity(token, configuredOwner) {
 }
 
 async function createRepository(token, owner, repoName, files) {
-  const existing = await gh(token, `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repoName)}`, {}, true);
-  if (existing) throw new Error("SITE_REPOSITORY_NAME_CONFLICT");
-
-  const me = (await gh(token, "/user")).login;
-  const ownerProfile = await gh(token, `/users/${encodeURIComponent(owner)}`);
-  const endpoint = ownerProfile.type === "Organization"
-    ? `/orgs/${encodeURIComponent(owner)}/repos`
-    : owner === me
-      ? "/user/repos"
-      : null;
-  if (!endpoint) throw new Error("SITE_REPOSITORY_OWNER_TOKEN_MISMATCH");
-  const repo = await gh(token, endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      name: repoName,
-      private: true,
-      auto_init: false,
-      description: "Sitio generado por Excepcional Build"
-    })
-  });
-
-  const blobs = [];
-  for (const file of files) {
-    const blob = await gh(token, `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repoName)}/git/blobs`, {
+  const repoPath = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repoName)}`;
+  const existing = await gh(token, repoPath, {}, true);
+  let repo;
+  if (existing) {
+    if (existing.description !== "Sitio generado por Excepcional Build" || !existing.permissions?.push) {
+      throw new Error("SITE_REPOSITORY_NAME_CONFLICT");
+    }
+    repo = existing;
+  } else {
+    const me = (await gh(token, "/user")).login;
+    const ownerProfile = await gh(token, `/users/${encodeURIComponent(owner)}`);
+    const endpoint = ownerProfile.type === "Organization"
+      ? `/orgs/${encodeURIComponent(owner)}/repos`
+      : owner === me
+        ? "/user/repos"
+        : null;
+    if (!endpoint) throw new Error("SITE_REPOSITORY_OWNER_TOKEN_MISMATCH");
+    repo = await gh(token, endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: file.data, encoding: "base64" })
+      body: JSON.stringify({
+        name: repoName,
+        private: true,
+        auto_init: false,
+        description: "Sitio generado por Excepcional Build"
+      })
     });
-    blobs.push({ path: file.path, mode: "100644", type: "blob", sha: blob.sha });
   }
 
-  const tree = await gh(token, `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repoName)}/git/trees`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ tree: blobs })
-  });
-  const commit = await gh(token, `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repoName)}/git/commits`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message: "Crear sitio desde plantilla Excepcional Build", tree: tree.sha, parents: [] })
-  });
-  await gh(token, `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repoName)}/git/refs`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ref: "refs/heads/main", sha: commit.sha })
-  });
-  await gh(token, `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repoName)}/git/refs`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ref: "refs/heads/editor-base", sha: commit.sha })
-  });
+  const mainRef = await gh(token, `${repoPath}/git/ref/heads/main`, {}, true);
+  if (!mainRef) {
+    const blobs = [];
+    for (const file of files) {
+      const blob = await gh(token, `${repoPath}/git/blobs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: file.data, encoding: "base64" })
+      });
+      blobs.push({ path: file.path, mode: "100644", type: "blob", sha: blob.sha });
+    }
+
+    const tree = await gh(token, `${repoPath}/git/trees`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tree: blobs })
+    });
+    const commit = await gh(token, `${repoPath}/git/commits`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: "Crear sitio desde plantilla Excepcional Build", tree: tree.sha, parents: [] })
+    });
+    await gh(token, `${repoPath}/git/refs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ref: "refs/heads/main", sha: commit.sha })
+    });
+    await gh(token, `${repoPath}/git/refs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ref: "refs/heads/editor-base", sha: commit.sha })
+    });
+  }
   return { id: String(repo.id), owner, name: repoName, url: repo.html_url };
 }
 
