@@ -2,7 +2,7 @@
   "use strict";
 
   const params = new URLSearchParams(window.location.search);
-  const mode = "store";
+  const mode = window.DemoNavigation.currentCatalog();
   const store = window.DemoStore;
   const external = store.catalogType === "external_catalog";
   const page = document.body.dataset.page || "inicio";
@@ -112,8 +112,8 @@
     mediaObjectUrls.forEach((url) => URL.revokeObjectURL(url));
     mediaObjectUrls.clear();
   };
-  const isStoreMode = mode === "store";
-  const localPath = (path) => `${path}${path.includes("?") ? "&" : "?"}mode=${encodeURIComponent(mode)}`;
+  const isStoreMode = mode === "commerce";
+  const localPath = (path) => `${path}${path.includes("?") ? "&" : "?"}catalog=${encodeURIComponent(mode)}`;
   const toast = (message) => {
     const node = document.querySelector("[data-toast]");
     if (!node) return;
@@ -142,7 +142,7 @@
   const addDemoContextBar = () => {
     if (params.get("editor") === "1" || document.querySelector(".demo-context-bar")) return;
     document.body.classList.add("has-demo-context-bar");
-    document.body.insertAdjacentHTML("afterbegin", `<div class="demo-context-bar"><span class="demo-context-label"><b>Modo demo</b><em>${external ? "Presentación + Catálogo" : "Presentación + Tienda"}</em></span><nav aria-label="Navegación de demo"><a class="demo-context-action" href="../demo-project.html?mode=${mode}">← Volver al proyecto</a><a class="demo-context-action demo-context-action-secondary" href="../demo.html">Elegir recorrido</a></nav></div>`);
+    document.body.insertAdjacentHTML("afterbegin", `<div class="demo-context-bar"><span class="demo-context-label"><b>Modo demo</b><em>${external ? "Catálogo" : "Tienda"}</em></span><nav aria-label="Navegación de demo"><a class="demo-context-action" href="../demo-project.html?catalog=${mode}">← Mi proyecto</a><details class="demo-context-menu"><summary>Más</summary><div><a href="../demo.html">Cambiar recorrido</a><a href="../acceso.html">Crear cuenta</a><a href="../index.html">Salir de la demo</a></div></details></nav></div>`);
   };
   const preserveModeInLinks = () => {
     document.querySelectorAll("a[href]").forEach((anchor) => {
@@ -150,7 +150,8 @@
       if (!rawHref || rawHref.startsWith("#") || /^(mailto:|tel:|https?:\/\/wa\.me\/)/i.test(rawHref)) return;
       const url = new URL(rawHref, window.location.href);
       if (!url.pathname.endsWith(".html")) return;
-      url.searchParams.set("mode", mode);
+      url.searchParams.delete("mode");
+      url.searchParams.set("catalog", mode);
       anchor.href = url.href;
     });
   };
@@ -806,7 +807,7 @@
     syncCatalogInterface();
     if (external && ["carrito", "mis-pedidos"].includes(page)) {
       document.querySelector("main")?.setAttribute("hidden", "");
-      window.location.replace("tienda.html?mode=store&catalog_notice=1");
+      window.location.replace("tienda.html?catalog=external_catalog&catalog_notice=1");
       return true;
     }
     if (external && !store.catalog.settings.enabled && ["tienda", "detalle"].includes(page)) {
