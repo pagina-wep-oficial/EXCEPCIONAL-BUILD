@@ -14,6 +14,11 @@
   let editingType = store.catalogType;
   let manager = "categories";
   let externalChange = false;
+  const FUTURE_LOCAL_CAPABILITIES = Object.freeze({
+    inventory: false,
+    orders: false,
+    staff: false
+  });
   const show = dialog => typeof dialog.showModal === "function" ? dialog.showModal() : dialog.setAttribute("open", "");
   const close = dialog => typeof dialog.close === "function" ? dialog.close() : dialog.removeAttribute("open");
   const signature = form => JSON.stringify([...new FormData(form)]);
@@ -39,15 +44,52 @@
     productForm.elements.price.required = visible;
     productForm.elements.currency_id.required = visible;
   }
+  function catalogLabel() {
+    return store.catalogType === "external_catalog" ? "Catálogo" : "Tienda";
+  }
+  function renderOverview() {
+    const products = store.state.products || [];
+    const visible = products.filter(item => item.enabled).length;
+    const featured = products.filter(item => item.featured).length;
+    const media = products.reduce((total, item) => total + (item.media?.length || (item.image ? 1 : 0)), 0);
+    const values = {
+      "#admin-summary-products": products.length,
+      "#admin-summary-visible": visible,
+      "#admin-summary-featured": featured,
+      "#admin-summary-media": media
+    };
+    Object.entries(values).forEach(([selector, value]) => {
+      const element = query(selector);
+      if (element) element.textContent = String(value);
+    });
+    const currentCatalog = query("#admin-current-catalog");
+    if (currentCatalog) currentCatalog.textContent = catalogLabel();
+  }
+  function setView(view) {
+    const allowed = new Set(["overview", "products", "comments", "settings"]);
+    const next = allowed.has(view) ? view : "overview";
+    document.querySelectorAll("[data-admin-view]").forEach(section => {
+      section.hidden = section.dataset.adminView !== next;
+    });
+    document.querySelectorAll("[data-view]").forEach(button => {
+      button.classList.toggle("is-active", button.dataset.view === next);
+    });
+    if (next === "overview") renderOverview();
+    if (next === "comments") renderComments();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
   function renderProducts() {
     const search = query("#product-search").value.trim().toLowerCase();
     const products = store.state.products.filter(item => `${item.name} ${item.description}`.toLowerCase().includes(search));
     query("#admin-products").innerHTML = products.map(item => `<article class="panel admin-product"><span>${safe(item.category)} · ${item.enabled ? "Visible" : "Oculto"}</span><h2>${safe(item.name)}</h2><p>${safe(item.description)}</p><strong>${store.catalogType === "external_catalog" && item.external_price_visible === false ? "Precio oculto" : safe(store.amount(item.price, item))}</strong><div class="actions"><button type="button" data-edit="${safe(item.id)}">Editar</button><button type="button" data-toggle="${safe(item.id)}">${item.enabled ? "Ocultar" : "Mostrar"}</button><button type="button" data-delete="${safe(item.id)}">Eliminar</button></div></article>`).join("") || '<p>No encontramos productos.</p>';
+    renderOverview();
   }
   function renderSettings() {
     const external = store.catalogType === "external_catalog";
     query("#catalog-type").value = store.catalogType;
-    query("#admin-mode-label").textContent = external ? "Catálogo" : "Tienda base · WhatsApp";
+    query("#admin-mode-label").textContent = external ? "Catálogo" : "Tienda";
+    const currentCatalog = query("#admin-current-catalog");
+    if (currentCatalog) currentCatalog.textContent = catalogLabel();
     query("#commerce-settings").hidden = external;
     query("#catalog-settings").hidden = !external;
     const values = { ...store.state.storeSettings, ...store.model.catalogs.external_catalog.settings };
@@ -57,6 +99,7 @@
     for (const field of query("#commerce-settings").querySelectorAll("input")) field.disabled = external;
     for (const field of query("#catalog-settings").querySelectorAll("input,textarea")) field.disabled = !external;
     settingsBaseline = signature(settingsForm);
+    renderOverview();
   }
   function saveSettings() {
     if (externalChange) throw new Error("Actualiza la vista antes de guardar.");
@@ -127,7 +170,9 @@
     const list = manager === "currencies" ? store.model.currencies : (manager === "units" ? [...defaults, ...store.state.customUnits] : store.state.categories.filter(name => name !== "Todos")).map(name => ({ id: name, display_label: name, is_system: manager === "units" && defaults.includes(name) }));
     query("#manager-list").innerHTML = list.map(item => `<article class="manager-row"><div><strong>${safe(item.code || "")} ${safe(item.display_label)}</strong><p class="muted">${item.is_system ? "Base: siempre disponible" : "Personalizada"}${manager === "currencies" ? ` · ${store.currencyUse(item.id)} productos · ${item.enabled ? "Disponible" : "Retirada"}` : ""}</p></div><div class="actions">${manager !== "units" || !item.is_system ? `<button type="button" data-manager-edit="${safe(item.id)}">Editar${manager === "currencies" ? " etiqueta" : ""}</button>` : ""}${!item.is_system ? `<button type="button" data-manager-delete="${safe(item.id)}">Eliminar</button>${manager === "currencies" ? `<button type="button" data-manager-toggle="${safe(item.id)}">${item.enabled ? "Retirar" : "Reactivar"}</button>` : ""}` : ""}</div></article>`).join("") || "Todavía no hay elementos personalizados.";
   }
-  document.querySelectorAll("[data-view]").forEach(button => button.onclick = () => { document.querySelectorAll("[data-admin-view]").forEach(section => { section.hidden = section.dataset.adminView !== button.dataset.view; }); });
+  document.querySelectorAll("[data-view]").forEach(button => button.onclick = () => setView(button.dataset.view));
+  document.querySelectorAll("[data-view-target]").forEach(button => button.onclick = () => setView(button.dataset.viewTarget));
+  query("#admin-summary-open-products").onclick = () => setView("products");
   query("#new-product").onclick = () => openProduct();
   query("#product-search").oninput = renderProducts;
   query("#admin-products").onclick = event => {
@@ -187,10 +232,10 @@
   }
   query("#admin-comments").onclick = event => { const button = event.target.closest("[data-comment]"); if (!button) return; const hidden = store.state.commentModeration.hiddenIds; const index = hidden.indexOf(button.dataset.comment); if (index < 0) hidden.push(button.dataset.comment); else hidden.splice(index, 1); store.save(); renderComments(); };
   query("#block-visitor").onchange = event => { store.state.commentModeration.visitorBlocked = event.target.checked; store.save(); };
-  query("#reset-demo").onclick = async () => { if (!window.confirm("¿Restablecer toda esta demo? Se borrarán sus cambios, medios, perfil y pedidos locales. No afecta proyectos reales.")) return; try { await store.reset(); await window.DemoMedia.clear(); location.reload(); } catch (error) { status(error.message); } };
+  query("#reset-demo").onclick = async () => { if (!window.confirm("¿Restablecer toda esta demo? Se borrarán sus cambios, medios, perfil y contenido local. No afecta proyectos reales.")) return; try { await store.reset(); await window.DemoMedia.clear(); location.reload(); } catch (error) { status(error.message); } };
   query("#reload-demo").onclick = () => { if (window.confirm("Se descartarán cambios no guardados de esta pantalla. ¿Actualizar con los datos de la otra pestaña?")) { productBaseline = productSignature(); settingsBaseline = signature(settingsForm); location.reload(); } };
   window.addEventListener("demo-store-external-change", () => { externalChange = true; query("#reload-demo").hidden = false; status("La demo cambió en otra pestaña. Actualiza la vista antes de guardar para no mezclar catálogos."); });
   window.addEventListener("beforeunload", event => { if (productDirty() || settingsDirty()) { event.preventDefault(); event.returnValue = ""; } });
   document.addEventListener("click", async event => { const link = event.target.closest("a[href]"); if (!link || link.target === "_blank" || event.ctrlKey || event.metaKey || event.shiftKey || (!productDirty() && !settingsDirty())) return; event.preventDefault(); if (await leave()) location.href = link.href; });
-  renderSettings(); renderProducts(); renderComments();
+  renderSettings(); renderProducts(); renderComments(); setView("overview");
 })();
