@@ -7,14 +7,14 @@
   function currentCatalog() {
     const value = new URLSearchParams(location.search).get("catalog");
     if (TYPES.has(value)) return value;
-    return store && TYPES.has(store.getState().active_catalog_type)
-      ? store.getState().active_catalog_type
+    return store && TYPES.has(store.catalogType)
+      ? store.catalogType
       : "commerce";
   }
 
   function applyCatalogFromUrl() {
     const type = new URLSearchParams(location.search).get("catalog");
-    if (store && TYPES.has(type) && store.getState().active_catalog_type !== type) {
+    if (store && TYPES.has(type) && store.catalogType !== type) {
       store.selectCatalog(type);
     }
     return currentCatalog();
