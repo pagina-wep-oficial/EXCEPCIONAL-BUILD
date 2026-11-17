@@ -12,3 +12,8 @@
 - Se ajustaron estados, tamaños y respuesta visual de botones de navegación.
 - Las tarjetas de productos ahora muestran imagen principal, video o marcador visual cuando no existe medio.
 - Configuración y comportamiento local se conservaron sin cambios.
+## Corrección de miniaturas
+
+- El administrador ahora resuelve rutas `assets/` desde `demo-casa-nopal/`.
+- Los archivos locales `demo-media:` se cargan desde IndexedDB con `DemoMedia.resolve()`.
+- Una ruta inexistente conserva el marcador visual, sin imagen rota ni texto alternativo visible.
