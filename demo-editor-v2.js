@@ -2,7 +2,8 @@
   "use strict";
 
   const params = new URLSearchParams(window.location.search);
-  const mode = "store";
+  const mode = window.DemoNavigation.currentCatalog();
+  const projectUrl = window.DemoNavigation.route("demo-project.html", mode);
   const key = window.DemoStore.editorKey;
   const imageDbName = "eb-casa-nopal-demo-images-v1";
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -16,18 +17,22 @@
   let currentType = "text";
   let previewMode = false;
   let photo = null;
+  let editorDirty = false;
   if (!Array.isArray(state.history) || !state.history.length) { state.history = [{ id: "local-base", created_at: new Date().toISOString(), values: {}, summary: "Versión base" }]; state.historyIndex = 0; persist(); }
 
   function loadState() {
     try { return { ...emptyState(), ...(JSON.parse(localStorage.getItem(key) || "null") || {}) }; } catch (error) { return emptyState(); }
   }
   function persist() { localStorage.setItem(key, JSON.stringify(state)); }
-  function modeUrl(path) { return `demo-casa-nopal/${path}?mode=${mode}&editor=1`; }
+  function modeUrl(path) { return `demo-casa-nopal/${path}?catalog=${mode}&editor=1`; }
   function setStatus(message, kind = "") { const node = $("#editor-v2-status"); if (node) { node.textContent = message; node.dataset.state = kind; } }
+  function updateSaveState() { const node = $("#editor-v2-save-state"); if (node) { node.textContent = editorDirty ? "Cambios sin guardar" : "Guardado localmente"; node.dataset.state = editorDirty ? "dirty" : "saved"; } }
+  function markDirty() { editorDirty = true; updateSaveState(); }
+  function markSaved() { editorDirty = false; updateSaveState(); }
   function openModal(id) { const modal = $(id); if (modal) modal.hidden = false; }
   function closeModal(id) { const modal = $(id); if (modal) modal.hidden = true; }
   function currentValues() { return state.draft || {}; }
-  function setDraftValue(keyName, value) { state.draft[keyName] = value; pushHistory(); persist(); }
+  function setDraftValue(keyName, value) { state.draft[keyName] = value; pushHistory(); persist(); markDirty(); }
   function pushHistory() { const snapshot = clone(state.draft); if (state.historyIndex < state.history.length - 1) state.history = state.history.slice(0, state.historyIndex + 1); const previous = state.history[state.history.length - 1]; if (JSON.stringify(previous?.values || {}) === JSON.stringify(snapshot)) return; state.history.push({ id: `local-${Date.now()}`, created_at: new Date().toISOString(), values: snapshot, summary: "Cambio local" }); if (state.history.length > 40) state.history.shift(); state.historyIndex = state.history.length - 1; updateHistoryButtons(); }
   function updateHistoryButtons() { $("#editor-v2-undo").disabled = state.historyIndex <= 0; $("#editor-v2-redo").disabled = state.historyIndex < 0 || state.historyIndex >= state.history.length - 1; }
   function frameDocument() { return $("#editor-v2-frame")?.contentDocument || null; }
@@ -52,14 +57,33 @@
   function drawPhoto() { if (!photo) return; const canvas = $("#editor-photo-canvas"); const context = canvas.getContext("2d"); const size = 620; canvas.width = size; canvas.height = size; context.clearRect(0, 0, size, size); context.save(); context.translate(size / 2, size / 2); context.rotate(photo.rotation * Math.PI / 180); context.scale(photo.scale, photo.scale); const ratio = Math.max(size / photo.image.width, size / photo.image.height); const width = photo.image.width * ratio; const height = photo.image.height * ratio; context.drawImage(photo.image, -width / 2, -height / 2, width, height); context.restore(); }
   async function openPhoto(value) { try { photo = { image: new Image(), scale: 1, rotation: 0 }; photo.image.onload = () => { drawPhoto(); openModal("#editor-photo-modal"); }; photo.image.src = await window.DemoMedia.resolve(value); } catch (error) { setStatus(error.message, "error"); } }
   function bindPhoto() { $("#editor-photo-zoom-in")?.addEventListener("click", () => { if (photo) { photo.scale += .1; drawPhoto(); } }); $("#editor-photo-zoom-out")?.addEventListener("click", () => { if (photo) { photo.scale = Math.max(.5, photo.scale - .1); drawPhoto(); } }); $("#editor-photo-rotate-left")?.addEventListener("click", () => { if (photo) { photo.rotation -= 90; drawPhoto(); } }); $("#editor-photo-rotate-right")?.addEventListener("click", () => { if (photo) { photo.rotation += 90; drawPhoto(); } }); $("#editor-photo-reset")?.addEventListener("click", () => { if (photo) { photo.scale = 1; photo.rotation = 0; drawPhoto(); } }); $("#editor-photo-cancel")?.addEventListener("click", () => closeModal("#editor-photo-modal")); $("#editor-photo-apply")?.addEventListener("click", async () => { if (!photo) return; try { const blob = await new Promise(resolve => $("#editor-photo-canvas").toBlob(resolve, "image/jpeg", .9)); if (!blob) throw new Error("No se pudo generar la imagen."); const media = await window.DemoMedia.save(new File([blob], "foto-ajustada.jpg", { type:"image/jpeg" })); setDraftValue(currentKey, media.source_url); applyValues({ [currentKey]:media.source_url }); closeModal("#editor-photo-modal"); setStatus("Ajuste guardado en este navegador.", "success"); } catch (error) { setStatus(error.message, "error"); } }); }
-  function undo() { if (state.historyIndex <= 0) return; state.historyIndex -= 1; state.draft = clone(state.history[state.historyIndex].values); persist(); applyValues(state.draft); updateHistoryButtons(); setStatus("Cambio deshecho."); }
-  function redo() { if (state.historyIndex >= state.history.length - 1) return; state.historyIndex += 1; state.draft = clone(state.history[state.historyIndex].values); persist(); applyValues(state.draft); updateHistoryButtons(); setStatus("Cambio rehecho."); }
-  function renderHistory() { const list = $("#editor-history-list"); if (!list) return; $("#editor-history-capacity").textContent = `${state.history.length}/40 cambios locales guardados.`; list.innerHTML = state.history.length ? state.history.slice().reverse().map((version) => `<article class="editor-history-item"><div><strong>${new Date(version.created_at).toLocaleString("es-MX")}</strong><p>${safe(version.summary)}</p></div><button class="button button-small" type="button" data-demo-history="${safe(version.id)}">Recuperar</button></article>`).join("") : '<p class="editor-history-empty">Todavía no hay cambios locales guardados.</p>'; list.querySelectorAll("[data-demo-history]").forEach((button) => button.addEventListener("click", () => { const version = state.history.find((item) => item.id === button.dataset.demoHistory); if (!version) return; state.draft = clone(version.values); state.historyIndex = state.history.indexOf(version); persist(); applyValues(state.draft); closeModal("#editor-history-modal"); updateHistoryButtons(); setStatus("Versión recuperada como borrador local.", "success"); })); }
-  function publish() { state.published = clone(state.draft); persist(); const frame = $("#editor-v2-frame"); if (frame) frame.src = modeUrl(currentPage); setStatus("Cambios publicados en la demo local.", "success"); $("#editor-v2-confirm-title").textContent = "Cambios publicados en la demo"; $("#editor-v2-confirm-note").textContent = "Nada se envió a GitHub, Cloudflare o Supabase."; $("#editor-v2-confirm-ok").hidden = true; $("#editor-v2-confirm-view").hidden = false; $("#editor-v2-confirm-view").href = `demo-casa-nopal/index.html?mode=${mode}`; $("#editor-v2-confirm-done").hidden = false; }
-  function resetPage() { if (!window.confirm("¿Restablecer los cambios de esta demo?")) return; state.draft = {}; persist(); applyValues({}); loadPage(currentPage); setStatus("Página restablecida a la base local.", "success"); }
-  function useBase() { if (!window.confirm("¿Usar la versión base de Casa Nopal?")) return; state = emptyState(); persist(); loadPage(currentPage); setStatus("Versión base lista.", "success"); }
-  function bindExit() { $("#editor-v2-back").href = `demo-project.html?mode=${mode}`; $("#editor-exit-cancel")?.addEventListener("click", () => closeModal("#editor-exit-modal")); $("#editor-exit-discard")?.addEventListener("click", () => { state.draft = {}; persist(); window.location.href = `demo-project.html?mode=${mode}`; }); $("#editor-exit-save")?.addEventListener("click", () => { persist(); window.location.href = `demo-project.html?mode=${mode}`; }); $("#editor-v2-back")?.addEventListener("click", (event) => { if (!Object.keys(state.draft).length) return; event.preventDefault(); openModal("#editor-exit-modal"); }); }
-  function bind() { $("#editor-v2-frame").addEventListener("load", bindFrame); $("#editor-v2-save").addEventListener("click", () => { persist(); setStatus("Borrador guardado localmente.", "success"); }); $("#editor-v2-publish").addEventListener("click", () => { $("#editor-v2-confirm-title").textContent = "¿Publicar estos cambios en la demo?"; $("#editor-v2-confirm-note").textContent = "La publicación solo actualiza este navegador."; $("#editor-v2-confirm-ok").hidden = false; $("#editor-v2-confirm-view").hidden = true; $("#editor-v2-confirm-done").hidden = true; openModal("#editor-v2-confirm"); }); $("#editor-v2-confirm-ok").addEventListener("click", publish); $("#editor-v2-confirm-cancel").addEventListener("click", () => closeModal("#editor-v2-confirm")); $("#editor-v2-confirm-done").addEventListener("click", () => closeModal("#editor-v2-confirm")); $("#editor-v2-undo").addEventListener("click", undo); $("#editor-v2-redo").addEventListener("click", redo); $("#editor-v2-base").addEventListener("click", useBase); $("#editor-v2-reset").addEventListener("click", resetPage); $("#editor-v2-preview").addEventListener("click", () => { previewMode = !previewMode; $("#editor-v2-mode-badge").textContent = previewMode ? "Vista previa local" : "Modo edición"; $("#editor-v2-current-state").textContent = previewMode ? "Vista previa: selecciona Vista previa otra vez para editar." : "Selecciona un elemento de la página para editarlo."; }); $("#editor-v2-history").addEventListener("click", () => { renderHistory(); openModal("#editor-history-modal"); }); $("#editor-history-close").addEventListener("click", () => closeModal("#editor-history-modal")); $("#editor-v2-error-close")?.addEventListener("click", () => $("#editor-v2-error-card").hidden = true); bindPhoto(); bindExit(); document.addEventListener("keydown", (event) => { if (event.key === "Escape") ["#editor-v2-confirm", "#editor-history-modal", "#editor-photo-modal", "#editor-exit-modal"].forEach(closeModal); if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") { event.preventDefault(); event.shiftKey ? redo() : undo(); } }); }
+  function undo() { if (state.historyIndex <= 0) return; state.historyIndex -= 1; state.draft = clone(state.history[state.historyIndex].values); persist(); markDirty(); applyValues(state.draft); updateHistoryButtons(); setStatus("Cambio deshecho."); }
+  function redo() { if (state.historyIndex >= state.history.length - 1) return; state.historyIndex += 1; state.draft = clone(state.history[state.historyIndex].values); persist(); markDirty(); applyValues(state.draft); updateHistoryButtons(); setStatus("Cambio rehecho."); }
+  function renderHistory() { const list = $("#editor-history-list"); if (!list) return; $("#editor-history-capacity").textContent = `${state.history.length}/40 cambios locales guardados.`; list.innerHTML = state.history.length ? state.history.slice().reverse().map((version) => `<article class="editor-history-item"><div><strong>${new Date(version.created_at).toLocaleString("es-MX")}</strong><p>${safe(version.summary)}</p></div><button class="button button-small" type="button" data-demo-history="${safe(version.id)}">Recuperar</button></article>`).join("") : '<p class="editor-history-empty">Todavía no hay cambios locales guardados.</p>'; list.querySelectorAll("[data-demo-history]").forEach((button) => button.addEventListener("click", () => { const version = state.history.find((item) => item.id === button.dataset.demoHistory); if (!version) return; state.draft = clone(version.values); state.historyIndex = state.history.indexOf(version); persist(); markDirty(); applyValues(state.draft); closeModal("#editor-history-modal"); updateHistoryButtons(); setStatus("Versión recuperada como borrador local.", "success"); })); }
+  function publish() { state.published = clone(state.draft); persist(); markSaved(); const frame = $("#editor-v2-frame"); if (frame) frame.src = modeUrl(currentPage); setStatus("Cambios publicados en la demo local.", "success"); $("#editor-v2-confirm-title").textContent = "Cambios publicados en la demo"; $("#editor-v2-confirm-note").textContent = "Nada se envió a GitHub, Cloudflare o Supabase."; $("#editor-v2-confirm-ok").hidden = true; $("#editor-v2-confirm-view").hidden = false; $("#editor-v2-confirm-view").href = `demo-casa-nopal/index.html?catalog=${mode}`; $("#editor-v2-confirm-done").hidden = false; }
+  function resetPage() { if (!window.confirm("¿Restablecer los cambios de esta demo?")) return; state.draft = {}; persist(); markSaved(); applyValues({}); loadPage(currentPage); setStatus("Página restablecida a la base local.", "success"); }
+  function useBase() { if (!window.confirm("¿Usar la versión base de Casa Nopal?")) return; state = emptyState(); persist(); markSaved(); loadPage(currentPage); setStatus("Versión base lista.", "success"); }
+  function bindExit() {
+    $("#editor-v2-back").href = projectUrl;
+    $("#editor-exit-cancel")?.addEventListener("click", () => closeModal("#editor-exit-modal"));
+    $("#editor-exit-discard")?.addEventListener("click", () => {
+      state.draft = {};
+      persist();
+      markSaved();
+      window.location.href = projectUrl;
+    });
+    $("#editor-exit-save")?.addEventListener("click", () => {
+      persist();
+      markSaved();
+      window.location.href = projectUrl;
+    });
+    $("#editor-v2-back")?.addEventListener("click", (event) => {
+      if (!editorDirty) return;
+      event.preventDefault();
+      openModal("#editor-exit-modal");
+    });
+  }
+  function bind() { $("#editor-v2-frame").addEventListener("load", bindFrame); $("#editor-v2-save").addEventListener("click", () => { persist(); markSaved(); setStatus("Borrador guardado localmente.", "success"); }); $("#editor-v2-publish").addEventListener("click", () => { $("#editor-v2-confirm-title").textContent = "¿Publicar estos cambios en la demo?"; $("#editor-v2-confirm-note").textContent = "La publicación solo actualiza este navegador."; $("#editor-v2-confirm-ok").hidden = false; $("#editor-v2-confirm-view").hidden = true; $("#editor-v2-confirm-done").hidden = true; openModal("#editor-v2-confirm"); }); $("#editor-v2-confirm-ok").addEventListener("click", publish); $("#editor-v2-confirm-cancel").addEventListener("click", () => closeModal("#editor-v2-confirm")); $("#editor-v2-confirm-done").addEventListener("click", () => closeModal("#editor-v2-confirm")); $("#editor-v2-undo").addEventListener("click", undo); $("#editor-v2-redo").addEventListener("click", redo); $("#editor-v2-base").addEventListener("click", useBase); $("#editor-v2-reset").addEventListener("click", resetPage); $("#editor-v2-preview").addEventListener("click", togglePreview); $("#editor-v2-history").addEventListener("click", () => { renderHistory(); openModal("#editor-history-modal"); }); $("#editor-history-close").addEventListener("click", () => closeModal("#editor-history-modal")); $("#editor-v2-error-close")?.addEventListener("click", () => $("#editor-v2-error-card").hidden = true); bindPhoto(); bindExit(); document.addEventListener("keydown", (event) => { if (event.key === "Escape") ["#editor-v2-confirm", "#editor-history-modal", "#editor-photo-modal", "#editor-exit-modal"].forEach(closeModal); if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") { event.preventDefault(); event.shiftKey ? redo() : undo(); } }); }
   $("#editor-v2-project-name").textContent = "Casa Nopal Demo";
   $("#editor-v2-project-copy").textContent = "Edita la copia local de Casa Nopal. Nada se publica fuera de esta demo.";
   $("#editor-v2-frame-loading-text").textContent = "Cargando Casa Nopal…";
@@ -70,5 +94,7 @@
   const cleanPreviewButton = previewButton?.cloneNode(true);
   if (previewButton && cleanPreviewButton) { previewButton.replaceWith(cleanPreviewButton); cleanPreviewButton.addEventListener("click", togglePreview); }
   updateHistoryButtons();
+  updateSaveState();
+  window.addEventListener("beforeunload", (event) => { if (editorDirty) { event.preventDefault(); event.returnValue = ""; } });
   loadPage(currentPage);
 })();
