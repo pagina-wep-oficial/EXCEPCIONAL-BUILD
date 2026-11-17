@@ -24,6 +24,14 @@
       { target: "#editor-v2-save", title: "Guarda tu borrador", text: "Tus cambios quedan guardados en este navegador para continuar después." },
       { target: "#editor-v2-preview", title: "Revisa antes de publicar", text: "Vista previa muestra la página sin los controles de edición." },
       { target: "#editor-v2-publish", title: "Publica la demostración", text: "En esta demo, publicar solo actualiza lo que ves en este navegador." }
+    ],
+    admin: [
+      { target: "#admin-summary-open-products", title: "Organiza tu catálogo", text: "Desde aquí administras los productos de este recorrido." },
+      { target: "#new-product", title: "Agrega un producto", text: "Crea productos con precio, moneda, imágenes, video o enlaces.", open: () => document.querySelector('.admin-side-nav [data-view="products"]')?.click() },
+      { target: "#product-search", title: "Encuentra tus productos", text: "Busca, edita, oculta o elimina productos guardados en este catálogo." },
+      { target: "#block-visitor", title: "Revisa opiniones", text: "Las opiniones son de demostración y puedes decidir si permites nuevas.", open: () => document.querySelector('.admin-side-nav [data-view="comments"]')?.click() },
+      { target: "#catalog-type", title: "Configura cada recorrido", text: "Tienda y Catálogo conservan sus datos por separado al cambiar aquí.", open: () => document.querySelector('.admin-side-nav [data-view="settings"]')?.click() },
+      { target: "#admin-project-back", title: "Vuelve a tu proyecto", text: "Usa este enlace para regresar a las herramientas del proyecto." }
     ]
   };
 
@@ -34,6 +42,7 @@
   let steps = [];
   let highlighted = null;
   let layoutTimer = 0;
+  let openingGuideSection = false;
 
   function readState() {
     try { return JSON.parse(localStorage.getItem(key) || "{}"); }
@@ -151,7 +160,11 @@
     clearHighlight();
     const step = steps[index];
     if (!step) return finish();
-    if (step.open) step.open();
+    if (step.open) {
+      openingGuideSection = true;
+      step.open();
+      openingGuideSection = false;
+    }
 
     const target = document.querySelector(step.target);
     if (!visible(target)) {
@@ -204,7 +217,7 @@
   }
 
   function blockPage(event) {
-    if (!active || event.target.closest(".demo-guide-card")) return;
+    if (!active || openingGuideSection || event.target.closest(".demo-guide-card")) return;
     event.preventDefault();
     event.stopImmediatePropagation();
   }

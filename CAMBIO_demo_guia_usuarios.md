@@ -13,3 +13,10 @@
 - El mensaje se separa automáticamente del elemento destacado.
 - La página queda bloqueada hasta usar Omitir o Terminar.
 - El editor señala su instrucción de edición y no el iframe completo.
+
+## Guía dentro de herramientas
+
+- El Editor conserva su guía visual de cinco pasos.
+- Administrar tienda incorpora una guía propia: productos, creación, búsqueda, opiniones, configuración y regreso.
+- La guía abre cada sección automáticamente y bloquea acciones hasta Omitir o Terminar.
+- No presenta inventario, pedidos ni equipo.
