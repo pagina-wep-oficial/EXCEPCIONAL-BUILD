@@ -113,3 +113,17 @@ body[data-store-design][data-page] :is(.profile-close,.profile-popover .button){
 body[data-store-design][data-page] .product-grid{grid-template-columns:minmax(0,1fr)!important}
 }
 html body[data-store-design][data-page][data-catalog-state] .app-nav{background:rgba(255,255,255,.38)!important;backdrop-filter:blur(16px)!important;border:1px solid rgba(255,255,255,.7)!important;border-radius:22px!important}
+
+/* Recorte real de medios dentro de tarjetas de producto. */
+body[data-store-design] :where(.product-media-frame) {
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: inherit;
+}
+body[data-store-design] :where(.product-media-frame) > :is(img, video) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
