@@ -1,0 +1,7 @@
+# Guía para usuarios demo — Fase 1
+
+- Se añadió una guía visual local para selector, panel, proyecto y Editor.
+- La guía resalta elementos reales y explica un paso a la vez.
+- Cada pantalla recuerda si ya se mostró; el botón flotante con birrete permite abrirla otra vez.
+- Administrar tienda queda fuera de esta primera guía.
+- No se conectan servicios reales ni se guardan datos fuera del navegador.
