@@ -27,19 +27,13 @@
 
       <div class="editor-topbar-actions">
         <span class="editor-mode-badge" id="editor-v2-mode-badge">Modo edición</span>
-        <span class="editor-save-state" id="editor-v2-save-state" role="status">Guardado localmente</span>
-        <button class="button button-light" id="editor-v2-preview" type="button">Vista previa</button>
+        <button class="button button-light editor-history-btn" id="editor-v2-undo" type="button" aria-label="Deshacer el último cambio" title="Deshacer el último cambio" disabled>← Deshacer</button>
+        <button class="button button-light editor-history-btn" id="editor-v2-redo" type="button" aria-label="Rehacer el cambio deshecho" title="Rehacer el cambio deshecho" disabled>→ Rehacer</button>
         <button class="button button-light" id="editor-v2-save" type="button">Guardar borrador</button>
-        <details class="editor-actions-menu">
-          <summary>Más opciones</summary>
-          <div>
-            <button class="button button-light editor-history-btn" id="editor-v2-undo" type="button" disabled>Deshacer</button>
-            <button class="button button-light editor-history-btn" id="editor-v2-redo" type="button" disabled>Rehacer</button>
-            <button class="button button-light" id="editor-v2-history" type="button">Historial</button>
-            <button class="button button-light" id="editor-v2-base" type="button">Usar versión base</button>
-            <button class="button button-light" id="editor-v2-reset" type="button">Restablecer página</button>
-          </div>
-        </details>
+        <button class="button button-light" id="editor-v2-base" type="button" title="Volver a la versión base">Usar versión base</button>
+        <button class="button button-light" id="editor-v2-reset" type="button" title="Descartar cambios de esta página">Restablecer página</button>
+        <button class="button button-light" id="editor-v2-preview" type="button">Vista previa</button>
+        <button class="button button-light" id="editor-v2-history" type="button" aria-haspopup="dialog">Historial</button>
         <button class="button button-primary" id="editor-v2-publish" type="button">Publicar demo</button>
       </div>
     </header>

@@ -13,3 +13,8 @@
 
 - El botón Vista previa ahora usa `togglePreview()` como fuente única de comportamiento.
 - La vista previa activa y desactiva correctamente el modo del iframe, el estado y el texto del botón.
+## Apariencia del editor original
+
+- El demo reutiliza la hoja visual exacta de `editor-v2.css`.
+- La barra recupera las acciones visibles del Editor original: deshacer, rehacer, borrador, base, restablecer, vista previa e historial.
+- La lógica del demo permanece local; no se incorporan Supabase, Firebase ni datos de proyectos reales.
