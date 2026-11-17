@@ -5,3 +5,11 @@
 - Cada pantalla recuerda si ya se mostró; el botón flotante con birrete permite abrirla otra vez.
 - Administrar tienda queda fuera de esta primera guía.
 - No se conectan servicios reales ni se guardan datos fuera del navegador.
+
+## Corrección de enfoque, navegación y bloqueo
+
+- Se añadió Atrás y navegación con teclas izquierda/derecha.
+- El foco usa una ventana transparente: el elemento señalado queda visible.
+- El mensaje se separa automáticamente del elemento destacado.
+- La página queda bloqueada hasta usar Omitir o Terminar.
+- El editor señala su instrucción de edición y no el iframe completo.
