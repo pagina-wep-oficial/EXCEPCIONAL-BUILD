@@ -78,10 +78,22 @@
     if (next === "comments") renderComments();
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
+  function productMediaMarkup(item) {
+    const media = Array.isArray(item.media) ? item.media : [];
+    const primary = media.find(entry => entry.is_primary) || media[0] || null;
+    const source = primary?.source_url || primary?.url || primary?.src || item.image || "";
+    if (!source) {
+      return '<div class="admin-product-placeholder" aria-label="Producto sin imagen"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8" cy="9" r="1.5"/><path d="m4 18 5-5 3 3 3-3 5 5"/></svg></div>';
+    }
+    if (primary?.type === "video") {
+      return `<video muted playsinline preload="metadata" src="${safe(source)}"></video><span class="admin-product-media-kind">Video</span>`;
+    }
+    return `<img src="${safe(source)}" alt="Imagen de ${safe(item.name)}" loading="lazy">`;
+  }
   function renderProducts() {
     const search = query("#product-search").value.trim().toLowerCase();
     const products = store.state.products.filter(item => `${item.name} ${item.description}`.toLowerCase().includes(search));
-    query("#admin-products").innerHTML = products.map(item => `<article class="panel admin-product"><span>${safe(item.category)} · ${item.enabled ? "Visible" : "Oculto"}</span><h2>${safe(item.name)}</h2><p>${safe(item.description)}</p><strong>${store.catalogType === "external_catalog" && item.external_price_visible === false ? "Precio oculto" : safe(store.amount(item.price, item))}</strong><div class="actions"><button type="button" data-edit="${safe(item.id)}">Editar</button><button type="button" data-toggle="${safe(item.id)}">${item.enabled ? "Ocultar" : "Mostrar"}</button><button type="button" data-delete="${safe(item.id)}">Eliminar</button></div></article>`).join("") || '<p>No encontramos productos.</p>';
+    query("#admin-products").innerHTML = products.map(item => `<article class="panel admin-product"><div class="admin-product-media">${productMediaMarkup(item)}</div><div class="admin-product-content"><span class="admin-product-state">${safe(item.category)} · ${item.enabled ? "Visible" : "Oculto"}</span><h2>${safe(item.name)}</h2><p>${safe(item.description)}</p><strong>${store.catalogType === "external_catalog" && item.external_price_visible === false ? "Precio oculto" : safe(store.amount(item.price, item))}</strong><div class="actions"><button type="button" data-edit="${safe(item.id)}">Editar</button><button type="button" data-toggle="${safe(item.id)}">${item.enabled ? "Ocultar" : "Mostrar"}</button><button type="button" data-delete="${safe(item.id)}">Eliminar</button></div></div></article>`).join("") || '<p>No encontramos productos.</p>';
     renderOverview();
   }
   function renderSettings() {
