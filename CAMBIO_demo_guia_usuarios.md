@@ -20,3 +20,11 @@
 - Administrar tienda incorpora una guía propia: productos, creación, búsqueda, opiniones, configuración y regreso.
 - La guía abre cada sección automáticamente y bloquea acciones hasta Omitir o Terminar.
 - No presenta inventario, pedidos ni equipo.
+
+## Guía contextual de Administrar tienda
+
+- Resumen, Productos, Opiniones y Configuración tienen recorridos independientes.
+- Cada recorrido se muestra una vez al abrir su apartado por primera vez.
+- Abrir un producto inicia una guía adicional de precio, moneda, medios, visibilidad y guardado.
+- El botón flotante reproduce solamente la guía del apartado visible.
+- Se eliminó el recorrido lineal que cambiaba de secciones automáticamente.
