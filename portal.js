@@ -411,6 +411,12 @@ function nextStepText(project) {
       el.textContent=initials||"EB";
       el.setAttribute("aria-label", `Iniciales de ${profile.full_name||"tu cuenta"}`);
     });
+    $$('[data-account-avatar]').forEach(el=>{
+      const source=String(profile.full_name||"").trim();
+      const initials=source.split(/\s+/).filter(Boolean).map(word=>word[0]).join("").slice(0,2).toUpperCase();
+      el.innerHTML=initials||`<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.2"></circle><path d="M5.5 20c.8-3.3 3-5 6.5-5s5.7 1.7 6.5 5"></path></svg>`;
+      el.setAttribute("aria-label", initials ? `Mi cuenta, ${initials}` : "Abrir mi cuenta");
+    });
   }
   async function loadContext() {
     const session=await requireSession();
