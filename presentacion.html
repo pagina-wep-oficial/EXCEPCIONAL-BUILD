@@ -278,8 +278,7 @@ p.description {
 <body>
 
 <header class="viewer-head">
-  <strong>EXCEPCIONAL BUILD <span>· Claymorphism 3D</span></strong>
-  <span>Vertical 9:16 · 47s</span>
+  <strong>EXCEPCIONAL BUILD</strong>
 </header>
 
 <main class="stage" id="stage" aria-label="Anuncio publicitario estilo plastilina">
@@ -422,13 +421,11 @@ p.description {
 <div class="controls" role="group" aria-label="Controles del video">
   <button id="playBtn" type="button">⏸ Pausar</button>
  <button id="replayBtn" type="button">↺ Reiniciar</button>
-  <button id="voiceBtn" type="button" aria-pressed="false">🔊 Activar voz</button>
   <input id="scrub" type="range" min="0" max="47" step="0.05" value="0" aria-label="Barra de avance">
   <span class="time"><span id="current">0:00</span> / 0:47</span>
   <button id="fullscreenBtn" type="button" title="Pantalla completa">⛶</button>
 </div>
 
-<p class="hint">Video interactivo en HTML/CSS con estilo Claymorphism 3D y voz sincronizada sin cortes.</p>
 
 <script>
 'use strict';
@@ -451,15 +448,8 @@ const subtitle = document.getElementById('subtitle');
 const timeLabel = document.getElementById('current');
 
 const speech = ('speechSynthesis' in window) ? window.speechSynthesis : null;
-let voiceEnabled = false;
+let voiceEnabled = true;
 let lastSpokenIndex = -1;
-const voiceBtn = document.getElementById('voiceBtn');
-
-if (!speech) {
-  voiceBtn.disabled = true;
-  voiceBtn.textContent = 'Voz no disponible';
-}
-
 function stopVoice() {
   if (speech) speech.cancel();
   lastSpokenIndex = -1;
@@ -483,21 +473,6 @@ function speakScene(idx) {
   
   speech.speak(utterance);
 }
-
-voiceBtn.addEventListener('click', () => {
-  voiceEnabled = !voiceEnabled;
-  voiceBtn.textContent = voiceEnabled ? '🔇 Silenciar voz' : '🔊 Activar voz';
- voiceBtn.setAttribute('aria-pressed', String(voiceEnabled));
-  if (voiceEnabled && playing) {
-    const idx = scenes.findIndex(s => elapsed >= s.start && elapsed < s.end);
-    if (idx !== -1) {
-      lastSpokenIndex = -1;
-      speakScene(idx);
- }
-  } else {
-    stopVoice();
- }
-});
 
 function fmt(t) {
  return Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
