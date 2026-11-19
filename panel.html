@@ -16,7 +16,17 @@
 <header class="portal-header">
   <div class="portal-shell portal-nav">
     <a class="portal-brand" href="panel.html" aria-label="Excepcional Build, inicio"><span class="portal-mark">EB</span><span>EXCEPCIONAL BUILD</span></a>
-    <nav class="desktop-nav" aria-label="Navegación"><a class="is-active" href="panel.html">Mis páginas</a><a href="perfil.html">Mi cuenta</a></nav>
+    <nav class="desktop-nav" aria-label="Navegación">
+      <a class="is-active" href="panel.html">Mis páginas</a>
+      <a href="index.html">Página principal</a>
+      <details class="account-menu">
+        <summary>Mi cuenta <span aria-hidden="true">⌄</span></summary>
+        <div class="account-menu-popover">
+          <a href="perfil.html">Perfil y cuenta</a>
+          <button type="button" data-logout>Cerrar sesión</button>
+        </div>
+      </details>
+    </nav>
   </div>
 </header>
 <main class="portal-main">
