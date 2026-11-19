@@ -512,3 +512,16 @@
   .lead-form textarea{min-height:112px}
   .lead-form .cf-turnstile{min-height:68px}
 }
+
+.lead-progress{display:grid;gap:8px;margin-bottom:2px;color:var(--muted);font-size:12px;font-weight:700}
+.lead-progress i{display:block;height:5px;border-radius:99px;background:#e7ece8;overflow:hidden}
+.lead-progress b{display:block;width:33.33%;height:100%;border-radius:99px;background:var(--orange);transition:width .25s ease}
+.lead-step{display:grid;gap:15px}
+.lead-step-help{margin:-5px 0 2px;color:var(--muted);font-size:13px;line-height:1.5}
+.lead-step-actions{display:flex;gap:10px}
+.lead-step-actions .button{flex:1}
+@media(max-width:700px){
+  .lead-progress{margin-bottom:4px}
+  .lead-step-actions{position:sticky;bottom:0;margin-inline:-18px;padding:14px 18px;background:rgba(255,255,255,.96);border-top:1px solid var(--line);z-index:2}
+  .lead-step-actions .button{min-height:52px}
+}

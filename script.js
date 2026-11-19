@@ -48,6 +48,49 @@ window.onTurnstileError = function () {
   setStatus("No se pudo verificar el navegador. Intenta nuevamente sin recargar la página.", "error");
 };
 
+const leadPanels = [...document.querySelectorAll("[data-lead-panel]")];
+const leadNext = document.querySelector("#lead-next-step");
+const leadBack = document.querySelector("#lead-back");
+const leadProgressLabel = document.querySelector("#lead-progress-label");
+const leadProgressBar = document.querySelector("#lead-progress-bar");
+let leadStep = 1;
+
+function updateLeadStep() {
+  leadPanels.forEach((panel) => {
+    panel.hidden = Number(panel.dataset.leadPanel) !== leadStep;
+  });
+  if (leadProgressLabel) leadProgressLabel.textContent = `Paso ${leadStep} de ${leadPanels.length}`;
+  if (leadProgressBar) leadProgressBar.style.width = `${(leadStep / leadPanels.length) * 100}%`;
+  if (leadBack) leadBack.hidden = leadStep === 1;
+  if (leadNext) leadNext.hidden = leadStep === leadPanels.length;
+  const finalFields = document.querySelector("[data-lead-final]");
+  if (finalFields) finalFields.hidden = leadStep !== leadPanels.length;
+}
+
+function validateLeadStep() {
+  const panel = document.querySelector(`[data-lead-panel="${leadStep}"]`);
+  if (!panel) return true;
+  const fields = [...panel.querySelectorAll("input, select, textarea")];
+  for (const field of fields) {
+    if (!field.checkValidity()) {
+      field.reportValidity();
+      return false;
+    }
+  }
+  return true;
+}
+
+leadNext?.addEventListener("click", () => {
+  if (!validateLeadStep()) return;
+  leadStep = Math.min(leadPanels.length, leadStep + 1);
+  updateLeadStep();
+});
+
+leadBack?.addEventListener("click", () => {
+  leadStep = Math.max(1, leadStep - 1);
+  updateLeadStep();
+});
+
 const form = document.querySelector("#lead-form");
 const status = document.querySelector("#form-status");
 
