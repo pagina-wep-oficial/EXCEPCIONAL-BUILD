@@ -32,6 +32,22 @@ if ("IntersectionObserver" in window) {
   document.querySelectorAll(".reveal").forEach((item) => item.classList.add("visible"));
 }
 
+let turnstileState = "loading";
+
+window.onTurnstileSuccess = function () {
+  turnstileState = "ready";
+};
+
+window.onTurnstileExpired = function () {
+  turnstileState = "expired";
+  setStatus("La verificación expiró. Se renovará automáticamente; intenta enviar otra vez.", "error");
+};
+
+window.onTurnstileError = function () {
+  turnstileState = "error";
+  setStatus("No se pudo verificar el navegador. Intenta nuevamente sin recargar la página.", "error");
+};
+
 const form = document.querySelector("#lead-form");
 const status = document.querySelector("#form-status");
 
@@ -87,6 +103,22 @@ form?.addEventListener("submit", async (event) => {
     return;
   }
 
+  const turnstileToken = String(
+    form.querySelector('[name="cf-turnstile-response"]')?.value ||
+    data.get("cf-turnstile-response") ||
+    ""
+  ).trim();
+
+  if (!turnstileToken) {
+    turnstileState = "expired";
+    setStatus(
+      "Espera un momento a que termine la verificación y vuelve a pulsar el botón. No perderás tus datos.",
+      "error"
+    );
+    window.turnstile?.reset();
+    return;
+  }
+
   const payload = {
     nombre: String(data.get("nombre") || "").trim(),
     negocio: String(data.get("negocio") || "").trim(),
@@ -96,7 +128,7 @@ form?.addEventListener("submit", async (event) => {
     mensaje: String(data.get("mensaje") || "").trim(),
     consentimiento: true,
     website: String(data.get("website") || ""),
-    turnstileToken: String(data.get("cf-turnstile-response") || "")
+    turnstileToken
   };
 
   const whatsappText = [

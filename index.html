@@ -134,7 +134,10 @@
             data-sitekey="0x4AAAAAAEExYuwSZOxPCJF4"
             data-action="contact_form"
             data-theme="light"
-            data-size="flexible">
+            data-size="flexible"
+            data-callback="onTurnstileSuccess"
+            data-expired-callback="onTurnstileExpired"
+            data-error-callback="onTurnstileError">
           </div>
 
           <label class="check-field"><input type="checkbox" name="consentimiento" required><span>Acepto que me contacten para conversar sobre mi solicitud.</span></label>
