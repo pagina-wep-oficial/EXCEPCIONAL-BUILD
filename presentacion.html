@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#132A26">
+<title>Excepcional Build — Guion Publicitario 02 (Claymorphism)</title>
+<style>
+:root {
+  --deep: #132A26;
+  --lime: #D8EB82;
+  --paper: #F7F5ED;
+ --orange: #F36B3F;
+  --muted: #A9B8AD;
+  --clay-shadow: 0 20px 40px rgba(5, 15, 13, 0.5), inset 0 4px 8px rgba(255, 255, 255, 0.15), inset 0 -4px 8px rgba(0, 0, 0, 0.3);
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  min-height: 100vh;
+ background: #081210;
+  color: var(--paper);
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+ display: flex;
+  flex-direction: column;
+  align-items: center;
+ justify-content: center;
+ padding: 10px;
+  overflow-x: hidden;
+}
+header.viewer-head {
+  width: min(100%, 480px);
+ display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+ color: var(--muted);
+  font-size: 12px;
+  letter-spacing: .04em;
+ margin-bottom: 8px;
+}
+header.viewer-head strong { color: var(--paper); font-size: 14px; }
+.stage {
+  position: relative;
+ isolation: isolate;
+  width: min(calc(100vw - 20px), calc((100dvh - 150px) * 9 / 16), 420px);
+ aspect-ratio: 9/16;
+  container-type: inline-size;
+  overflow: hidden;
+  border-radius: 32px;
+  background: var(--deep);
+ box-shadow: 0 30px 90px rgba(0,0,0,0.7), inset 0 0 0 3px rgba(255,255,255,0.08);
+ user-select: none;
+}
+.scene {
+  position: absolute;
+ inset: 0;
+  opacity: 0;
+ pointer-events: none;
+  display: flex;
+  flex-direction: column;
+ align-items: center;
+  justify-content: center;
+  padding: 8% 7%;
+ text-align: center;
+  will-change: opacity, transform;
+  background: radial-gradient(circle at 50% 25%, #224a41 0%, #132a26 65%, #0b1714 100%);
+  transform: scale(1.04);
+  transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.scene.active {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1);
+}
+.ambient-glow {
+  position: absolute;
+ width: 75cqw; height: 75cqw;
+ background: radial-gradient(circle, rgba(216,235,130,0.18) 0%, transparent 70%);
+  border-radius: 50%;
+  top: 20%; left: 50%;
+ transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.brand-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #1c3d36;
+ border-radius: 99px;
+  font-size: 2.8cqw;
+  font-weight: 800;
+ letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--lime);
+ margin-bottom: 3.5cqw;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.3), inset 0 2px 4px rgba(255,255,255,0.2), inset 0 -2px 4px rgba(0,0,0,0.4);
+}
+.brand-badge svg { width: 3.5cqw; height: 3.5cqw; fill: var(--lime); }
+
+h1.headline {
+  font-size: 8.2cqw;
+  font-weight: 900;
+ line-height: 1.08;
+  letter-spacing: -0.04em;
+  margin: 0 0 3cqw 0;
+  color: var(--paper);
+ text-wrap: balance;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+h1.headline em { font-style: normal; color: var(--lime); }
+p.description {
+  font-size: 3.6cqw;
+  line-height: 1.4;
+  color: var(--muted);
+  margin: 0 0 5cqw 0;
+  max-width: 92%;
+}
+
+.clay-card {
+  width: 100%;
+  background: #193832;
+  border-radius: 28px;
+  padding: 4.5cqw;
+ box-shadow: var(--clay-shadow);
+ text-align: left;
+}
+
+.browser-mock {
+  width: 100%;
+  background: #15322c;
+  border-radius: 26px;
+  overflow: hidden;
+ box-shadow: var(--clay-shadow);
+ text-align: left;
+}
+.browser-top {
+  height: 5.5cqw;
+  background: #0e2420;
+  display: flex;
+ align-items: center;
+  padding: 0 3.5cqw;
+  gap: 1.2cqw;
+ box-shadow: inset 0 -2px 4px rgba(0,0,0,0.3);
+}
+.dot { width: 1.5cqw; height: 1.5cqw; border-radius: 50%; box-shadow: inset 0 1px 2px rgba(0,0,0,0.3); }
+.dot:nth-child(1) { background: var(--orange); }
+.dot:nth-child(2) { background: var(--lime); }
+.dot:nth-child(3) { background: var(--muted); }
+.address-bar {
+  flex: 1;
+  background: #173832;
+ border-radius: 12px;
+  height: 3.2cqw;
+  margin-left: 2cqw;
+ display: flex;
+  align-items: center;
+  padding: 0 2.5cqw;
+ font-size: 2.2cqw;
+  color: var(--lime);
+  font-family: monospace;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.4);
+}
+.browser-body { padding: 4.5cqw; display: flex; flex-direction: column; gap: 2.5cqw; }
+
+.search-typing {
+  background: #f7f5ed;
+ color: #132A26;
+  padding: 3.2cqw 4cqw;
+  border-radius: 18px;
+  font-weight: 800;
+ font-size: 3.2cqw;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.3), inset 0 -3px 6px rgba(0,0,0,0.15), inset 0 3px 6px rgba(255,255,255,0.8);
+}
+.cursor-blink {
+  display: inline-block;
+ width: 2.5px;
+  height: 3.2cqw;
+ background: var(--orange);
+ margin-left: 2px;
+  animation: blink 0.8s infinite;
+}
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+.grid-features {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2.5cqw;
+ margin-top: 1cqw;
+}
+.feature-pill {
+  background: #193832;
+ border-radius: 22px;
+  padding: 4cqw 2cqw;
+  display: flex;
+ flex-direction: column;
+ align-items: center;
+  gap: 1.5cqw;
+  text-align: center;
+ box-shadow: var(--clay-shadow);
+}
+.feature-pill svg { width: 5.5cqw; height: 5.5cqw; stroke: var(--lime); fill: none; stroke-width: 2.2; }
+.feature-pill span { font-size: 2.3cqw; font-weight: 700; color: var(--paper); }
+
+.price-tag {
+  font-size: 13.5cqw;
+  font-weight: 900;
+ color: var(--lime);
+  line-height: 1;
+  letter-spacing: -0.05em;
+ margin: 1.5cqw 0 0.5cqw 0;
+ text-shadow: 0 4px 12px rgba(216,235,130,0.3);
+}
+.price-sub { font-size: 3.4cqw; color: var(--muted); font-weight: 600; }
+.features-list { display: flex; flex-direction: column; gap: 2cqw; margin-top: 3cqw; text-align: left; width: 100%; }
+.feature-item {
+ display: flex; align-items: center; gap: 2.5cqw;
+  font-size: 3.1cqw; color: var(--paper);
+ background: #193832; padding: 2.2cqw 3.5cqw;
+  border-radius: 16px;
+  box-shadow: 0 8px 16px rgba(0,0,0,0.25), inset 0 2px 4px rgba(255,255,255,0.1);
+}
+.feature-item svg { width: 4cqw; height: 4cqw; stroke: var(--lime); fill: none; stroke-width: 2.5; flex-shrink: 0; }
+
+.cta-button {
+  background: var(--lime);
+ color: var(--deep);
+  font-weight: 900;
+  font-size: 3.8cqw;
+ padding: 3.8cqw 6cqw;
+  border-radius: 99px;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+ align-items: center;
+  gap: 2cqw;
+  box-shadow: 0 12px 30px rgba(216,235,130,0.4), inset 0 3px 6px rgba(255,255,255,0.8), inset 0 -3px 6px rgba(0,0,0,0.2);
+ margin-top: 3cqw;
+  text-decoration: none;
+  transition: transform 0.2s ease;
+}
+.cta-button:hover { transform: scale(1.04); }
+.cta-button svg { width: 4.5cqw; height: 4.5cqw; stroke: var(--deep); fill: none; stroke-width: 2.5; }
+
+.subtitle-box {
+  position: absolute; bottom: 5%; left: 6%; right: 6%;
+ background: #122b26;
+  border-radius: 24px;
+  padding: 3.2cqw 4cqw;
+ text-align: center;
+  font-size: 3.5cqw; font-weight: 700; color: var(--paper);
+  z-index: 50;
+  box-shadow: 0 15px 35px rgba(0,0,0,0.6), inset 0 2px 4px rgba(255,255,255,0.15), inset 0 -2px 4px rgba(0,0,0,0.4);
+}
+.progress-track { position: absolute; top: 0; left: 0; right: 0; height: 1.2%; background: rgba(0,0,0,0.3); z-index: 60; }
+.progress-fill { height: 100%; width: 0%; background: var(--lime); box-shadow: 0 0 12px var(--lime); }
+
+.controls {
+  width: min(100%, 480px); display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap;
+}
+.controls button, .controls a {
+  background: #17322c; border: 1px solid #284e44; color: var(--paper);
+ cursor: pointer; font-weight: 700; border-radius: 12px; font-size: 12px;
+  padding: 10px 12px; display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+ box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+}
+.controls button:hover, .controls a:hover { background: #20423a; border-color: var(--lime); }
+.controls input[type=range] { flex: 1; min-width: 60px; accent-color: var(--lime); cursor: pointer; }
+.time { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.hint { width: min(100%, 480px); color: var(--muted); text-align: center; font-size: 11px; margin-top: 6px; line-height: 1.35; }
+@media (min-width: 900px) { .stage { width: min(calc((100dvh - 180px) * 9 / 16), 390px); } }
+</style>
+</head>
+<body>
+
+<header class="viewer-head">
+  <strong>EXCEPCIONAL BUILD <span>· Claymorphism 3D</span></strong>
+  <span>Vertical 9:16 · 47s</span>
+</header>
+
+<main class="stage" id="stage" aria-label="Anuncio publicitario estilo plastilina">
+  <div class="progress-track"><div id="progressFill" class="progress-fill"></div></div>
+
+ <!-- ESCENA 1 (0s - 5s) -->
+ <section class="scene active" id="scene0" data-start="0" data-end="5">
+    <div class="ambient-glow"></div>
+ <div class="brand-badge">
+ <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+ Excepcional Build
+    </div>
+ <h1 class="headline">¿Y si alguien busca tu negocio <em>en internet</em>?</h1>
+ <p class="description">Imagina que tus futuros clientes intentan encontrarte ahora mismo.</p>
+    <div class="browser-mock">
+ <div class="browser-top">
+ <i class="dot"></i><i class="dot"></i><i class="dot"></i>
+        <div class="address-bar">google.com/search</div>
+ </div>
+      <div class="browser-body">
+ <div class="search-typing">
+ <span>Cafetería Aroma Real<span class="cursor-blink"></span></span>
+ <span style="color:var(--orange); font-size:2.4cqw;">🔍 Buscar</span>
+ </div>
+      </div>
+    </div>
+ </section>
+
+  <!-- ESCENA 2 (5s - 12s) -->
+  <section class="scene" id="scene1" data-start="5" data-end="12">
+ <div class="ambient-glow"></div>
+ <div class="brand-badge">Presencia Profesional</div>
+    <h1 class="headline">Tu negocio también merece <em>su propio espacio</em>.</h1>
+    <p class="description">Una página clara, moderna y lista para mostrar lo que haces.</p>
+ <div class="browser-mock">
+ <div class="browser-top">
+ <i class="dot"></i><i class="dot"></i><i class="dot"></i>
+        <div class="address-bar">aromareal.com</div>
+ </div>
+      <div class="browser-body" style="gap:2cqw;">
+      <div style="background:#1b3d36; padding:3.5cqw; border-radius:18px; text-align:center; box-shadow: inset 0 2px 4px rgba(255,255,255,0.1);">
+ <div style="font-weight:900; color:var(--lime); font-size:3.5cqw;">✦ Tu Negocio en Línea</div>
+ <div style="font-size:2.8cqw; color:var(--paper); margin-top:1cqw;">Catálogo, ubicación y contacto directo</div>
+ </div>
+      </div>
+    </div>
+ </section>
+
+  <!-- ESCENA 3 (12s - 20s) -->
+  <section class="scene" id="scene2" data-start="12" data-end="20">
+ <div class="ambient-glow"></div>
+ <div class="brand-badge">Experiencia Total</div>
+    <h1 class="headline">Una página diseñada para <em>tu negocio</em>.</h1>
+    <p class="description">Adaptada a tu marca, sin complicaciones y con acceso directo.</p>
+ <div class="browser-mock">
+ <div class="browser-top">
+ <i class="dot"></i><i class="dot"></i><i class="dot"></i>
+        <div class="address-bar">casanopal.pages.dev</div>
+ </div>
+      <div class="browser-body" style="gap:2cqw;">
+      <div style="background:#1b3d36; height:12cqw; border-radius:16px; display:flex; align-items:center; justify-content:center; font-weight:800; color:var(--lime); box-shadow: inset 0 2px 4px rgba(255,255,255,0.1);">Portada Interactiva</div>
+       <div style="display:flex; gap:1.5cqw;">
+          <div style="background:#1b3d36; flex:1; height:8cqw; border-radius:14px; display:grid; place-items:center; font-size:2.2cqw; box-shadow: inset 0 2px 4px rgba(255,255,255,0.1);">Productos</div>
+ <div style="background:#1b3d36; flex:1; height:8cqw; border-radius:14px; display:grid; place-items:center; font-size:2.2cqw; box-shadow: inset 0 2px 4px rgba(255,255,255,0.1);">WhatsApp</div>
+ </div>
+      </div>
+    </div>
+ </section>
+
+  <!-- ESCENA 4 (20s - 27s) -->
+  <section class="scene" id="scene3" data-start="20" data-end="27">
+ <div class="ambient-glow"></div>
+ <div class="brand-badge">Lo Que Hacemos</div>
+    <h1 class="headline">Diseño. Configuración. <em>Publicación.</em></h1>
+ <p class="description">Nos encargamos de todo para que tú solo te ocupes de vender.</p>
+ <div class="grid-features">
+ <div class="feature-pill">
+ <svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+  <span>Diseño Único</span>
+ </div>
+      <div class="feature-pill">
+ <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+ <span>Dominio .com</span>
+ </div>
+      <div class="feature-pill">
+ <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+ <span>Alojamiento</span>
+ </div>
+    </div>
+  </section>
+
+ <!-- ESCENA 5 (27s - 35s) -->
+  <section class="scene" id="scene4" data-start="27" data-end="35">
+    <div class="ambient-glow"></div>
+ <div class="brand-badge" style="background:#285248; color:var(--lime);">Inversión Inicial</div>
+    <div class="price-tag">$1,450 <span style="font-size:6cqw;">MXN</span></div>
+ <div class="price-sub">Activación y puesta en marcha</div>
+ <div class="features-list">
+ <div class="feature-item">
+ <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+ <span>Diseño y configuración profesional</span>
+      </div>
+      <div class="feature-item">
+ <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+ <span>Dominio .com incluido</span>
+ </div>
+      <div class="feature-item">
+ <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+ <span>Primeros 3 meses de servicio</span>
+      </div>
+ </div>
+  </section>
+
+  <!-- ESCENA 6 (35s - 40s) -->
+ <section class="scene" id="scene5" data-start="35" data-end="40">
+ <div class="ambient-glow"></div>
+ <div class="brand-badge">Mantenimiento Mensual</div>
+    <div class="price-tag" style="font-size:11cqw;">$217 <span style="font-size:5cqw;">MXN / mes</span></div>
+    <p class="description" style="margin-top:2cqw;">Dominio, alojamiento y soporte básico incluidos mientras tu plan esté activo.</p>
+    <div class="clay-card" style="text-align:center; padding:3cqw; background:#1b3d36;">
+ <span style="font-weight:800; color:var(--lime); font-size:3.2cqw;">✓ Sin contratos forzosos</span>
+ </div>
+  </section>
+
+  <!-- ESCENA 7 (40s - 47s) -->
+ <section class="scene" id="scene6" data-start="40" data-end="47">
+ <div class="ambient-glow"></div>
+ <div class="brand-badge">Excepcional Build</div>
+    <h1 class="headline">Tu negocio tiene mucho que ofrecer. <em>Dale su espacio.</em></h1>
+ <p class="description">Hagamos que tu negocio tenga la presencia que merece.</p>
+    <a href="#contacto" class="cta-button" onclick="alert('¡Gracias por tu interés! Escríbenos para comenzar tu página.')">
+ QUIERO MI PÁGINA
+      <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+ </a>
+  </section>
+
+  <div class="subtitle-box" id="subtitle">¿Y si alguien busca tu negocio en internet?</div>
+</main>
+
+<div class="controls" role="group" aria-label="Controles del video">
+  <button id="playBtn" type="button">⏸ Pausar</button>
+ <button id="replayBtn" type="button">↺ Reiniciar</button>
+  <button id="voiceBtn" type="button" aria-pressed="false">🔊 Activar voz</button>
+  <input id="scrub" type="range" min="0" max="47" step="0.05" value="0" aria-label="Barra de avance">
+  <span class="time"><span id="current">0:00</span> / 0:47</span>
+  <button id="fullscreenBtn" type="button" title="Pantalla completa">⛶</button>
+</div>
+
+<p class="hint">Video interactivo en HTML/CSS con estilo Claymorphism 3D y voz sincronizada sin cortes.</p>
+
+<script>
+'use strict';
+const TOTAL = 47;
+const scenes = [
+  { el: document.getElementById('scene0'), start: 0, end: 5, text: "Imagina que alguien escucha hablar de tu negocio y decide buscarlo en internet." },
+  { el: document.getElementById('scene1'), start: 5, end: 12, text: "Ahora imagina que encuentra una página con tu nombre, tus productos y toda la información necesaria." },
+  { el: document.getElementById('scene2'), start: 12, end: 20, text: "En Excepcional Build preparamos una página adaptada a la identidad de tu negocio, clara y profesional." },
+ { el: document.getElementById('scene3'), start: 20, end: 27, text: "Nos encargamos del diseño, la configuración y la puesta en marcha, para que tengas tu espacio." },
+  { el: document.getElementById('scene4'), start: 27, end: 35, text: "Puedes comenzar con una inversión inicial de mil cuatrocientos cincuenta pesos, con tres meses incluidos." },
+  { el: document.getElementById('scene5'), start: 35, end: 40, text: "Después, mantén tu página activa por solo doscientos diecisiete pesos al mes." },
+  { el: document.getElementById('scene6'), start: 40, end: 47, text: "Excepcional Build. Hagamos que tu negocio tenga la presencia que merece. Escríbenos y comienza." }
+];
+
+let elapsed = 0, playing = true, last = 0;
+const progressFill = document.getElementById('progressFill');
+const scrub = document.getElementById('scrub');
+const playBtn = document.getElementById('playBtn');
+const subtitle = document.getElementById('subtitle');
+const timeLabel = document.getElementById('current');
+
+const speech = ('speechSynthesis' in window) ? window.speechSynthesis : null;
+let voiceEnabled = false;
+let lastSpokenIndex = -1;
+const voiceBtn = document.getElementById('voiceBtn');
+
+if (!speech) {
+  voiceBtn.disabled = true;
+  voiceBtn.textContent = 'Voz no disponible';
+}
+
+function stopVoice() {
+  if (speech) speech.cancel();
+  lastSpokenIndex = -1;
+}
+
+function speakScene(idx) {
+  if (!voiceEnabled || !speech || idx < 0 || idx >= scenes.length) return;
+ if (lastSpokenIndex === idx) return;
+  
+  if (speech.speaking) speech.cancel();
+  
+  lastSpokenIndex = idx;
+  const utterance = new SpeechSynthesisUtterance(scenes[idx].text);
+ utterance.lang = 'es-MX';
+ utterance.rate = 0.97; // Velocidad natural y pausada
+ utterance.pitch = 1.0;
+  
+  const voices = speech.getVoices();
+ const spanishVoice = voices.find(v => /^es-MX$/i.test(v.lang)) || voices.find(v => /^es/i.test(v.lang));
+ if (spanishVoice) utterance.voice = spanishVoice;
+  
+  speech.speak(utterance);
+}
+
+voiceBtn.addEventListener('click', () => {
+  voiceEnabled = !voiceEnabled;
+  voiceBtn.textContent = voiceEnabled ? '🔇 Silenciar voz' : '🔊 Activar voz';
+ voiceBtn.setAttribute('aria-pressed', String(voiceEnabled));
+  if (voiceEnabled && playing) {
+    const idx = scenes.findIndex(s => elapsed >= s.start && elapsed < s.end);
+    if (idx !== -1) {
+      lastSpokenIndex = -1;
+      speakScene(idx);
+ }
+  } else {
+    stopVoice();
+ }
+});
+
+function fmt(t) {
+ return Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
+}
+
+function render(t) {
+  elapsed = Math.max(0, Math.min(TOTAL, t));
+  progressFill.style.width = (100 * elapsed / TOTAL) + '%';
+  scrub.value = String(elapsed);
+ timeLabel.textContent = fmt(elapsed);
+
+ let currentIdx = -1;
+  scenes.forEach((scene, idx) => {
+    const active = elapsed >= scene.start && elapsed < scene.end;
+ if (active) {
+      currentIdx = idx;
+      scene.el.classList.add('active');
+ } else {
+      scene.el.classList.remove('active');
+ }
+  });
+
+  if (currentIdx !== -1) {
+    subtitle.textContent = scenes[currentIdx].text;
+ if (playing && voiceEnabled) {
+      speakScene(currentIdx);
+ }
+  } else {
+    subtitle.textContent = "Excepcional Build · Demostración";
+ }
+}
+
+function frame(stamp) {
+  if (!last) last = stamp;
+ const delta = Math.min((stamp - last) / 1000, 0.1);
+  last = stamp;
+  if (playing) {
+ elapsed += delta;
+    if (elapsed >= TOTAL) {
+    elapsed = TOTAL;
+      playing = false;
+      playBtn.textContent = '▶ Reproducir';
+      stopVoice();
+ }
+  }
+  render(elapsed);
+ requestAnimationFrame(frame);
+}
+
+function toggle() {
+  if (elapsed >= TOTAL) elapsed = 0;
+  playing = !playing;
+  playBtn.textContent = playing ? '⏸ Pausar' : '▶ Reproducir';
+  if (!playing) {
+    stopVoice();
+  } else {
+    const idx = scenes.findIndex(s => elapsed >= s.start && elapsed < s.end);
+    if (idx !== -1) {
+      lastSpokenIndex = -1;
+      speakScene(idx);
+ }
+  }
+}
+
+playBtn.addEventListener('click', toggle);
+document.getElementById('replayBtn').addEventListener('click', () => {
+  stopVoice();
+  elapsed = 0;
+  playing = true;
+  playBtn.textContent = '⏸ Pausar';
+  render(0);
+ if (voiceEnabled) speakScene(0);
+});
+scrub.addEventListener('input', (ev) => {
+  stopVoice();
+ elapsed = Number(ev.target.value);
+ render(elapsed);
+  if (voiceEnabled && playing) {
+    const idx = scenes.findIndex(s => elapsed >= s.start && elapsed < s.end);
+ if (idx !== -1) {
+      lastSpokenIndex = -1;
+      speakScene(idx);
+ }
+  }
+});
+document.getElementById('fullscreenBtn').addEventListener('click', () => {
+  const stage = document.getElementById('stage');
+ if (document.fullscreenElement) document.exitFullscreen();
+ else stage.requestFullscreen?.();
+});
+
+document.addEventListener('keydown', (ev) => {
+  if (ev.target.tagName === 'INPUT') return;
+  if (ev.code === 'Space') { ev.preventDefault(); toggle(); }
+  if (ev.code === 'ArrowRight') { stopVoice(); elapsed = Math.min(TOTAL, elapsed + 3); render(elapsed); }
+  if (ev.code === 'ArrowLeft') { stopVoice(); elapsed = Math.max(0, elapsed - 3); render(elapsed); }
+});
+
+render(0);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
