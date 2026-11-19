@@ -406,8 +406,10 @@ function nextStepText(project) {
     $$('[data-user-name]').forEach(el=>el.textContent=profile.full_name||"Cliente");
     $$('[data-user-email]').forEach(el=>el.textContent=user.email||"");
     $$('[data-avatar]').forEach(el=>{
-      const avatar=profile.avatar_url||user.user_metadata?.avatar_url||user.user_metadata?.picture;
-      el.innerHTML=avatar?`<img src="${safe(avatar)}" alt="">`:safe((profile.full_name||user.email||"EB").split(/\s+/).map(x=>x[0]).join("").slice(0,2).toUpperCase());
+      const source=String(profile.full_name||user.email||"EB").trim();
+      const initials=source.split(/\s+/).filter(Boolean).map(word=>word[0]).join("").slice(0,2).toUpperCase();
+      el.textContent=initials||"EB";
+      el.setAttribute("aria-label", `Iniciales de ${profile.full_name||"tu cuenta"}`);
     });
   }
   async function loadContext() {

@@ -692,3 +692,6 @@ dialog{width:min(590px,calc(100% - 36px));margin:auto;border-radius:24px}.dialog
 @media(min-width:701px){
   .mobile-account-link{display:none!important}
 }
+
+.avatar[data-avatar]{display:grid;place-items:center;background:var(--ink);color:var(--lime);font:800 23px "Manrope";letter-spacing:.04em}
+.avatar[data-avatar] img{display:none}
