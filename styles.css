@@ -490,3 +490,25 @@
 
 /* Flujo posterior a una solicitud pública */
 .lead-next{margin-top:8px;padding:17px;border:1px solid rgba(19,42,38,.13);border-radius:14px;background:#eef4ef}.lead-next>div:first-child{display:grid;gap:3px}.lead-next strong{font:800 14px "Manrope"}.lead-next span{color:var(--muted);font-size:12px;line-height:1.5}.lead-next-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:13px}.lead-next-actions .button{min-height:42px;font-size:12px}@media(max-width:600px){.lead-next-actions{display:grid}.lead-next-actions .button{width:100%}}
+
+/* Contacto: lectura y captura optimizadas para móvil */
+.form-section-label{display:flex;align-items:center;gap:10px;margin-top:2px;color:var(--ink);font:800 15px "Manrope"}
+.form-section-label span{display:grid;place-items:center;width:25px;height:25px;border-radius:50%;background:var(--lime);font-size:12px}
+.lead-form label>span{display:flex;align-items:baseline;gap:4px}
+.lead-form label small{color:var(--muted);font-size:11px;font-weight:500}
+.lead-form .cf-turnstile{min-height:72px;display:grid;place-items:center;overflow:hidden;border-radius:10px;background:#fbfcfa}
+.lead-form .check-field{margin-top:2px}
+.lead-form .button-accent{width:100%;min-height:54px}
+@media(max-width:700px){
+  .contact-section{width:min(100% - 20px,1180px);padding-block:54px}
+  .contact-card{border-radius:22px}
+  .contact-copy{padding:30px 22px 24px}
+  .contact-copy h2{font-size:clamp(34px,10vw,44px);margin-bottom:14px}
+  .contact-copy>p:not(.eyebrow){font-size:15px;line-height:1.6}
+  .contact-note{margin-top:24px;padding:15px}
+  .lead-form{padding:24px 18px 22px;gap:15px}
+  .field-row{gap:15px}
+  .lead-form input,.lead-form select,.lead-form textarea{min-height:50px;padding:13px 14px}
+  .lead-form textarea{min-height:112px}
+  .lead-form .cf-turnstile{min-height:68px}
+}
