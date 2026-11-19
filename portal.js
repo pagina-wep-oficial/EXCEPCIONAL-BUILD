@@ -618,7 +618,7 @@ function nextStepText(project) {
         }
         box.dataset.nextStepKey=nextStepKey;
       }
-      const ownEmpty=`<div class="empty-card"><div class="empty-icon">○</div><h3>${q?"Sin resultados":mine.length?"":"Todavía no tienes proyectos"}</h3>${q?"":mine.length?"":"<p>Cuando aceptes una página con nosotros, aparecerá aquí.</p><a class=\"button button-light\" href=\"https://wa.me/${WHATSAPP}\" target=\"_blank\" rel=\"noopener\">Hablar por WhatsApp</a>"}</div>`;
+      const ownEmpty=`<div class="empty-card"><div class="empty-icon">○</div><h3>${q?"Sin resultados":mine.length?"":"Todavía no tienes proyectos"}</h3>${q?"":mine.length?"":"<p>Cuando aceptes una página con nosotros, aparecerá aquí.</p><a class=\"button button-light\" href=\"https://wa.me/"+WHATSAPP+"\" target=\"_blank\" rel=\"noopener\">Hablar por WhatsApp</a>"}</div>`;
       patchProjectGrid(grid,own,ownEmpty,`own:${q}:${mine.length}`);
       const showAll=allBlock&&others.length>0;
       if(allBlock)allBlock.hidden=!showAll;
