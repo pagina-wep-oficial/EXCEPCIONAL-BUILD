@@ -15,6 +15,7 @@
   let busy = false;
   let activeIndex = 0;
   let activeTab = "adjust";
+  let resolvedUrls = new Map();
   let previewCatalog = store.catalogType === "external_catalog" ? "external_catalog" : "commerce";
   let previewContext = "store";
 
@@ -124,14 +125,15 @@
     const price = Number(form?.elements.price?.value || 0);
     const compareAtPrice = Number(form?.elements.compareAtPrice?.value || 0);
     const hasPrice = form && form.elements.price && form.elements.price.value !== "" && (previewCatalog === "commerce" || form.elements.external_price_visible.checked);
-    const displayPrice = hasPrice ? `${new Intl.NumberFormat("es-MX", { maximumFractionDigits: 2 }).format(price)} ${currency.display_label}` : "";
-    const comparePrice = hasPrice && compareAtPrice > price ? `${new Intl.NumberFormat("es-MX", { maximumFractionDigits: 2 }).format(compareAtPrice)} ${currency.display_label}` : "";
+    const amount = value => `${new Intl.NumberFormat("es-MX", { maximumFractionDigits: 2 }).format(value)} ${currency.display_label}`;
+    const priceHtml = hasPrice
+      ? `<span class="price">${compareAtPrice > price ? `<del>${amount(compareAtPrice)}</del> ` : ""}${amount(price)}</span>`
+      : "";
     return {
       name: form?.elements.name?.value.trim() || "Nombre del producto",
       category: form?.elements.category?.value || "Categoría",
       description: form?.elements.description?.value.trim() || "Aquí verás cómo se presentará la descripción al público dentro de la tarjeta del producto.",
-      price: displayPrice,
-      compareAtPrice: comparePrice,
+      priceHtml,
       type: isExternal ? "external_catalog" : "commerce",
       cta: isExternal ? (store.model.catalogs.external_catalog.settings?.ctaLabel || "Ver oferta") : "Agregar",
       secondaryCta: isExternal ? "Abrir detalle" : "Ver producto"
@@ -146,7 +148,7 @@
     const zoom = clamp(item?.zoom ?? 1, 1, 3);
     const rotation = clamp(item?.rotation ?? 0, -180, 180);
     const scale = large ? zoom : Math.min(zoom, 2.4);
-    return `object-fit:${fit};object-position:${x}% ${y}%;transform:scale(${scale}) scaleX(${item && item.flip_x ? -1 : 1}) scaleY(${item && item.flip_y ? -1 : 1}) rotate(${rotation}deg)`;
+    return `object-fit:${fit};object-position:${x}% ${y}%;transform:scale(${scale}) rotate(${rotation}deg) scaleX(${item?.flip_x ? -1 : 1}) scaleY(${item?.flip_y ? -1 : 1})`;
   }
 
   function stageMediaStyle(item) {
@@ -156,14 +158,14 @@
     const y = clamp(item?.focal_y ?? 50, 0, 100);
     const zoom = clamp(item?.zoom ?? 1, 1, 3);
     const rotation = clamp(item?.rotation ?? 0, -180, 180);
-    return `object-fit:${fit};object-position:${x}% ${y}%;transform:scale(${zoom}) scaleX(${item?.flip_x ? -1 : 1}) scaleY(${item?.flip_y ? -1 : 1}) rotate(${rotation}deg)`;
+    return `object-fit:${fit};object-position:${x}% ${y}%;transform:scale(${zoom}) rotate(${rotation}deg) scaleX(${item?.flip_x ? -1 : 1}) scaleY(${item?.flip_y ? -1 : 1})`;
   }
 
   function previewMediaMarkup(item, className = "", live = false) {
     const classes = className ? ` ${className}` : "";
     if (!item) return `<div class="studio-preview-media-placeholder${classes}">Sin imagen</div>`;
 
-    const url = item.source_url || item.url || item.data_url || item.preview_url || "";
+    const url = resolvedUrls.get(item) || item.source_url || item.url || item.data_url || item.preview_url || "";
     if (!url) return `<div class="studio-preview-media-placeholder${classes}">Sin imagen</div>`;
 
     const style = mediaStyle(item, true);
@@ -176,9 +178,7 @@
   }
 
   function previewPrice(draft) {
-    const value = Number(draft.price);
-    if (!Number.isFinite(value)) return "";
-    return `<strong class="price">${value.toFixed(2)} ${safe(draft.currency || "MXN")}</strong>`;
+    return draft.priceHtml || "";
   }
 
   function previewImages() {
@@ -194,25 +194,35 @@
     return ratio ? `aspect-ratio:${ratio}` : "";
   }
 
+  function featuredImageMarkup(item) {
+    const url = item?.source_url || item?.url || item?.data_url || item?.preview_url || "";
+    if (!url) {
+      return `<img class="home-featured-image-media" src="demo-casa-nopal/assets/home-chilaquiles-900.jpg" alt="Producto" style="object-fit:cover;object-position:50% 50%;transform:scale(1) rotate(0deg) scaleX(1) scaleY(1)" data-live-media>`;
+    }
+    return previewMediaMarkup(item, "home-featured-image-media", true);
+  }
+
   function featuredPreviewMarkup() {
     const draft = productDraft();
     const image = selectedItem();
 
     return `
-      <article class="home-featured-card">
-        <div class="home-featured-image" data-live-frame style="${liveFrameStyle(image)}">
-          ${previewMediaMarkup(image, "home-featured-image-media", true)}
-        </div>
-        <div class="home-featured-body">
-          <span class="home-featured-category">${safe(draft.category || "Producto")}</span>
-          <h3>${safe(draft.name || "Nombre del producto")}</h3>
-          <p class="home-featured-description">${safe(draft.description || "Descripción del producto")}</p>
-          <div class="home-featured-bottom">
-            ${previewPrice(draft)}
-            <button class="button primary" type="button">Ver producto</button>
+      <div class="studio-featured-preview">
+        <article class="home-featured-card">
+          <div class="home-featured-image" data-live-frame style="${liveFrameStyle(image)}">
+            ${featuredImageMarkup(image)}
           </div>
-        </div>
-      </article>
+          <div class="home-featured-body">
+            <span class="home-featured-category">${safe(draft.category || "Producto")}</span>
+            <h3>${safe(draft.name || "Nombre del producto")}</h3>
+            <p class="home-featured-description">${safe(draft.description || "Descripción del producto")}</p>
+            <div class="home-featured-bottom">
+              ${previewPrice(draft)}
+              <span class="button primary">Ver producto</span>
+            </div>
+          </div>
+        </article>
+      </div>
     `;
   }
 
@@ -326,7 +336,7 @@
           <div class="studio-device">
             <div class="studio-device-bar"><span></span><span></span><span></span><em>${safe(mode)} · ${safe(previewContext === "featured" ? "Destacados" : previewContext === "detail" ? "Detalle" : mode)}</em></div>
             <div class="studio-device-screen">
-              <div class="studio-preview-public-shell">
+              <div class="studio-preview-public-shell" data-context="${safe(previewContext)}">
                 ${contextPreviewMarkup()}
               </div>
             </div>
@@ -519,6 +529,7 @@
     normalizeSelection();
     const selected = selectedItem();
     const sources = await Promise.all(items.map(item => previewSource(item)));
+    resolvedUrls = new Map(items.map((item, index) => [item, sources[index]]));
     const currentSource = selected ? sources[activeIndex] : "";
 
     host.innerHTML = `${previewBoardMarkup()}${libraryMarkup(sources)}`;
