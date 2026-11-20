@@ -684,7 +684,9 @@
     if (isStudioOpen()) renderStudio();
   });
 
-  window.addEventListener("demo-editor-live-preview-ready", sendLivePreview);
+  if (typeof sendLivePreview === "function") {
+    window.addEventListener("demo-editor-live-preview-ready", sendLivePreview);
+  }
 
   window.addEventListener("demo-gallery-change", () => {
     if (summary) summary.textContent = countsLabel();
