@@ -232,23 +232,25 @@
     const external = previewCatalog === "external_catalog";
 
     return `
-      <article class="product-card">
-        <div class="product-media-frame" data-live-frame style="${liveFrameStyle(image)}">
-          ${previewMediaMarkup(image, "product-card-media", true)}
-        </div>
-        <div class="product-body">
-          <div class="product-meta">
-            <span class="category">${safe(draft.category || "Producto")}</span>
-            ${previewPrice(draft)}
+      <div class="studio-store-preview">
+        <article class="product-card">
+          <div class="product-media-frame" data-live-frame style="${liveFrameStyle(image)}">
+            ${previewMediaMarkup(image, "product-card-media", true)}
           </div>
-          <h2>${safe(draft.name || "Nombre del producto")}</h2>
-          <p>${safe(draft.description || "Descripción del producto")}</p>
-          <div class="product-actions">
-            ${external ? "" : `<button class="button primary" type="button">Agregar</button>`}
-            <button class="button secondary" type="button">Ver producto</button>
+          <div class="product-body">
+            <div class="product-meta">
+              <span class="category">${safe(draft.category || "Producto")}</span>
+              <span data-product-field="price">${previewPrice(draft)}</span>
+            </div>
+            <h2>${safe(draft.name || "Nombre del producto")}</h2>
+            <p>${safe(draft.description || "Descripción del producto")}</p>
+            <div class="product-actions">
+              ${external ? "" : `<span class="button primary">Agregar</span>`}
+              <span class="button secondary">Ver producto</span>
+            </div>
           </div>
-        </div>
-      </article>
+        </article>
+      </div>
     `;
   }
 
@@ -256,48 +258,57 @@
     const draft = productDraft();
     const media = previewImages();
     const main = selectedItem() || media[0];
+    const activeMedia = media.indexOf(main);
     const external = previewCatalog === "external_catalog";
 
     return `
-      <article class="detail-view">
-        <div class="detail-gallery">
-          <div class="detail-media" data-live-frame style="${liveFrameStyle(main)}">
-            ${previewMediaMarkup(main, "detail-main-image", true)}
-          </div>
-          ${
-            media.length > 1
-              ? `<div class="detail-thumbnails">
-                  ${media.slice(0, 5).map((item, index) => `
-                    <button class="detail-thumbnail${items.indexOf(item) === activeIndex ? " is-active" : ""}" type="button">
-                      ${previewMediaMarkup(item, "detail-thumbnail-media")}
-                    </button>
-                  `).join("")}
-                </div>`
-              : ""
-          }
-        </div>
+      <div class="studio-detail-frame">
+        <div class="studio-detail-canvas">
+          <article class="detail-view">
+            <div class="detail-gallery">
+              <div class="detail-media" data-live-frame style="${liveFrameStyle(main)}">
+                ${previewMediaMarkup(main, "detail-main-image", true)}
+              </div>
+              ${
+                media.length > 1
+                  ? `<div class="detail-thumbnails">
+                      ${media.slice(0, 5).map((item, index) => `
+                        <span class="detail-thumbnail${index === activeMedia ? " active" : ""}">
+                          ${previewMediaMarkup(item, "detail-thumbnail-media")}
+                        </span>
+                      `).join("")}
+                    </div>`
+                  : ""
+              }
+            </div>
 
-        <div class="detail-copy">
-          <span class="section-kicker">${safe(draft.category || "Producto")}</span>
-          <h1>${safe(draft.name || "Nombre del producto")}</h1>
-          <p>${safe(draft.description || "Descripción del producto")}</p>
-          ${previewPrice(draft)}
-          <div class="detail-actions">
-            ${
-              external
-                ? `<button class="button primary" type="button">Ver oferta ↗</button>`
-                : `
-                  <label class="quantity">
-                    <span>Cantidad</span>
-                    <input type="number" min="1" value="1">
-                  </label>
-                  <button class="button primary" type="button">Agregar al carrito</button>
-                  <button class="button secondary" type="button">Ir al carrito</button>
-                `
-            }
-          </div>
+            <div class="detail-copy">
+              <span class="section-kicker">${safe(draft.category || "Producto")}</span>
+              <h1>${safe(draft.name || "Nombre del producto")}</h1>
+              <p>${safe(draft.description || "Descripción del producto")}</p>
+              ${previewPrice(draft)}
+              ${
+                external
+                  ? `<a class="button primary" href="#" tabindex="-1" aria-hidden="true">${safe(draft.cta)} ↗</a>`
+                  : `
+                    <div class="detail-quantity">
+                      <span>Cantidad</span>
+                      <div class="quantity quantity-input">
+                        <button type="button" tabindex="-1" aria-hidden="true">−</button>
+                        <input type="number" value="1" readonly tabindex="-1" aria-hidden="true">
+                        <button type="button" tabindex="-1" aria-hidden="true">+</button>
+                      </div>
+                    </div>
+                    <div class="detail-actions">
+                      <span class="button primary">Agregar al carrito</span>
+                      <span class="button secondary">Ir al carrito</span>
+                    </div>
+                  `
+              }
+            </div>
+          </article>
         </div>
-      </article>
+      </div>
     `;
   }
 
@@ -524,6 +535,19 @@
     `;
   }
 
+  function fitDetailPreview() {
+    const frame = host?.querySelector(".studio-detail-frame");
+    const canvas = frame?.querySelector(".studio-detail-canvas");
+    if (!frame || !canvas) return;
+
+    const available = frame.clientWidth;
+    if (!available) return;
+
+    const scale = Math.min(1, available / 1200);
+    canvas.style.transform = `scale(${scale})`;
+    frame.style.height = `${canvas.offsetHeight * scale}px`;
+  }
+
   async function renderStudio() {
     if (!host || !adjustHost) return;
     normalizeSelection();
@@ -537,6 +561,9 @@
     adjustHost.innerHTML = inspectorMarkup(selected, currentSource);
 
     bindStudioInteractions();
+    fitDetailPreview();
+    requestAnimationFrame(fitDetailPreview);
+    document.fonts?.ready.then(fitDetailPreview).catch(() => {});
   }
 
   function refreshStudioMedia() {
@@ -778,6 +805,10 @@
 
   window.addEventListener("demo-gallery-change", () => {
     if (summary) summary.textContent = countsLabel();
+  });
+
+  window.addEventListener("resize", () => {
+    if (isStudioOpen()) fitDetailPreview();
   });
 
   if (summary) summary.textContent = countsLabel();

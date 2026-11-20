@@ -2481,3 +2481,428 @@
 .studio-preview-public-shell[data-context="featured"]{
   padding:16px;
 }
+
+/* ============================================================
+   Tienda y Detalle: réplica exacta de la tienda pública
+   ============================================================ */
+.studio-preview-public-shell[data-context="store"],
+.studio-preview-public-shell[data-context="detail"]{
+  border-radius:14px;
+  background:
+    radial-gradient(circle at 8% 0%,rgba(207,106,48,.14),transparent 28rem),
+    radial-gradient(circle at 92% 14%,rgba(219,166,58,.2),transparent 24rem),
+    linear-gradient(180deg,#fbf3e5,#f5e5c8);
+}
+
+/* --- Tienda: tarjeta real del catálogo --- */
+.studio-preview-public-shell[data-context="store"]{
+  display:grid;
+  place-items:center;
+  min-height:420px;
+  padding:28px;
+}
+
+.studio-store-preview{
+  display:grid;
+  place-items:center;
+  width:100%;
+  min-width:0;
+}
+
+.studio-preview-public-shell[data-context="store"] .product-card{
+  display:flex;
+  flex-direction:column;
+  gap:0;
+  width:384px;
+  max-width:100%;
+  min-width:0;
+  margin:0;
+  padding:0;
+  overflow:hidden;
+  border:1px solid rgba(38,52,74,.12);
+  border-radius:30px;
+  background:#f9e4d7;
+  box-shadow:0 10px 30px -5px rgba(24,35,47,.38);
+  color:#241b16;
+  font-family:"Nunito Sans",Arial,Helvetica,sans-serif;
+  font-size:16px;
+  font-weight:400;
+  line-height:1.45;
+}
+
+.studio-preview-public-shell[data-context="store"] .product-media-frame{
+  position:relative;
+  display:grid;
+  place-items:center;
+  aspect-ratio:4/3;
+  min-height:0;
+  margin:9px 9px 0;
+  padding:12px;
+  overflow:hidden;
+  border:1px solid rgba(38,52,74,.12);
+  border-radius:24px;
+  background:linear-gradient(145deg,#f8f2e8,#eadfce);
+}
+
+.studio-preview-public-shell[data-context="store"] .product-media-frame::after{
+  content:"";
+  position:absolute;
+  inset:8px;
+  border:1px solid rgba(255,255,255,.62);
+  border-radius:18px;
+  pointer-events:none;
+}
+
+.studio-preview-public-shell[data-context="store"] .product-media-frame > img,
+.studio-preview-public-shell[data-context="store"] .product-media-frame > video{
+  position:relative;
+  z-index:1;
+  display:block;
+  width:100%;
+  height:100%;
+  min-width:0;
+  min-height:0;
+  aspect-ratio:1;
+  border-radius:16px;
+  background:transparent;
+  filter:saturate(1.02) contrast(1.01);
+}
+
+.studio-preview-public-shell[data-context="store"] .product-media-frame > video{
+  background:#18221d;
+}
+
+.studio-preview-public-shell[data-context="store"] .product-body{
+  display:grid;
+  flex:1;
+  gap:10px;
+  min-width:0;
+  padding:16px 17px 18px;
+}
+
+.studio-preview-public-shell[data-context="store"] .product-meta{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  min-width:0;
+  color:#241b16;
+  font-size:16px;
+  font-weight:400;
+}
+
+.studio-preview-public-shell[data-context="store"] .category{
+  color:#b85878;
+  font-size:13px;
+  font-weight:800;
+  line-height:1.45;
+  letter-spacing:0;
+  text-transform:none;
+}
+
+.studio-preview-public-shell[data-context="store"] .price{
+  display:inline;
+  color:#4c2c40;
+  font-size:16px;
+  font-weight:900;
+  line-height:1.45;
+  white-space:nowrap;
+}
+
+.studio-preview-public-shell[data-context="store"] .price del{
+  color:#6e6256;
+  font-size:13px;
+}
+
+.studio-preview-public-shell[data-context="store"] .product-card h2{
+  margin:0;
+  color:#241b16;
+  font-family:"Trebuchet MS",sans-serif;
+  font-size:24px;
+  font-weight:700;
+  line-height:1.12;
+}
+
+.studio-preview-public-shell[data-context="store"] .product-card p{
+  margin:0;
+  color:#6e6256;
+  font-size:16px;
+  font-weight:400;
+  line-height:1.45;
+}
+
+.studio-preview-public-shell[data-context="store"] .product-actions{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:9px;
+  margin-top:auto;
+}
+
+/* --- Detalle: vista real de 1200 px escalada al dispositivo --- */
+.studio-preview-public-shell[data-context="detail"]{
+  display:block;
+  padding:24px;
+}
+
+.studio-detail-frame{
+  width:100%;
+  overflow:hidden;
+}
+
+.studio-detail-canvas{
+  width:1200px;
+  transform-origin:top left;
+  will-change:transform;
+}
+
+.studio-preview-public-shell[data-context="detail"] .detail-view{
+  display:grid;
+  grid-template-columns:460px 680px;
+  gap:60px;
+  align-items:start;
+  width:1200px;
+  margin:0;
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+  color:#241b16;
+  font-family:"Nunito Sans",Arial,Helvetica,sans-serif;
+  font-size:16px;
+  font-weight:400;
+  line-height:1.45;
+}
+
+.studio-preview-public-shell[data-context="detail"] .detail-gallery{
+  display:block;
+  width:460px;
+  min-width:0;
+}
+
+.studio-preview-public-shell[data-context="detail"] .detail-media{
+  display:grid;
+  width:460px;
+  min-height:0;
+  aspect-ratio:1;
+  overflow:hidden;
+  border:1px solid #f0c8b9;
+  border-radius:18px;
+  background:#fff;
+  box-shadow:0 10px 30px -5px rgba(24,35,47,.38);
+}
+
+.studio-preview-public-shell[data-context="detail"] .detail-main-image{
+  display:block;
+  width:100%;
+  height:auto;
+  min-height:auto;
+  border-radius:0;
+  background:transparent;
+}
+
+.studio-preview-public-shell[data-context="detail"] .detail-thumbnails{
+  display:flex;
+  gap:9px;
+  margin:0;
+  padding-top:10px;
+  overflow-x:auto;
+}
+
+.studio-preview-public-shell[data-context="detail"] .detail-thumbnail{
+  display:block;
+  flex:0 0 70px;
+  width:70px;
+  height:auto;
+  aspect-ratio:1;
+  padding:0;
+  overflow:hidden;
+  border:2px solid transparent;
+  border-radius:10px;
+  background:#f3eadb;
+}
+
+.studio-preview-public-shell[data-context="detail"] .detail-thumbnail.active{
+  border-color:#4c2c40;
+}
+
+.studio-preview-public-shell[data-context="detail"] .detail-thumbnail-media{
+  display:block;
+  width:100%;
+  height:100%;
+  border-radius:0;
+  object-fit:cover;
+}
+
+.studio-preview-public-shell[data-context="detail"] .detail-copy{
+  display:grid;
+  grid-template-columns:680px;
+  align-self:start;
+  gap:18px;
+  width:680px;
+  min-width:0;
+  padding:10px 0 0;
+  color:#241b16;
+  font-size:16px;
+  font-weight:400;
+  line-height:1.45;
+}
+
+.studio-preview-public-shell[data-context="detail"] .detail-copy .section-kicker{
+  margin:0 0 10px;
+  color:#a64c6c;
+  font-size:13px;
+  font-weight:800;
+  line-height:1.45;
+  letter-spacing:0;
+  text-transform:uppercase;
+}
+
+.studio-preview-public-shell[data-context="detail"] .detail-copy h1{
+  margin:0;
+  color:#241b16;
+  font-family:"Trebuchet MS",sans-serif;
+  font-size:50px;
+  font-weight:700;
+  line-height:1.12;
+  letter-spacing:normal;
+}
+
+.studio-preview-public-shell[data-context="detail"] .detail-copy p{
+  margin:0;
+  color:#6e6256;
+  font-size:16px;
+  font-weight:400;
+  line-height:1.45;
+}
+
+.studio-preview-public-shell[data-context="detail"] .detail-copy .price{
+  display:block;
+  margin:0;
+  color:#4c2c40;
+  font-size:16px;
+  font-weight:900;
+  line-height:1.45;
+  white-space:normal;
+}
+
+.studio-preview-public-shell[data-context="detail"] .detail-copy .price del{
+  color:#6e6256;
+  font-size:13px;
+}
+
+.studio-preview-public-shell[data-context="detail"] .detail-quantity{
+  display:grid;
+  gap:8px;
+  width:max-content;
+}
+
+.studio-preview-public-shell[data-context="detail"] .detail-quantity > span{
+  color:#241b16;
+  font-size:16px;
+  font-weight:400;
+  line-height:1.45;
+}
+
+.studio-preview-public-shell[data-context="detail"] .quantity.quantity-input{
+  display:inline-grid;
+  grid-template-columns:36px 42px 36px;
+  align-items:center;
+  gap:normal;
+  width:max-content;
+  overflow:hidden;
+  border:1px solid #f0c8b9;
+  border-radius:12px;
+  background:#fff;
+  box-shadow:0 4.2px 12.6px -2.1px rgba(24,35,47,.38);
+  color:#241b16;
+  font-size:16px;
+  font-weight:400;
+  line-height:1.45;
+}
+
+.studio-preview-public-shell[data-context="detail"] .quantity.quantity-input button{
+  display:block;
+  width:36px;
+  height:36px;
+  min-width:0;
+  min-height:auto;
+  padding:1px 6px;
+  border:0;
+  border-radius:0;
+  background:#edf5ee;
+  color:#4c2c40;
+  font-family:"Nunito Sans",Arial,Helvetica,sans-serif;
+  font-size:19px;
+  font-weight:900;
+  line-height:1.45;
+  cursor:default;
+  box-shadow:none;
+}
+
+.studio-preview-public-shell[data-context="detail"] .quantity.quantity-input input{
+  width:42px;
+  height:40px;
+  min-height:auto;
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:#fff;
+  color:#241b16;
+  text-align:center;
+  font-family:"Nunito Sans",Arial,Helvetica,sans-serif;
+  font-size:16px;
+  font-weight:900;
+  line-height:1.45;
+  appearance:textfield;
+  pointer-events:none;
+}
+
+.studio-preview-public-shell[data-context="detail"] .detail-actions{
+  display:flex;
+  flex-wrap:nowrap;
+  align-items:center;
+  gap:12px;
+  width:680px;
+  margin:0;
+}
+
+/* --- Botones reales de la tienda --- */
+.studio-preview-public-shell[data-context="store"] .product-actions .button,
+.studio-preview-public-shell[data-context="detail"] .detail-actions .button,
+.studio-preview-public-shell[data-context="detail"] .detail-copy > .button{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  width:auto;
+  min-height:44px;
+  padding:11px 16px;
+  border:0;
+  border-radius:10px;
+  font-family:"Nunito Sans",Arial,Helvetica,sans-serif;
+  font-size:16px;
+  font-weight:800;
+  line-height:1.45;
+  text-decoration:none;
+  box-shadow:0 4.2px 12.6px -2.1px rgba(24,35,47,.38);
+  cursor:pointer;
+}
+
+.studio-preview-public-shell[data-context="store"] .product-actions .button{
+  width:100%;
+}
+
+.studio-preview-public-shell[data-context="store"] .product-actions .button.primary,
+.studio-preview-public-shell[data-context="detail"] .detail-actions .button.primary,
+.studio-preview-public-shell[data-context="detail"] .detail-copy > .button.primary{
+  background:linear-gradient(135deg,#b85878,#dc7896);
+  color:#fff;
+}
+
+.studio-preview-public-shell[data-context="store"] .product-actions .button.secondary,
+.studio-preview-public-shell[data-context="detail"] .detail-actions .button.secondary{
+  background:#f8e6c2;
+  color:#b85878;
+  border:0;
+}
