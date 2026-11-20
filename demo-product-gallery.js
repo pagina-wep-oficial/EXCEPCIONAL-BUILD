@@ -134,7 +134,7 @@
     const zoom = clamp(item?.zoom ?? 1, 1, 3);
     const rotation = clamp(item?.rotation ?? 0, -180, 180);
     const scale = large ? zoom : Math.min(zoom, 2.4);
-    return `object-fit:${fit};object-position:${x}% ${y}%;transform:scale(${scale}) rotate(${rotation}deg)`;
+    return `object-fit:${fit};object-position:${x}% ${y}%;transform:scale(${scale}) scaleX(${item && item.flip_x ? -1 : 1}) scaleY(${item && item.flip_y ? -1 : 1}) rotate(${rotation}deg)`;
   }
 
   function productCardMarkup(item, source) {
@@ -169,128 +169,180 @@
     `;
   }
 
-  function contextPreviewMarkup(item, source) {
-    if (previewContext === "presentation") {
-      return `
-        <article class="context-preview-card context-preview-presentation">
-          <div class="context-preview-image">${productCardMarkup(item, source).match(/<div class="studio-card-media-frame"[\s\S]*?<\/div>/)?.[0] || ""}</div>
-          <div class="context-preview-copy">
-            <span>Presentación</span>
-            <h3>${safe(productDraft().name)}</h3>
-            <p>${safe(productDraft().description)}</p>
-            <button type="button">Conocer más ↗</button>
-          </div>
-        </article>`;
+  function previewMediaMarkup(item, className = "") {
+    const classes = className ? ` ${className}` : "";
+    if (!item) {
+      return `<div class="studio-preview-media-placeholder${classes}">Sin imagen</div>`;
     }
 
-    if (previewContext === "featured") {
-      return `
-        <article class="context-preview-card context-preview-featured">
-          <div class="context-preview-image">${productCardMarkup(item, source).match(/<div class="studio-card-media-frame"[\s\S]*?<\/div>/)?.[0] || ""}</div>
-          <div class="context-preview-copy">
-            <span>Producto destacado</span>
-            <h3>${safe(productDraft().name)}</h3>
-            <p>${safe(productDraft().description)}</p>
-            <strong>${safe(productDraft().price || "Precio del producto")}</strong>
-          </div>
-        </article>`;
+    const url = item.source_url || item.url || item.data_url || item.preview_url || "";
+    if (!url) {
+      return `<div class="studio-preview-media-placeholder${classes}">Sin imagen</div>`;
     }
 
-    if (previewContext === "detail") {
-      const draft = productDraft();
-      return `
-        <article class="context-preview-card context-preview-detail">
-          <div class="context-preview-image">${productCardMarkup(item, source).match(/<div class="studio-card-media-frame"[\s\S]*?<\/div>/)?.[0] || ""}</div>
-          <div class="context-preview-copy">
-            <span>${safe(draft.category)}</span>
-            <h2>${safe(draft.name)}</h2>
-            <p>${safe(draft.description)}</p>
-            <strong>${safe(draft.price || "Precio opcional")}</strong>
-            <button type="button">${draft.type === "external_catalog" ? "Ver oferta ↗" : "Agregar al carrito"}</button>
-          </div>
-        </article>`;
+    const style = mediaStyle(item, true);
+
+    if (item.type === "video" || String(item.mime_type || "").startsWith("video/")) {
+      return `<video class="studio-preview-media${classes}" src="${safe(url)}" style="${style}" muted playsinline controls></video>`;
     }
 
-    return productCardMarkup(item, source);
+    return `<img class="studio-preview-media${classes}" src="${safe(url)}" alt="${safe(item.alt_text || productDraft().name || "Producto")}" style="${style}">`;
+  }
+
+  function previewPrice(draft) {
+    const value = Number(draft.price);
+    if (!Number.isFinite(value)) return "";
+    return `<strong class="price">${value.toFixed(2)} ${safe(draft.currency || "MXN")}</strong>`;
+  }
+
+  function previewImages() {
+    const media = Array.isArray(items) ? items.slice() : [];
+    return [
+      ...media.filter(item => item.type !== "video"),
+      ...media.filter(item => item.type === "video")
+    ];
+  }
+
+  function featuredPreviewMarkup() {
+    const draft = productDraft();
+    const image = previewImages().find(item => item.type !== "video");
+
+    return `
+      <article class="home-featured-card">
+        <div class="home-featured-image">
+          ${previewMediaMarkup(image, "home-featured-image-media")}
+        </div>
+        <div class="home-featured-body">
+          <span class="home-featured-category">${safe(draft.category || "Producto")}</span>
+          <h3>${safe(draft.name || "Nombre del producto")}</h3>
+          <p class="home-featured-description">${safe(draft.description || "Descripción del producto")}</p>
+          <div class="home-featured-bottom">
+            ${previewPrice(draft)}
+            <button class="button primary" type="button">Ver producto</button>
+          </div>
+        </div>
+      </article>
+    `;
+  }
+
+  function storePreviewMarkup() {
+    const draft = productDraft();
+    const image = previewImages().find(item => item.type !== "video");
+    const external = previewCatalog === "external_catalog";
+
+    return `
+      <article class="product-card">
+        <div class="product-media-frame">
+          ${previewMediaMarkup(image, "product-card-media")}
+        </div>
+        <div class="product-body">
+          <div class="product-meta">
+            <span class="category">${safe(draft.category || "Producto")}</span>
+            ${previewPrice(draft)}
+          </div>
+          <h2>${safe(draft.name || "Nombre del producto")}</h2>
+          <p>${safe(draft.description || "Descripción del producto")}</p>
+          <div class="product-actions">
+            ${external ? "" : `<button class="button primary" type="button">Agregar</button>`}
+            <button class="button secondary" type="button">Ver producto</button>
+          </div>
+        </div>
+      </article>
+    `;
+  }
+
+  function detailPreviewMarkup() {
+    const draft = productDraft();
+    const media = previewImages();
+    const main = media.find(item => item.type !== "video") || media[0];
+    const external = previewCatalog === "external_catalog";
+
+    return `
+      <article class="detail-view">
+        <div class="detail-gallery">
+          <div class="detail-media">
+            ${previewMediaMarkup(main, "detail-main-image")}
+          </div>
+          ${
+            media.length > 1
+              ? `<div class="detail-thumbnails">
+                  ${media.slice(0, 5).map((item, index) => `
+                    <button class="detail-thumbnail${index === 0 ? " is-active" : ""}" type="button">
+                      ${previewMediaMarkup(item, "detail-thumbnail-media")}
+                    </button>
+                  `).join("")}
+                </div>`
+              : ""
+          }
+        </div>
+
+        <div class="detail-copy">
+          <span class="section-kicker">${safe(draft.category || "Producto")}</span>
+          <h1>${safe(draft.name || "Nombre del producto")}</h1>
+          <p>${safe(draft.description || "Descripción del producto")}</p>
+          ${previewPrice(draft)}
+          <div class="detail-actions">
+            ${
+              external
+                ? `<button class="button primary" type="button">Ver oferta ↗</button>`
+                : `
+                  <label class="quantity">
+                    <span>Cantidad</span>
+                    <input type="number" min="1" value="1">
+                  </label>
+                  <button class="button primary" type="button">Agregar al carrito</button>
+                  <button class="button secondary" type="button">Ir al carrito</button>
+                `
+            }
+          </div>
+        </div>
+      </article>
+    `;
+  }
+
+  function contextPreviewMarkup() {
+    if (previewContext === "featured") return featuredPreviewMarkup();
+    if (previewContext === "detail") return detailPreviewMarkup();
+    return storePreviewMarkup();
   }
 
   function previewBoardMarkup(item, source) {
     const mode = previewCatalog === "external_catalog" ? "Catálogo" : "Tienda";
     const contexts = [
-      ["presentation", "Presentación"],
       ["featured", "Destacados"],
-      ["store", "Tienda"],
+      ["store", mode],
       ["detail", "Ver detalles"]
     ];
 
     return `
-      <section class="studio-preview-shell">
-        <header class="studio-section-head">
+      <section class="studio-preview-sheet" aria-label="Vista en vivo">
+        <div class="studio-preview-heading">
           <div>
-            <p class="studio-kicker">Vista en vivo</p>
-            <h3>Así se verá este producto</h3>
-            <p>Comprueba la tarjeta en cada lugar donde puede aparecer.</p>
+            <span class="studio-preview-kicker">Vista en vivo</span>
+            <strong>${safe(mode)}</strong>
           </div>
-          <div class="studio-mode-badge">${mode}</div>
-        </header>
-
-        <nav class="studio-context-tabs" aria-label="Contexto de vista previa">
-          ${contexts.map(([value, label]) => `<button type="button" class="${previewContext === value ? "is-active" : ""}" data-preview-context="${value}">${label}</button>`).join("")}
-        </nav>
-
-        <div class="studio-preview-board">
-          <div class="studio-preview-sheet">
-            ${contextPreviewMarkup(item, source)}
-          </div>
+          <span class="studio-preview-route">
+            ${safe(previewContext === "featured" ? "Destacados" : previewContext === "detail" ? "Ver detalles" : mode)}
+          </span>
         </div>
 
-        <div class="studio-preview-caption">
-          <span>${icon("preview")}Vista del producto</span>
-          <small>${safe(contexts.find(([value]) => value === previewContext)?.[1] || "Tienda")} · ${mode}</small>
+        <div class="studio-context-tabs" role="tablist" aria-label="Contexto">
+          ${contexts.map(([value, label]) => `
+            <button
+              type="button"
+              class="studio-context-tab${previewContext === value ? " is-active" : ""}"
+              data-preview-context="${value}"
+              role="tab"
+              aria-selected="${previewContext === value ? "true" : "false"}"
+            >${label}</button>
+          `).join("")}
+        </div>
+
+        <div class="studio-preview-public-shell">
+          ${contextPreviewMarkup(item, source)}
         </div>
       </section>
     `;
-  }
-
-  function previewProduct() {
-    const form = productForm;
-    const selected = selectedItem();
-    const catalogType = store.catalogType === "external_catalog" ? "external_catalog" : "commerce";
-    const price = Number(form?.elements.price?.value || 0);
-    const compareAtPrice = Number(form?.elements.compareAtPrice?.value || 0);
-    const primary = items.find(item => item.type !== "video" && item.is_primary) || items.find(item => item.type !== "video");
-
-    return {
-      id: form?.elements.id?.value || "demo-editor-preview",
-      name: form?.elements.name?.value.trim() || "Nombre del producto",
-      category: form?.elements.category?.value || "Categoría",
-      description: form?.elements.description?.value.trim() || "Descripción del producto",
-      price,
-      compareAtPrice: compareAtPrice > price ? compareAtPrice : null,
-      currency_id: form?.elements.currency_id?.value || "demo-mxn",
-      currency_display_label: store.model.currencies.find(item => item.id === form?.elements.currency_id?.value)?.display_label || "MXN",
-      unitLabel: form?.elements.unitLabel?.value || "c/u",
-      image: primary?.source_url || "",
-      media: JSON.parse(JSON.stringify(items)),
-      featured: Boolean(form?.elements.featured?.checked),
-      enabled: true,
-      external_price_visible: catalogType === "commerce" || Boolean(form?.elements.external_price_visible?.checked),
-      external_url: form?.elements.external_url?.value || "https://example.com/",
-      catalog_type: catalogType,
-      selected_media: selected?.source_url || ""
-    };
-  }
-
-  function sendLivePreview() {
-    const frame = document.querySelector("#studio-live-frame");
-    if (!frame?.contentWindow) return;
-    const message = {
-      type: "demo-editor-preview",
-      catalog_type: store.catalogType === "external_catalog" ? "external_catalog" : "commerce",
-      product: previewProduct()
-    };
-    const targetOrigin = window.location.origin === "null" ? "*" : window.location.origin;
-    frame.contentWindow.postMessage(message, targetOrigin);
   }
 
   function sliderRow(label, name, value, min, max, step, suffix = "") {

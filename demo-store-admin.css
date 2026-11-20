@@ -1606,3 +1606,43 @@
     grid-template-columns:1fr;
   }
 }
+
+
+/* Vista pública real dentro del editor */
+.studio-preview-public-shell{width:100%;color:#25352f}
+.studio-preview-public-shell .button{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:0 14px;border:1px solid rgba(107,61,85,.22);border-radius:12px;font:inherit;font-weight:800;cursor:pointer}
+.studio-preview-public-shell .button.primary{background:#6b3d55;color:#fff8f2}
+.studio-preview-public-shell .button.secondary{background:#fff8f2;color:#6b3d55}
+.studio-preview-public-shell .product-card{display:grid;grid-template-columns:145px minmax(0,1fr);gap:18px;padding:16px;border:1px solid rgba(107,61,85,.2);border-radius:22px;background:#fff8f2;box-shadow:0 12px 28px rgba(68,38,53,.12)}
+.studio-preview-public-shell .product-media-frame{min-height:145px;overflow:hidden;border-radius:18px;background:#f1ddd0}
+.studio-preview-public-shell .product-card-media,.studio-preview-public-shell .home-featured-image-media{display:block;width:100%;height:100%;min-height:145px;object-fit:cover}
+.studio-preview-public-shell .product-body{min-width:0}
+.studio-preview-public-shell .product-meta{display:flex;justify-content:space-between;gap:10px;color:#8a6070;font-size:12px;font-weight:800}
+.studio-preview-public-shell .category,.studio-preview-public-shell .home-featured-category,.studio-preview-public-shell .section-kicker{color:#a04c6b;font-weight:900}
+.studio-preview-public-shell .price{color:#6b3d55;white-space:nowrap}
+.studio-preview-public-shell h1,.studio-preview-public-shell h2,.studio-preview-public-shell h3{margin:8px 0;color:#482d3b}
+.studio-preview-public-shell p{margin:0;color:#725d65;line-height:1.5}
+.studio-preview-public-shell .product-actions,.studio-preview-public-shell .detail-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:16px}
+.studio-preview-public-shell .home-featured-card{overflow:hidden;border:1px solid rgba(107,61,85,.2);border-radius:24px;background:#fff8f2;box-shadow:0 12px 28px rgba(68,38,53,.12)}
+.studio-preview-public-shell .home-featured-image{min-height:180px;overflow:hidden;background:#f1ddd0}
+.studio-preview-public-shell .home-featured-body{padding:18px}
+.studio-preview-public-shell .home-featured-bottom{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:18px}
+.studio-preview-public-shell .detail-view{display:grid;grid-template-columns:1fr 1fr;gap:22px;padding:18px;border:1px solid rgba(107,61,85,.2);border-radius:24px;background:#fff8f2;box-shadow:0 12px 28px rgba(68,38,53,.12)}
+.studio-preview-public-shell .detail-media{min-height:230px;overflow:hidden;border-radius:20px;background:#f1ddd0}
+.studio-preview-public-shell .detail-main-image{display:block;width:100%;height:100%;min-height:230px;object-fit:cover}
+.studio-preview-public-shell .detail-thumbnails{display:flex;gap:8px;margin-top:10px}
+.studio-preview-public-shell .detail-thumbnail{width:48px;height:48px;padding:0;overflow:hidden;border:2px solid transparent;border-radius:10px;background:#f1ddd0}
+.studio-preview-public-shell .detail-thumbnail.is-active{border-color:#a04c6b}
+.studio-preview-public-shell .detail-thumbnail-media{width:100%;height:100%;object-fit:cover}
+.studio-preview-public-shell .detail-copy{align-self:center}
+.studio-preview-public-shell .detail-copy .price{display:block;margin-top:16px;font-size:20px}
+.studio-preview-public-shell .quantity{display:grid;gap:4px;color:#6b3d55;font-size:12px;font-weight:800}
+.studio-preview-public-shell .quantity input{width:72px;min-height:38px;border:1px solid rgba(107,61,85,.25);border-radius:10px}
+.studio-preview-media-placeholder{display:grid;place-items:center;min-height:145px;color:#8a6070;font-size:13px;font-weight:800}
+
+@media (max-width:720px){
+  .studio-preview-public-shell .product-card,
+  .studio-preview-public-shell .detail-view{grid-template-columns:1fr}
+  .studio-preview-public-shell .home-featured-bottom{align-items:stretch;flex-direction:column}
+  .studio-preview-public-shell .home-featured-bottom .button{width:100%}
+}
