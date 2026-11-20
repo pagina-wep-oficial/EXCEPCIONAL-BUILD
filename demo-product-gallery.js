@@ -84,18 +84,59 @@
   function set(next) { items = window.DemoStore.validateMedia(next || []); draw(); }
   function append(next) { items = window.DemoStore.validateMedia([...items, ...next]); draw(); changed(); }
   const status = message => { document.querySelector("#product-status").textContent = message; };
-  document.querySelector("#product-files").addEventListener("change", async event => {
+  const uploadInput = document.querySelector("#product-files");
+
+  document.querySelectorAll("[data-upload-intent]").forEach(control => {
+    control.addEventListener("click", () => {
+      uploadInput.dataset.intent = control.dataset.uploadIntent || "extra";
+    });
+  });
+
+  uploadInput.addEventListener("change", async event => {
     if (busy) return;
     busy = true;
     const staged = [];
+    const intent = uploadInput.dataset.intent || "extra";
+
     try {
       const files = Array.from(event.target.files || []);
-      window.DemoStore.validateMedia([...items, ...files.map(file => ({ type: file.type.startsWith("video/") ? "video" : "image", source_url: "demo-media:pending" }))]);
-      for (const file of files) staged.push(await window.DemoMedia.save(file));
-      append(staged); status("Archivos agregados. Guarda el producto para conservar esta selección.");
-    } catch (error) { status(error.message); }
-    finally { busy = false; event.target.value = ""; }
+      const accepted = intent === "video"
+        ? files.filter(file => file.type.startsWith("video/"))
+        : files.filter(file => file.type.startsWith("image/"));
+
+      if (!accepted.length) throw new Error(intent === "video" ? "Elige un video válido." : "Elige una imagen válida.");
+      if (intent === "primary" && accepted.length > 1) throw new Error("Elige una sola imagen principal.");
+
+      for (const file of accepted) {
+        staged.push(await window.DemoMedia.save(file));
+      }
+
+      if (intent === "video") {
+        items = items.filter(item => item.type !== "video");
+        items = window.DemoStore.validateMedia([...items, ...staged.map(source_url => ({ source_url, type: "video", is_primary: false }))]);
+      } else if (intent === "primary") {
+        const next = staged[0];
+        items = items.filter(item => !(item.type !== "video" && item.is_primary));
+        items = window.DemoStore.validateMedia([
+          { source_url: next, type: "image", is_primary: true },
+          ...items
+        ]);
+      } else {
+        append(staged.map(source_url => ({ source_url, type: "image", is_primary: false })));
+      }
+
+      draw();
+      changed();
+      status(intent === "video" ? "Video agregado. Guarda el producto para conservarlo." : "Imagen agregada. Guarda el producto para conservarla.");
+    } catch (error) {
+      status(error.message);
+    } finally {
+      busy = false;
+      event.target.value = "";
+      delete event.target.dataset.intent;
+    }
   });
+
   document.querySelector("#add-media-url").onclick = () => {
     const input = document.querySelector("#media-url");
     const url = window.DemoStore.safeUrl(input.value);
