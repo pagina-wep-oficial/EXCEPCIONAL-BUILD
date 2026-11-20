@@ -113,16 +113,16 @@
 
       if (intent === "video") {
         items = items.filter(item => item.type !== "video");
-        items = window.DemoStore.validateMedia([...items, ...staged.map(source_url => ({ source_url, type: "video", is_primary: false }))]);
+        items = window.DemoStore.validateMedia([...items, ...staged]);
       } else if (intent === "primary") {
         const next = staged[0];
         items = items.filter(item => !(item.type !== "video" && item.is_primary));
         items = window.DemoStore.validateMedia([
-          { source_url: next, type: "image", is_primary: true },
+          { ...next, is_primary: true },
           ...items
         ]);
       } else {
-        append(staged.map(source_url => ({ source_url, type: "image", is_primary: false })));
+        append(staged);
       }
 
       draw();
