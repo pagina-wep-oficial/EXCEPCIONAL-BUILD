@@ -228,7 +228,8 @@ if (year) year.textContent = new Date().getFullYear();
   const openButton = document.querySelector("[data-open-highlights]");
   if (!overlay || !openButton) return;
 
-  const closeButtons = overlay.querySelectorAll("[data-close-highlights]");
+  const closeButton = overlay.querySelector(".highlights-close");
+  const presentationFrame = overlay.querySelector("iframe");
   let previousFocus = null;
 
   function openHighlights(){
@@ -239,13 +240,17 @@ if (year) year.textContent = new Date().getFullYear();
   }
 
   function closeHighlights(){
+    presentationFrame?.contentWindow?.postMessage(
+      { type: "presentation-pause" },
+      window.location.origin
+    );
     overlay.hidden = true;
     document.body.classList.remove("highlights-is-open");
     previousFocus?.focus?.();
   }
 
   openButton.addEventListener("click", openHighlights);
-  closeButtons.forEach(button => button.addEventListener("click", closeHighlights));
+  closeButton?.addEventListener("click", closeHighlights);
 
   document.addEventListener("keydown", event => {
     if (event.key === "Escape" && !overlay.hidden) closeHighlights();

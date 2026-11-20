@@ -694,6 +694,17 @@ function speakScene(idx) {
   speech.speak(utterance);
 }
 
+window.addEventListener("message", event => {
+  if (event.origin !== window.location.origin) return;
+  if (event.data?.type !== "presentation-pause") return;
+
+  playing = false;
+  stopVoice();
+  playBtn.textContent = "▶ Reproducir";
+  playBtn.setAttribute("aria-label", "Reproducir presentación");
+  render(elapsed);
+});
+
 function fmt(t) {
  return Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
 }
@@ -752,6 +763,10 @@ function toggle() {
   if (elapsed >= TOTAL) elapsed = 0;
   playing = !playing;
   playBtn.textContent = playing ? '⏸ Pausar' : '▶ Reproducir';
+  playBtn.setAttribute(
+    'aria-label',
+    playing ? 'Pausar presentación' : 'Reproducir presentación'
+  );
   if (!playing) {
     stopVoice();
   } else {
