@@ -127,3 +127,97 @@ body[data-store-design] :where(.product-media-frame) > :is(img, video) {
   object-fit: cover;
   border-radius: inherit;
 }
+
+
+/* CASA_NOPAL_MEDIA_REMASTER */
+body[data-store-design][data-page] .product-card .product-media-frame{
+  position:relative;
+  display:grid;
+  place-items:center;
+  aspect-ratio:4/3!important;
+  min-height:0;
+  overflow:hidden;
+  padding:12px;
+  border:1px solid rgba(38,52,74,.12);
+  border-radius:24px;
+  background:
+    radial-gradient(circle at 30% 20%,rgba(255,255,255,.88),transparent 42%),
+    linear-gradient(145deg,#f8f2e8,#eadfce);
+}
+
+body[data-store-design][data-page] .product-card .product-media-frame::after{
+  content:"";
+  position:absolute;
+  inset:8px;
+  border:1px solid rgba(255,255,255,.62);
+  border-radius:18px;
+  pointer-events:none;
+}
+
+body[data-store-design][data-page] .product-card .product-media-frame>img,
+body[data-store-design][data-page] .product-card .product-media-frame>video{
+  position:relative;
+  z-index:1;
+  width:100%;
+  height:100%;
+  min-width:0;
+  min-height:0;
+  border-radius:16px;
+  object-fit:contain!important;
+  background:transparent;
+  filter:saturate(1.02) contrast(1.01);
+}
+
+body[data-store-design][data-page] .product-card .product-media-frame>video{
+  background:#18221d;
+}
+
+body[data-store-design][data-page] .product-card{
+  overflow:hidden;
+  border-top:0;
+  border:1px solid rgba(38,52,74,.12);
+}
+
+body[data-store-design][data-page] .product-card .product-body{
+  padding:16px 17px 18px;
+}
+
+body[data-store-design][data-page] .product-card .product-actions{
+  margin-top:auto;
+}
+
+body[data-store-design][data-page] .home-featured-image{
+  position:relative;
+  display:grid;
+  place-items:center;
+  aspect-ratio:4/3;
+  overflow:hidden;
+  padding:12px;
+  border-radius:22px;
+  background:linear-gradient(145deg,#f8f2e8,#eadfce);
+}
+
+body[data-store-design][data-page] .home-featured-image>img,
+body[data-store-design][data-page] .home-featured-image>video{
+  width:100%;
+  height:100%;
+  border-radius:15px;
+  object-fit:contain!important;
+}
+
+@media(max-width:600px){
+  body[data-store-design][data-page] .product-card .product-media-frame{
+    aspect-ratio:1/1!important;
+    padding:10px;
+    border-radius:20px;
+  }
+
+  body[data-store-design][data-page] .product-card .product-media-frame::after{
+    inset:7px;
+    border-radius:15px;
+  }
+
+  body[data-store-design][data-page] .product-card .product-body{
+    padding:13px 13px 15px;
+  }
+}
