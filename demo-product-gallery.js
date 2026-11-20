@@ -74,7 +74,22 @@
     return `${photos} imagen${photos === 1 ? "" : "es"}${videos ? ` · ${videos} video` : ""}. Edita el encuadre y revisa la vista previa del producto.`;
   }
 
+  function normalizeMediaOrder() {
+    const selected = items[activeIndex] || null;
+    const images = items.filter(item => item.type !== "video");
+    const videos = items.filter(item => item.type === "video");
+    const primary = images.find(item => item.is_primary) || images[0] || null;
+    const remaining = images.filter(item => item !== primary);
+
+    images.forEach(item => { item.is_primary = item === primary; });
+    items = primary ? [primary, ...remaining, ...videos] : [...videos];
+
+    const selectedPosition = selected ? items.indexOf(selected) : -1;
+    activeIndex = selectedPosition >= 0 ? selectedPosition : 0;
+  }
+
   function changed() {
+    normalizeMediaOrder();
     normalizeSelection();
     if (summary) summary.textContent = countsLabel();
     window.dispatchEvent(new CustomEvent("demo-gallery-change"));
@@ -153,31 +168,72 @@
     `;
   }
 
-  function previewBoardMarkup(item, source) {
+  function previewBoardMarkup() {
+    const mode = store.catalogType === "external_catalog" ? "external_catalog" : "commerce";
     return `
       <section class="studio-preview-shell">
         <header class="studio-section-head">
           <div>
             <p class="studio-kicker">Vista en vivo</p>
             <h3>Así lo verá el público</h3>
-            <p>La tarjeta se actualiza al instante mientras ajustas el medio seleccionado.</p>
+            <p>Esta es la tienda real del recorrido activo.</p>
           </div>
-          <div class="studio-preview-switch" role="tablist" aria-label="Tipo de tarjeta">
-            <button type="button" class="${previewCatalog === "commerce" ? "is-active" : ""}" data-preview-catalog="commerce">${icon("cart")}<span>Tienda</span></button>
-            <button type="button" class="${previewCatalog === "external_catalog" ? "is-active" : ""}" data-preview-catalog="external_catalog">${icon("link")}<span>Catálogo</span></button>
+          <div class="studio-mode-badge">
+            ${mode === "commerce" ? icon("cart") : icon("link")}
+            <span>${mode === "commerce" ? "Tienda" : "Catálogo"}</span>
           </div>
         </header>
-        <div class="studio-preview-board">
-          <div class="studio-preview-sheet">
-            ${productCardMarkup(item, source)}
-          </div>
-        </div>
-        <div class="studio-preview-caption">
-          <span>${icon("grid")}Vista simulada dentro de la tarjeta de producto</span>
-          <small>${item ? `${safe(itemLabel(item, activeIndex))}${item.is_primary ? " · principal" : " · adicional"}` : "Sin medio seleccionado"}</small>
+        <div class="studio-live-frame-wrap">
+          <iframe
+            id="studio-live-frame"
+            class="studio-live-frame"
+            title="Vista pública del producto"
+            src="../demo-casa-nopal/tienda.html?catalog=${mode}&editor_preview=1">
+          </iframe>
         </div>
       </section>
     `;
+  }
+
+  function previewProduct() {
+    const form = productForm;
+    const selected = selectedItem();
+    const catalogType = store.catalogType === "external_catalog" ? "external_catalog" : "commerce";
+    const price = Number(form?.elements.price?.value || 0);
+    const compareAtPrice = Number(form?.elements.compareAtPrice?.value || 0);
+    const primary = items.find(item => item.type !== "video" && item.is_primary) || items.find(item => item.type !== "video");
+
+    return {
+      id: form?.elements.id?.value || "demo-editor-preview",
+      name: form?.elements.name?.value.trim() || "Nombre del producto",
+      category: form?.elements.category?.value || "Categoría",
+      description: form?.elements.description?.value.trim() || "Descripción del producto",
+      price,
+      compareAtPrice: compareAtPrice > price ? compareAtPrice : null,
+      currency_id: form?.elements.currency_id?.value || "demo-mxn",
+      currency_display_label: store.model.currencies.find(item => item.id === form?.elements.currency_id?.value)?.display_label || "MXN",
+      unitLabel: form?.elements.unitLabel?.value || "c/u",
+      image: primary?.source_url || "",
+      media: JSON.parse(JSON.stringify(items)),
+      featured: Boolean(form?.elements.featured?.checked),
+      enabled: true,
+      external_price_visible: catalogType === "commerce" || Boolean(form?.elements.external_price_visible?.checked),
+      external_url: form?.elements.external_url?.value || "https://example.com/",
+      catalog_type: catalogType,
+      selected_media: selected?.source_url || ""
+    };
+  }
+
+  function sendLivePreview() {
+    const frame = document.querySelector("#studio-live-frame");
+    if (!frame?.contentWindow) return;
+    const message = {
+      type: "demo-editor-preview",
+      catalog_type: store.catalogType === "external_catalog" ? "external_catalog" : "commerce",
+      product: previewProduct()
+    };
+    const targetOrigin = window.location.origin === "null" ? "*" : window.location.origin;
+    frame.contentWindow.postMessage(message, targetOrigin);
   }
 
   function sliderRow(label, name, value, min, max, step, suffix = "") {
@@ -249,8 +305,8 @@
 
           <div class="studio-inspector-actions">
             ${item.type !== "video" ? `<button type="button" class="studio-outline-button ${item.is_primary ? "is-active" : ""}" data-set-primary>${icon("star")}Usar como principal</button>` : ""}
-            <button type="button" class="studio-outline-button" data-move-selected="-1" ${activeIndex === 0 ? "disabled" : ""}>${icon("left")}Mover</button>
-            <button type="button" class="studio-outline-button" data-move-selected="1" ${activeIndex === items.length - 1 ? "disabled" : ""}>${icon("right")}Mover</button>
+            ${item.type !== "video" && !item.is_primary ? `<button type="button" class="studio-outline-button" data-move-selected="-1" ${activeIndex <= 1 ? "disabled" : ""}>${icon("left")}Mover</button>
+            <button type="button" class="studio-outline-button" data-move-selected="1" ${activeIndex === items.length - 1 || items[activeIndex + 1]?.type === "video" ? "disabled" : ""}>${icon("right")}Mover</button>` : ""}
             <button type="button" class="studio-outline-button is-danger" data-delete-selected>${icon("trash")}Eliminar</button>
           </div>
 
@@ -327,7 +383,10 @@
     adjustHost.hidden = false;
     adjustHost.innerHTML = `${previewBoardMarkup(selected, currentSource)}${inspectorMarkup(selected, currentSource)}`;
 
+    const frame = document.querySelector("#studio-live-frame");
+    frame?.addEventListener("load", sendLivePreview, { once: true });
     bindStudioInteractions();
+    sendLivePreview();
   }
 
   function bindStudioInteractions() {
@@ -342,11 +401,6 @@
 
     host.querySelectorAll("[data-select-media]").forEach(button => button.addEventListener("click", () => {
       activeIndex = Number(button.dataset.selectMedia) || 0;
-      renderStudio();
-    }));
-
-    adjustHost.querySelectorAll("[data-preview-catalog]").forEach(button => button.addEventListener("click", () => {
-      previewCatalog = button.dataset.previewCatalog === "external_catalog" ? "external_catalog" : "commerce";
       renderStudio();
     }));
 
@@ -378,7 +432,7 @@
     adjustHost.querySelector("[data-reset-image]")?.addEventListener("click", () => {
       const item = selectedItem();
       if (!item || item.type === "video") return;
-      Object.assign(item, { fit_mode: "cover", focal_x: 50, focal_y: 50, zoom: 1, rotation: 0 });
+      Object.assign(item, { fit_mode: "inherit", focal_x: 50, focal_y: 50, zoom: 1, rotation: 0, flip_x: false, flip_y: false });
       changed();
     });
 
@@ -392,9 +446,10 @@
     });
 
     adjustHost.querySelectorAll("[data-move-selected]").forEach(button => button.addEventListener("click", () => {
+      const current = selectedItem();
       const from = activeIndex;
       const to = from + Number(button.dataset.moveSelected || 0);
-      if (to < 0 || to >= items.length) return;
+      if (!current || current.type === "video" || current.is_primary || to < 1 || to >= items.length || items[to]?.type === "video") return;
       [items[from], items[to]] = [items[to], items[from]];
       activeIndex = to;
       items = window.DemoStore.validateMedia(items);
@@ -411,6 +466,7 @@
 
   function set(next) {
     items = window.DemoStore.validateMedia(next || []);
+    normalizeMediaOrder();
     activeIndex = items.findIndex(item => item.is_primary);
     if (activeIndex < 0) activeIndex = 0;
     changed();
@@ -514,6 +570,8 @@
   productForm?.addEventListener("change", () => {
     if (isStudioOpen()) renderStudio();
   });
+
+  window.addEventListener("demo-editor-live-preview-ready", sendLivePreview);
 
   window.addEventListener("demo-gallery-change", () => {
     if (summary) summary.textContent = countsLabel();

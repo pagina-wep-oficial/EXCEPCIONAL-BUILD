@@ -54,7 +54,7 @@
     const y = Math.max(0, Math.min(100, Number(media?.focal_y ?? 50)));
     const zoom = Math.max(1, Math.min(3, Number(media?.zoom ?? 1)));
     const rotation = Math.max(-180, Math.min(180, Number(media?.rotation ?? 0)));
-    return `object-fit:${fit};object-position:${x}% ${y}%;transform:scale(${zoom}) rotate(${rotation}deg)`;
+    return `object-fit:${fit};object-position:${x}% ${y}%;transform:scale(${zoom}) rotate(${rotation}deg) scaleX(${media?.flip_x ? -1 : 1}) scaleY(${media?.flip_y ? -1 : 1})`;
   };
   const applyImageSettings = () => {
     const settings = state.imageSettings || {};
@@ -302,6 +302,17 @@
     grid.innerHTML = state.products.filter((product) => isProductVisible(product) && product.featured).slice(0, 6).map((product) => `<article class="home-featured-card"><div class="home-featured-image">${productImageMarkup(product)}</div><div class="home-featured-body"><span class="home-featured-category">${safe(product.category)}</span><h3>${safe(product.name)}</h3><p class="home-featured-description">${safe(product.description)}</p><div class="home-featured-bottom">${priceMarkup(product)}<a class="button primary" href="${localPath(`detalle.html?id=${encodeURIComponent(product.id)}`)}">Ver producto</a></div></div></article>`).join("");
     hydrateMediaImages(grid);
   };
+  window.addEventListener("message", event => {
+    if (event.origin !== window.location.origin && event.origin !== "null") return;
+    const data = event.data || {};
+    if (data.type !== "demo-editor-preview" || !data.product) return;
+    if (data.catalog_type !== store.catalogType) return;
+    const preview = { ...data.product, enabled: true };
+    state.products = [preview, ...state.products.filter(item => item.id !== preview.id)];
+    renderCatalog();
+    window.dispatchEvent(new CustomEvent("demo-editor-live-preview-ready"));
+  });
+
   const renderDetail = () => {
     const product = productById(params.get("id"));
     const view = document.querySelector("#detailView");
