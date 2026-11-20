@@ -56,6 +56,16 @@
     const rotation = Math.max(-180, Math.min(180, Number(media?.rotation ?? 0)));
     return `object-fit:${fit};object-position:${x}% ${y}%;transform:scale(${zoom}) rotate(${rotation}deg) scaleX(${media?.flip_x ? -1 : 1}) scaleY(${media?.flip_y ? -1 : 1})`;
   };
+  const CROP_ASPECTS = { "1/1": "1/1", "4/3": "4/3", "3/4": "3/4" };
+  const mediaCropAspect = media => CROP_ASPECTS[media?.crop] || "";
+  const frameAspectAttr = product => {
+    const aspect = mediaCropAspect(productPrimaryMedia(product));
+    return aspect ? ` style="--demo-product-aspect:${aspect}"` : "";
+  };
+  const plainFrameAspectAttr = product => {
+    const aspect = mediaCropAspect(productPrimaryMedia(product));
+    return aspect ? ` style="aspect-ratio:${aspect}"` : "";
+  };
   const applyImageSettings = () => {
     const settings = state.imageSettings || {};
     const aspects = { "1/1": "1/1", "4/3": "4/3", "3/4": "3/4", auto: "auto" };
@@ -271,7 +281,7 @@
     const before = Number(product.compareAtPrice) > Number(current) ? `<del>${safe(money(product.compareAtPrice, product))}</del> ` : "";
     return `<span class="price">${before}${safe(money(current, product))}</span>`;
   };
-  const productCard = product => `<article class="product-card" data-product-id="${safe(product.id)}"><div class="product-media-frame" data-product-field="media">${productImageMarkup(product)}</div><div class="product-body"><div class="product-meta"><span class="category">${safe(product.category)}</span><span data-product-field="price">${priceMarkup(product)}</span></div><h2 data-product-field="name">${safe(product.name)}</h2><p data-product-field="description">${safe(product.description)}</p><div class="product-actions">${external ? "" : `<button class="button primary" data-add-product="${safe(product.id)}" data-add="${safe(product.id)}" type="button">Agregar</button>`}<a class="button secondary" data-product-detail-link href="${localPath(`detalle.html?id=${encodeURIComponent(product.id)}`)}">Ver producto</a></div></div></article>`;
+  const productCard = product => `<article class="product-card" data-product-id="${safe(product.id)}"><div class="product-media-frame" data-product-field="media"${frameAspectAttr(product)}>${productImageMarkup(product)}</div><div class="product-body"><div class="product-meta"><span class="category">${safe(product.category)}</span><span data-product-field="price">${priceMarkup(product)}</span></div><h2 data-product-field="name">${safe(product.name)}</h2><p data-product-field="description">${safe(product.description)}</p><div class="product-actions">${external ? "" : `<button class="button primary" data-add-product="${safe(product.id)}" data-add="${safe(product.id)}" type="button">Agregar</button>`}<a class="button secondary" data-product-detail-link href="${localPath(`detalle.html?id=${encodeURIComponent(product.id)}`)}">Ver producto</a></div></div></article>`;
   const renderCatalog = () => {
     const grid = document.querySelector("#productGrid");
     if (!grid) return;
@@ -299,7 +309,7 @@
   const renderFeatured = () => {
     const grid = document.querySelector("#homeFeaturedProducts");
     if (!grid) return;
-    grid.innerHTML = state.products.filter((product) => isProductVisible(product) && product.featured).slice(0, 6).map((product) => `<article class="home-featured-card"><div class="home-featured-image">${productImageMarkup(product)}</div><div class="home-featured-body"><span class="home-featured-category">${safe(product.category)}</span><h3>${safe(product.name)}</h3><p class="home-featured-description">${safe(product.description)}</p><div class="home-featured-bottom">${priceMarkup(product)}<a class="button primary" href="${localPath(`detalle.html?id=${encodeURIComponent(product.id)}`)}">Ver producto</a></div></div></article>`).join("");
+    grid.innerHTML = state.products.filter((product) => isProductVisible(product) && product.featured).slice(0, 6).map((product) => `<article class="home-featured-card"><div class="home-featured-image"${plainFrameAspectAttr(product)}>${productImageMarkup(product)}</div><div class="home-featured-body"><span class="home-featured-category">${safe(product.category)}</span><h3>${safe(product.name)}</h3><p class="home-featured-description">${safe(product.description)}</p><div class="home-featured-bottom">${priceMarkup(product)}<a class="button primary" href="${localPath(`detalle.html?id=${encodeURIComponent(product.id)}`)}">Ver producto</a></div></div></article>`).join("");
     hydrateMediaImages(grid);
   };
   window.addEventListener("message", event => {
@@ -324,12 +334,15 @@
     const phone = external ? String(settings.contactPhone || "").replace(/\D/g, "") : "";
     const contact = external && settings.showContactPhone && /^[0-9]{8,15}$/.test(phone) ? `<p>Contacto: <a href="tel:+${phone}">+${phone}</a></p>` : "";
     const action = external ? `${settings.disclosureText ? `<p class="external-offer-disclosure">${safe(settings.disclosureText)}</p>` : ""}${contact}${offerUrl ? `<a class="button primary external-offer-cta" href="${safe(offerUrl)}" target="_blank" rel="noopener noreferrer">${safe(settings.ctaLabel || "Ver oferta")} ↗</a>` : '<p>Enlace no disponible.</p>'}` : `<div class="detail-quantity"><span>Cantidad</span><div class="quantity quantity-input"><button type="button" data-detail-minus aria-label="Quitar uno">−</button><input id="detailQuantity" type="number" min="1" value="1" inputmode="numeric"><button type="button" data-detail-plus aria-label="Agregar uno">+</button></div></div><div class="detail-actions"><button class="button primary" data-add="${safe(product.id)}" id="detailAdd" type="button">Agregar al carrito</button><a class="button secondary" href="${localPath("carrito.html")}">Ir al carrito</a></div>`;
-    view.innerHTML = `<div class="detail-gallery"><div class="detail-media">${productImageMarkup(product, "detail-main-image")}</div>${gallery.length > 1 ? `<div class="detail-thumbnails">${gallery.map((media, index) => `<button type="button" class="detail-thumbnail${media.is_primary ? " active" : ""}" data-detail-media="${index}" aria-label="Ver medio ${index + 1}">${media.type === "video" ? "▶ Video" : imageMarkup(media.source_url, product.name)}</button>`).join("")}</div>` : ""}</div><div class="detail-copy"><span class="section-kicker">${safe(product.category)}</span><h1>${safe(product.name)}</h1><p>${safe(product.description)}</p>${priceMarkup(product)}${action}</div>`;
+    view.innerHTML = `<div class="detail-gallery"><div class="detail-media"${plainFrameAspectAttr(product)}>${productImageMarkup(product, "detail-main-image")}</div>${gallery.length > 1 ? `<div class="detail-thumbnails">${gallery.map((media, index) => `<button type="button" class="detail-thumbnail${media.is_primary ? " active" : ""}" data-detail-media="${index}" aria-label="Ver medio ${index + 1}">${media.type === "video" ? "▶ Video" : imageMarkup(media.source_url, product.name)}</button>`).join("")}</div>` : ""}</div><div class="detail-copy"><span class="section-kicker">${safe(product.category)}</span><h1>${safe(product.name)}</h1><p>${safe(product.description)}</p>${priceMarkup(product)}${action}</div>`;
     hydrateMediaImages(view);
     view.querySelectorAll("[data-detail-media]").forEach(button => button.addEventListener("click", () => {
       const media = gallery[Number(button.dataset.detailMedia)];
       if (!media) return;
-      view.querySelector(".detail-media").innerHTML = productImageMarkup({ ...product, media: [{ ...media, is_primary: true }] }, "detail-main-image");
+      const frame = view.querySelector(".detail-media");
+      frame.innerHTML = productImageMarkup({ ...product, media: [{ ...media, is_primary: true }] }, "detail-main-image");
+      const aspect = mediaCropAspect(media);
+      if (aspect) frame.style.aspectRatio = aspect; else frame.style.aspectRatio = "";
       hydrateMediaImages(view);
       view.querySelectorAll("[data-detail-media]").forEach(item => item.classList.toggle("active", item === button));
     }));

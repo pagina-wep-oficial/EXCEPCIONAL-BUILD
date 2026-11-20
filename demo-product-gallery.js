@@ -14,6 +14,7 @@
   let items = [];
   let busy = false;
   let activeIndex = 0;
+  let activeTab = "adjust";
   let previewCatalog = store.catalogType === "external_catalog" ? "external_catalog" : "commerce";
   let previewContext = "store";
 
@@ -27,6 +28,9 @@
   const videoCount = () => items.filter(item => item.type === "video").length;
   const selectedItem = () => items[activeIndex] || null;
 
+  const CROP_RATIOS = { "1/1": "1 / 1", "4/3": "4 / 3", "3/4": "3 / 4" };
+  const cropRatio = item => CROP_RATIOS[item?.crop] || "";
+
   const icon = name => ({
     image: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4" width="17" height="16" rx="3"></rect><circle cx="8.4" cy="9.2" r="1.7"></circle><path d="M5.5 17.2 10.2 12.6 13.2 15.6 15.7 13.2 18.5 16"></path></svg>',
     video: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="12.5" height="14" rx="3"></rect><path d="m16 10 4.5-2.7v9.4L16 14"></path></svg>',
@@ -38,11 +42,15 @@
     cover: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2"></rect><rect x="7" y="7" width="10" height="10" rx="1.5" fill="currentColor" stroke="none"></rect></svg>',
     contain: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2"></rect><rect x="8" y="8" width="8" height="8" rx="1.2"></rect></svg>',
     reset: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 7.5V3.8"></path><path d="M5.5 3.8h3.7"></path><path d="M6.3 12A6.7 6.7 0 1 0 8 7.7"></path></svg>',
-    grid: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.2"></rect><rect x="13" y="4" width="7" height="7" rx="1.2"></rect><rect x="4" y="13" width="7" height="7" rx="1.2"></rect><rect x="13" y="13" width="7" height="7" rx="1.2"></rect></svg>',
     cart: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 6h2.2l1.6 7.5h8l1.8-5.3H8.8"></path><circle cx="10.2" cy="18.5" r="1"></circle><circle cx="16.2" cy="18.5" r="1"></circle></svg>',
     link: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 14.5 14.5 9.5"></path><path d="M8 16H6.8a3.3 3.3 0 1 1 0-6.6H10"></path><path d="M14 8h3.2a3.3 3.3 0 1 1 0 6.6H14"></path></svg>',
     preview: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.8 12s3.4-5.8 9.2-5.8 9.2 5.8 9.2 5.8-3.4 5.8-9.2 5.8S2.8 12 2.8 12Z"></path><circle cx="12" cy="12" r="2.7"></circle></svg>',
-    tune: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5h16"></path><path d="M4 16.5h16"></path><circle cx="9" cy="7.5" r="2"></circle><circle cx="15" cy="16.5" r="2"></circle></svg>'
+    rotateLeft: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7H4V3"></path><path d="M4.5 7A8 8 0 1 1 3 13"></path></svg>',
+    rotateRight: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 7h4V3"></path><path d="M19.5 7A8 8 0 1 0 21 13"></path></svg>',
+    flipH: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16"></path><path d="m4 7 5 5-5 5zM20 7l-5 5 5 5z"></path></svg>',
+    flipV: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16"></path><path d="m7 4 5 5 5-5zM7 20l5-5 5 5z"></path></svg>',
+    crop: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3v15a3 3 0 0 0 3 3h12M3 6h15a3 3 0 0 1 3 3v12"></path></svg>',
+    check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg>'
   }[name] || "");
 
   const emptyIllustration = () => `<div class="studio-empty-art" aria-hidden="true">${icon("image")}</div>`;
@@ -60,11 +68,15 @@
     return `Imagen ${order}`;
   }
 
+  function counterLabel(item) {
+    if (!item) return "";
+    if (item.type === "video") return "Video";
+    const order = items.slice(0, activeIndex + 1).filter(entry => entry.type !== "video").length;
+    return `Imagen ${order} de ${imageCount()}`;
+  }
+
   function normalizeSelection() {
-    if (!items.length) {
-      activeIndex = 0;
-      return;
-    }
+    if (!items.length) { activeIndex = 0; return; }
     activeIndex = clamp(activeIndex, 0, items.length - 1);
   }
 
@@ -89,7 +101,7 @@
     activeIndex = selectedPosition >= 0 ? selectedPosition : 0;
   }
 
-  function changed() {
+  function commit() {
     normalizeMediaOrder();
     normalizeSelection();
     if (summary) summary.textContent = countsLabel();
@@ -137,48 +149,22 @@
     return `object-fit:${fit};object-position:${x}% ${y}%;transform:scale(${scale}) scaleX(${item && item.flip_x ? -1 : 1}) scaleY(${item && item.flip_y ? -1 : 1}) rotate(${rotation}deg)`;
   }
 
-  function productCardMarkup(item, source) {
-    const draft = productDraft();
-    const settings = currentSettings();
-    const aspect = { "4/3": "4 / 3", "1/1": "1 / 1", "3/4": "3 / 4", auto: "4 / 3" }[settings.aspect] || "4 / 3";
-    const radius = { square: "10px", soft: "16px", rounded: "24px", pill: "36px" }[settings.radius] || "24px";
-    const padding = `${clamp(settings.padding ?? 12, 0, 28)}px`;
-    const background = { soft: "linear-gradient(145deg,#f4efe6,#e6dcc8)", light: "#fff", dark: "#18221d" }[settings.background] || "linear-gradient(145deg,#f4efe6,#e6dcc8)";
-    const mediaMarkup = !item ? placeholderCardMedia() : item.type === "video"
-      ? `<video src="${safe(source)}" controls playsinline preload="metadata" class="studio-card-media" aria-label="${safe(draft.name)}"></video>`
-      : `<img src="${safe(source)}" alt="${safe(draft.name)}" class="studio-card-media" style="${mediaStyle(item)}">`;
-
-    return `
-      <article class="studio-product-card ${draft.type === "external_catalog" ? "is-catalog" : "is-commerce"}">
-        <div class="studio-card-media-frame" style="--studio-card-aspect:${aspect};--studio-card-radius:${radius};--studio-card-padding:${padding};--studio-card-background:${background}">
-          ${mediaMarkup}
-        </div>
-        <div class="studio-card-body">
-          <div class="studio-card-meta">
-            <span class="studio-card-chip">${safe(draft.category)}</span>
-            ${draft.price ? `<span class="studio-card-price">${draft.compareAtPrice ? `<del>${safe(draft.compareAtPrice)}</del>` : ""}<strong>${safe(draft.price)}</strong></span>` : '<span class="studio-card-price is-muted">Precio opcional</span>'}
-          </div>
-          <h3>${safe(draft.name)}</h3>
-          <p>${safe(draft.description)}</p>
-          <div class="studio-card-actions">
-            <button type="button" class="studio-card-button is-primary">${draft.type === "external_catalog" ? icon("link") : icon("cart")}<span>${safe(draft.cta)}</span></button>
-            <button type="button" class="studio-card-button is-secondary">${icon("preview")}<span>${safe(draft.secondaryCta)}</span></button>
-          </div>
-        </div>
-      </article>
-    `;
+  function stageMediaStyle(item) {
+    const ratio = cropRatio(item);
+    const fit = ratio ? "cover" : (item?.fit_mode === "cover" ? "cover" : "contain");
+    const x = clamp(item?.focal_x ?? 50, 0, 100);
+    const y = clamp(item?.focal_y ?? 50, 0, 100);
+    const zoom = clamp(item?.zoom ?? 1, 1, 3);
+    const rotation = clamp(item?.rotation ?? 0, -180, 180);
+    return `object-fit:${fit};object-position:${x}% ${y}%;transform:scale(${zoom}) scaleX(${item?.flip_x ? -1 : 1}) scaleY(${item?.flip_y ? -1 : 1}) rotate(${rotation}deg)`;
   }
 
-  function previewMediaMarkup(item, className = "") {
+  function previewMediaMarkup(item, className = "", live = false) {
     const classes = className ? ` ${className}` : "";
-    if (!item) {
-      return `<div class="studio-preview-media-placeholder${classes}">Sin imagen</div>`;
-    }
+    if (!item) return `<div class="studio-preview-media-placeholder${classes}">Sin imagen</div>`;
 
     const url = item.source_url || item.url || item.data_url || item.preview_url || "";
-    if (!url) {
-      return `<div class="studio-preview-media-placeholder${classes}">Sin imagen</div>`;
-    }
+    if (!url) return `<div class="studio-preview-media-placeholder${classes}">Sin imagen</div>`;
 
     const style = mediaStyle(item, true);
 
@@ -186,7 +172,7 @@
       return `<video class="studio-preview-media${classes}" src="${safe(url)}" style="${style}" muted playsinline controls></video>`;
     }
 
-    return `<img class="studio-preview-media${classes}" src="${safe(url)}" alt="${safe(item.alt_text || productDraft().name || "Producto")}" style="${style}">`;
+    return `<img class="studio-preview-media${classes}" src="${safe(url)}" alt="${safe(item.alt_text || productDraft().name || "Producto")}" style="${style}"${live ? " data-live-media" : ""}>`;
   }
 
   function previewPrice(draft) {
@@ -203,14 +189,19 @@
     ];
   }
 
+  function liveFrameStyle(item) {
+    const ratio = cropRatio(item);
+    return ratio ? `aspect-ratio:${ratio}` : "";
+  }
+
   function featuredPreviewMarkup() {
     const draft = productDraft();
-    const image = previewImages().find(item => item.type !== "video");
+    const image = selectedItem();
 
     return `
       <article class="home-featured-card">
-        <div class="home-featured-image">
-          ${previewMediaMarkup(image, "home-featured-image-media")}
+        <div class="home-featured-image" data-live-frame style="${liveFrameStyle(image)}">
+          ${previewMediaMarkup(image, "home-featured-image-media", true)}
         </div>
         <div class="home-featured-body">
           <span class="home-featured-category">${safe(draft.category || "Producto")}</span>
@@ -227,13 +218,13 @@
 
   function storePreviewMarkup() {
     const draft = productDraft();
-    const image = previewImages().find(item => item.type !== "video");
+    const image = selectedItem();
     const external = previewCatalog === "external_catalog";
 
     return `
       <article class="product-card">
-        <div class="product-media-frame">
-          ${previewMediaMarkup(image, "product-card-media")}
+        <div class="product-media-frame" data-live-frame style="${liveFrameStyle(image)}">
+          ${previewMediaMarkup(image, "product-card-media", true)}
         </div>
         <div class="product-body">
           <div class="product-meta">
@@ -254,20 +245,20 @@
   function detailPreviewMarkup() {
     const draft = productDraft();
     const media = previewImages();
-    const main = media.find(item => item.type !== "video") || media[0];
+    const main = selectedItem() || media[0];
     const external = previewCatalog === "external_catalog";
 
     return `
       <article class="detail-view">
         <div class="detail-gallery">
-          <div class="detail-media">
-            ${previewMediaMarkup(main, "detail-main-image")}
+          <div class="detail-media" data-live-frame style="${liveFrameStyle(main)}">
+            ${previewMediaMarkup(main, "detail-main-image", true)}
           </div>
           ${
             media.length > 1
               ? `<div class="detail-thumbnails">
                   ${media.slice(0, 5).map((item, index) => `
-                    <button class="detail-thumbnail${index === 0 ? " is-active" : ""}" type="button">
+                    <button class="detail-thumbnail${items.indexOf(item) === activeIndex ? " is-active" : ""}" type="button">
                       ${previewMediaMarkup(item, "detail-thumbnail-media")}
                     </button>
                   `).join("")}
@@ -306,40 +297,40 @@
     return storePreviewMarkup();
   }
 
-  function previewBoardMarkup(item, source) {
+  function previewBoardMarkup() {
     const mode = previewCatalog === "external_catalog" ? "Catálogo" : "Tienda";
     const contexts = [
       ["featured", "Destacados"],
       ["store", mode],
-      ["detail", "Ver detalles"]
+      ["detail", "Detalle"]
     ];
 
     return `
-      <section class="studio-preview-sheet" aria-label="Vista en vivo">
-        <div class="studio-preview-heading">
+      <section class="studio-live-shell" aria-label="Vista en vivo">
+        <header class="studio-live-head">
           <div>
-            <span class="studio-preview-kicker">Vista en vivo</span>
-            <strong>${safe(mode)}</strong>
+            <p class="studio-kicker">Vista en vivo</p>
+            <h3>Así se ve tu producto</h3>
+            <p>Se muestra el medio que estás editando, en su contexto real.</p>
           </div>
-          <span class="studio-preview-route">
-            ${safe(previewContext === "featured" ? "Destacados" : previewContext === "detail" ? "Ver detalles" : mode)}
-          </span>
-        </div>
+          <span class="studio-mode-badge">${safe(mode)}</span>
+        </header>
 
         <div class="studio-context-tabs" role="tablist" aria-label="Contexto">
           ${contexts.map(([value, label]) => `
-            <button
-              type="button"
-              class="studio-context-tab${previewContext === value ? " is-active" : ""}"
-              data-preview-context="${value}"
-              role="tab"
-              aria-selected="${previewContext === value ? "true" : "false"}"
-            >${label}</button>
+            <button type="button" class="studio-context-tab${previewContext === value ? " is-active" : ""}" data-preview-context="${value}" role="tab" aria-selected="${previewContext === value ? "true" : "false"}">${label}</button>
           `).join("")}
         </div>
 
-        <div class="studio-preview-public-shell">
-          ${contextPreviewMarkup(item, source)}
+        <div class="studio-live-stage">
+          <div class="studio-device">
+            <div class="studio-device-bar"><span></span><span></span><span></span><em>${safe(mode)} · ${safe(previewContext === "featured" ? "Destacados" : previewContext === "detail" ? "Detalle" : mode)}</em></div>
+            <div class="studio-device-screen">
+              <div class="studio-preview-public-shell">
+                ${contextPreviewMarkup()}
+              </div>
+            </div>
+          </div>
         </div>
       </section>
     `;
@@ -349,81 +340,128 @@
     const printable = `${Number(value).toFixed(step < 1 ? 2 : 0)}${suffix}`.replace(/\.00(?=[^\d]|$)/, "");
     return `
       <label class="studio-range-row">
-        <span>${safe(label)}<strong>${safe(printable)}</strong></span>
+        <span>${safe(label)}<strong data-range-value="${safe(name)}">${safe(printable)}</strong></span>
         <input type="range" data-media-field="${safe(name)}" min="${min}" max="${max}" step="${step}" value="${safe(value)}">
       </label>
+    `;
+  }
+
+  function fitToggleMarkup(item) {
+    return `
+      <div class="studio-fit-toggle" role="group" aria-label="Ajuste de imagen">
+        <button type="button" class="${item.fit_mode === "cover" ? "is-active" : ""}" data-set-fit="cover">${icon("cover")}<span>Llenar espacio</span></button>
+        <button type="button" class="${item.fit_mode !== "cover" ? "is-active" : ""}" data-set-fit="contain">${icon("contain")}<span>Mostrar completa</span></button>
+      </div>
+    `;
+  }
+
+  function cropTabMarkup(item) {
+    const ratios = [
+      ["original", "Original", "Sin recorte"],
+      ["1/1", "1:1", "Cuadrada"],
+      ["4/3", "4:3", "Horizontal"],
+      ["3/4", "3:4", "Vertical"]
+    ];
+    return `
+      <div class="studio-crop-grid" role="group" aria-label="Proporción de recorte">
+        ${ratios.map(([value, label, helper]) => `
+          <button type="button" class="studio-crop-chip${(item.crop || "original") === value ? " is-active" : ""}" data-set-crop="${value}">
+            <span class="studio-crop-shape studio-crop-${safe(value)}"><i></i></span>
+            <span class="studio-crop-meta"><strong>${label}</strong><small>${helper}</small></span>
+          </button>
+        `).join("")}
+      </div>
+      <p class="studio-tab-hint">El recorte solo cambia el encuadre; tu imagen original se conserva intacta.</p>
+    `;
+  }
+
+  function rotateTabMarkup(item) {
+    return `
+      <div class="studio-rotate-grid" role="group" aria-label="Girar y voltear">
+        <button type="button" data-rotate="-90">${icon("rotateLeft")}<span>Girar 90°</span></button>
+        <button type="button" data-rotate="90">${icon("rotateRight")}<span>Girar 90°</span></button>
+        <button type="button" class="${item.flip_x ? "is-active" : ""}" data-flip="x">${icon("flipH")}<span>Voltear horizontal</span></button>
+        <button type="button" class="${item.flip_y ? "is-active" : ""}" data-flip="y">${icon("flipV")}<span>Voltear vertical</span></button>
+      </div>
+      ${sliderRow("Rotación fina", "rotation", clamp(item.rotation ?? 0, -180, 180), -180, 180, 1, "°")}
+    `;
+  }
+
+  function adjustTabMarkup(item) {
+    return `
+      ${fitToggleMarkup(item)}
+      ${sliderRow("Zoom", "zoom", clamp(item.zoom ?? 1, 1, 3), 1, 3, 0.01, "x")}
+      ${sliderRow("Posición horizontal", "focal_x", clamp(item.focal_x ?? 50, 0, 100), 0, 100, 1, "%")}
+      ${sliderRow("Posición vertical", "focal_y", clamp(item.focal_y ?? 50, 0, 100), 0, 100, 1, "%")}
     `;
   }
 
   function inspectorMarkup(item, source) {
     if (!item) {
       return `
-        <aside class="studio-inspector-shell">
-          <section class="studio-inspector-card is-empty">
-            <div class="studio-empty-panel">${emptyIllustration()}<strong>Selecciona una foto o un video</strong><p>El panel derecho mostrará aquí los ajustes y la vista detallada del medio.</p></div>
+        <section class="studio-editor-shell">
+          <section class="studio-editor-empty">
+            ${emptyIllustration()}<strong>Selecciona una foto o un video</strong><p>Aquí editarás el medio elegido y verás el resultado al instante en la vista en vivo.</p>
           </section>
-        </aside>
+        </section>
       `;
     }
 
-    const previewArea = item.type === "video"
-      ? `<video src="${safe(source)}" controls playsinline preload="metadata" class="studio-adjust-media"></video>`
-      : `<img src="${safe(source)}" alt="${safe(itemLabel(item, activeIndex))}" class="studio-adjust-media" style="${mediaStyle(item, true)}">`;
+    const isVideo = item.type === "video";
+    const stage = isVideo
+      ? `<video src="${safe(source)}" controls playsinline preload="metadata" class="studio-editor-stage-media"></video>`
+      : `<img src="${safe(source)}" alt="${safe(itemLabel(item, activeIndex))}" class="studio-editor-stage-media" style="${stageMediaStyle(item)}">`;
 
-    const imageControls = item.type === "video" ? `
-      <div class="studio-video-note">
-        ${icon("video")}
-        <div>
-          <strong>Video listo para publicar</strong>
-          <p>En el sitio se mostrará con controles propios. Aquí solo puedes conservarlo, reordenarlo o reemplazarlo.</p>
-        </div>
-      </div>
-    ` : `
-      <div class="studio-fit-toggle" role="group" aria-label="Ajuste de imagen">
-        <button type="button" class="${item.fit_mode !== "contain" ? "is-active" : ""}" data-set-fit="cover">${icon("cover")}<span>Llenar</span></button>
-        <button type="button" class="${item.fit_mode === "contain" ? "is-active" : ""}" data-set-fit="contain">${icon("contain")}<span>Completa</span></button>
-      </div>
-      <div class="studio-nudge-grid" aria-label="Mover encuadre">
-        <button type="button" data-nudge-x="0" data-nudge-y="-5">↑</button>
-        <div class="studio-nudge-middle">
-          <button type="button" data-nudge-x="-5" data-nudge-y="0">←</button>
-          <button type="button" data-nudge-x="5" data-nudge-y="0">→</button>
-        </div>
-        <button type="button" data-nudge-x="0" data-nudge-y="5">↓</button>
-      </div>
-      ${sliderRow("Posición horizontal", "focal_x", clamp(item.focal_x ?? 50, 0, 100), 0, 100, 1, "%")}
-      ${sliderRow("Posición vertical", "focal_y", clamp(item.focal_y ?? 50, 0, 100), 0, 100, 1, "%")}
-      ${sliderRow("Zoom", "zoom", clamp(item.zoom ?? 1, 1, 3), 1, 3, 0.01, "x")}
-      ${sliderRow("Rotación", "rotation", clamp(item.rotation ?? 0, -180, 180), -180, 180, 1, "°")}
-      <button type="button" class="studio-ghost-button" data-reset-image>${icon("reset")}Restablecer ajustes</button>
-    `;
+    const tabs = [
+      ["adjust", "Ajustar"],
+      ["crop", "Recortar"],
+      ["rotate", "Girar"]
+    ];
+
+    const controls = isVideo
+      ? `<div class="studio-video-note">${icon("video")}<div><strong>Video listo para publicar</strong><p>En el sitio se mostrará con controles propios. Aquí solo puedes conservarlo, reordenarlo o reemplazarlo.</p></div></div>`
+      : activeTab === "crop"
+        ? cropTabMarkup(item)
+        : activeTab === "rotate"
+          ? rotateTabMarkup(item)
+          : adjustTabMarkup(item);
 
     return `
-      <aside class="studio-inspector-shell">
-        <section class="studio-inspector-card">
-          <header class="studio-section-head is-tight">
-            <div>
-              <p class="studio-kicker">Editor del medio</p>
-              <h3>${safe(itemLabel(item, activeIndex))}</h3>
-              <p>${item.is_primary ? "Este es el medio principal del producto." : "Puedes dejarlo como apoyo o convertirlo en principal."}</p>
-            </div>
-            <div class="studio-media-type-badge ${item.type === "video" ? "is-video" : ""}">${item.type === "video" ? icon("video") : icon("image")}<span>${item.type === "video" ? "Video" : "Imagen"}</span></div>
-          </header>
+      <section class="studio-editor-shell">
+        <header class="studio-editor-nav">
+          <button type="button" class="studio-nav-arrow" data-step-media="-1" ${activeIndex === 0 ? "disabled" : ""} aria-label="Medio anterior">${icon("left")}</button>
+          <span class="studio-editor-counter">${safe(counterLabel(item))}</span>
+          <button type="button" class="studio-nav-arrow" data-step-media="1" ${activeIndex === items.length - 1 ? "disabled" : ""} aria-label="Medio siguiente">${icon("right")}</button>
+          <span class="studio-editor-kind ${isVideo ? "is-video" : ""}">${isVideo ? icon("video") : icon("image")}${isVideo ? "Video" : "Imagen"}</span>
+        </header>
 
-          <div class="studio-adjust-stage">${previewArea}</div>
+        <div class="studio-editor-stage" style="${cropRatio(item) ? `aspect-ratio:${cropRatio(item)}` : ""}">
+          ${stage}
+        </div>
 
-          <div class="studio-inspector-actions">
-            ${item.type !== "video" ? `<button type="button" class="studio-outline-button ${item.is_primary ? "is-active" : ""}" data-set-primary>${icon("star")}Usar como principal</button>` : ""}
-            ${item.type !== "video" && !item.is_primary ? `<button type="button" class="studio-outline-button" data-move-selected="-1" ${activeIndex <= 1 ? "disabled" : ""}>${icon("left")}Mover</button>
-            <button type="button" class="studio-outline-button" data-move-selected="1" ${activeIndex === items.length - 1 || items[activeIndex + 1]?.type === "video" ? "disabled" : ""}>${icon("right")}Mover</button>` : ""}
-            <button type="button" class="studio-outline-button is-danger" data-delete-selected>${icon("trash")}Eliminar</button>
+        ${isVideo ? "" : `
+          <div class="studio-editor-tabs" role="tablist" aria-label="Herramientas de edición">
+            ${tabs.map(([value, label]) => `
+              <button type="button" class="${activeTab === value ? "is-active" : ""}" data-editor-tab="${value}" role="tab" aria-selected="${activeTab === value ? "true" : "false"}">${label}</button>
+            `).join("")}
           </div>
+        `}
 
-          <div class="studio-control-stack">
-            ${imageControls}
-          </div>
-        </section>
-      </aside>
+        <div class="studio-editor-controls">
+          ${controls}
+        </div>
+
+        <div class="studio-editor-actions">
+          ${isVideo ? "" : `<button type="button" class="studio-outline-button ${item.is_primary ? "is-active" : ""}" data-set-primary>${icon("star")}${item.is_primary ? "Principal" : "Usar principal"}</button>`}
+          ${isVideo ? "" : `
+            <button type="button" class="studio-outline-button" data-move-selected="-1" ${activeIndex <= 1 ? "disabled" : ""}>${icon("left")}Mover</button>
+            <button type="button" class="studio-outline-button" data-move-selected="1" ${activeIndex === items.length - 1 || items[activeIndex + 1]?.type === "video" ? "disabled" : ""}>${icon("right")}Mover</button>
+          `}
+          <button type="button" class="studio-outline-button is-danger" data-delete-selected>${icon("trash")}Eliminar</button>
+        </div>
+
+        ${isVideo ? "" : `<button type="button" class="studio-reset-button" data-reset-image>${icon("reset")}Restablecer ajustes</button>`}
+      </section>
     `;
   }
 
@@ -444,12 +482,35 @@
     const iconName = intent === "video" ? "video" : intent === "primary" ? "star" : "plus";
     return `
       <label class="studio-add-tile${disabled ? " is-disabled" : ""}">
-        <input type="button" hidden ${disabled ? "disabled" : ""}>
         <span class="studio-add-icon">${icon(iconName)}</span>
         <strong>${safe(label)}</strong>
         <small>${safe(helper)}</small>
         <span class="studio-add-hit" data-upload-intent="${safe(intent)}" ${disabled ? 'aria-disabled="true"' : ''}></span>
       </label>
+    `;
+  }
+
+  function libraryMarkup(sources) {
+    return `
+      <section class="studio-library-shell">
+        <header class="studio-library-head">
+          <div>
+            <p class="studio-kicker">Biblioteca de medios</p>
+            <h3>${imageCount()}/5 fotos · ${videoCount()}/1 video</h3>
+          </div>
+          <button type="button" class="studio-close-inline" data-close-media>Volver al producto</button>
+        </header>
+
+        <div class="studio-add-strip">
+          ${addTileMarkup("primary", "Foto principal", "Define la portada del producto.", imageCount() >= 5 && !items.some(item => item.is_primary && item.type !== "video"))}
+          ${addTileMarkup("extra", "Más fotos", "Apoyo para el carrusel.", imageCount() >= 5)}
+          ${addTileMarkup("video", "Video", "Uno corto y con audio.", videoCount() >= 1)}
+        </div>
+
+        <div class="studio-media-strip${items.length ? "" : " is-empty"}">
+          ${items.length ? sources.map((source, index) => mediaTileMarkup(items[index], index, source)).join("") : `<div class="studio-empty-library">${emptyIllustration()}<strong>Sin medios cargados</strong><p>Agrega una foto principal para empezar.</p></div>`}
+        </div>
+      </section>
     `;
   }
 
@@ -460,39 +521,23 @@
     const sources = await Promise.all(items.map(item => previewSource(item)));
     const currentSource = selected ? sources[activeIndex] : "";
 
-    host.innerHTML = `
-      <section class="studio-library-shell">
-        <header class="studio-section-head">
-          <div>
-            <p class="studio-kicker">Biblioteca de medios</p>
-            <h3>Fotos y video del producto</h3>
-            <p>Hasta 5 imágenes y 1 video. Selecciona un medio para editarlo y ver su resultado arriba en la tarjeta.</p>
-          </div>
-          <div class="studio-header-tools">
-            <div class="studio-library-counts">
-              <span>${imageCount()}/5 fotos</span>
-              <span>${videoCount()}/1 video</span>
-            </div>
-            <button type="button" class="studio-close-inline" data-close-media>Volver al producto</button>
-          </div>
-        </header>
-
-        <div class="studio-add-strip">
-          ${addTileMarkup("primary", "Agregar foto principal", "Sustituye o define la foto principal.", imageCount() >= 5 && !items.some(item => item.is_primary && item.type !== "video"))}
-          ${addTileMarkup("extra", "Agregar más fotos", "Agrega fotos de apoyo para el carrusel.", imageCount() >= 5)}
-          ${addTileMarkup("video", "Agregar video", "Un video corto para mostrar mejor el producto.", videoCount() >= 1)}
-        </div>
-
-        <div class="studio-media-strip${items.length ? "" : " is-empty"}">
-          ${items.length ? sources.map((source, index) => mediaTileMarkup(items[index], index, source)).join("") : `<div class="studio-empty-library">${emptyIllustration()}<strong>Sin medios cargados</strong><p>Agrega una foto principal o algunas imágenes adicionales para empezar.</p></div>`}
-        </div>
-      </section>
-    `;
-
+    host.innerHTML = `${previewBoardMarkup()}${libraryMarkup(sources)}`;
     adjustHost.hidden = false;
-    adjustHost.innerHTML = `${previewBoardMarkup(selected, currentSource)}${inspectorMarkup(selected, currentSource)}`;
+    adjustHost.innerHTML = inspectorMarkup(selected, currentSource);
 
     bindStudioInteractions();
+  }
+
+  function refreshStudioMedia() {
+    const item = selectedItem();
+    if (!item) return;
+
+    const liveStyle = mediaStyle(item, true);
+    const stageStyle = stageMediaStyle(item);
+
+    adjustHost.querySelector(".studio-editor-stage")?.style.setProperty("aspect-ratio", cropRatio(item) || "auto");
+    adjustHost.querySelector(".studio-editor-stage-media")?.setAttribute("style", stageStyle);
+    host.querySelectorAll("[data-live-media]").forEach(el => el.setAttribute("style", liveStyle));
   }
 
   function bindStudioInteractions() {
@@ -510,7 +555,7 @@
       renderStudio();
     }));
 
-    adjustHost.querySelectorAll("[data-preview-context]").forEach(button => {
+    host.querySelectorAll("[data-preview-context]").forEach(button => {
       button.addEventListener("click", () => {
         previewContext = button.dataset.previewContext || "store";
         renderStudio();
@@ -520,33 +565,64 @@
     const selected = selectedItem();
     if (!selected) return;
 
+    adjustHost.querySelectorAll("[data-step-media]").forEach(button => button.addEventListener("click", () => {
+      const step = Number(button.dataset.stepMedia || 0);
+      activeIndex = clamp(activeIndex + step, 0, items.length - 1);
+      renderStudio();
+    }));
+
+    adjustHost.querySelectorAll("[data-editor-tab]").forEach(button => button.addEventListener("click", () => {
+      activeTab = button.dataset.editorTab || "adjust";
+      renderStudio();
+    }));
+
     adjustHost.querySelectorAll("[data-media-field]").forEach(input => input.addEventListener("input", () => {
       const field = input.dataset.mediaField;
-      if (!field || !selectedItem()) return;
-      const value = field === "zoom" ? Number(input.value) : Number(input.value);
-      selectedItem()[field] = value;
-      changed();
+      const item = selectedItem();
+      if (!field || !item) return;
+      item[field] = Number(input.value);
+      const label = input.closest(".studio-range-row")?.querySelector("strong");
+      if (label) {
+        const step = Number(input.step) || 1;
+        label.textContent = `${Number(input.value).toFixed(step < 1 ? 2 : 0)}${field === "zoom" ? "x" : field === "rotation" ? "°" : "%"}`;
+      }
+      refreshStudioMedia();
     }));
 
     adjustHost.querySelectorAll("[data-set-fit]").forEach(button => button.addEventListener("click", () => {
-      if (!selectedItem()) return;
-      selectedItem().fit_mode = button.dataset.setFit === "contain" ? "contain" : "cover";
-      changed();
+      const item = selectedItem();
+      if (!item) return;
+      item.fit_mode = button.dataset.setFit === "contain" ? "contain" : "cover";
+      commit();
     }));
 
-    adjustHost.querySelectorAll("[data-nudge-x],[data-nudge-y]").forEach(button => button.addEventListener("click", () => {
+    adjustHost.querySelectorAll("[data-set-crop]").forEach(button => button.addEventListener("click", () => {
       const item = selectedItem();
-      if (!item || item.type === "video") return;
-      item.focal_x = clamp((item.focal_x ?? 50) + Number(button.dataset.nudgeX || 0), 0, 100);
-      item.focal_y = clamp((item.focal_y ?? 50) + Number(button.dataset.nudgeY || 0), 0, 100);
-      changed();
+      if (!item) return;
+      item.crop = button.dataset.setCrop === "original" ? undefined : button.dataset.setCrop;
+      commit();
+    }));
+
+    adjustHost.querySelectorAll("[data-rotate]").forEach(button => button.addEventListener("click", () => {
+      const item = selectedItem();
+      if (!item) return;
+      item.rotation = clamp((item.rotation ?? 0) + Number(button.dataset.rotate || 0), -180, 180);
+      commit();
+    }));
+
+    adjustHost.querySelectorAll("[data-flip]").forEach(button => button.addEventListener("click", () => {
+      const item = selectedItem();
+      if (!item) return;
+      if (button.dataset.flip === "x") item.flip_x = !item.flip_x;
+      else item.flip_y = !item.flip_y;
+      commit();
     }));
 
     adjustHost.querySelector("[data-reset-image]")?.addEventListener("click", () => {
       const item = selectedItem();
       if (!item || item.type === "video") return;
-      Object.assign(item, { fit_mode: "inherit", focal_x: 50, focal_y: 50, zoom: 1, rotation: 0, flip_x: false, flip_y: false });
-      changed();
+      Object.assign(item, { fit_mode: "inherit", focal_x: 50, focal_y: 50, zoom: 1, rotation: 0, flip_x: false, flip_y: false, crop: undefined });
+      commit();
     });
 
     adjustHost.querySelector("[data-set-primary]")?.addEventListener("click", () => {
@@ -555,7 +631,7 @@
       items = [current, ...items.filter((entry, index) => index !== activeIndex)];
       items.forEach((entry, index) => { entry.is_primary = index === 0 && entry.type !== "video"; });
       activeIndex = 0;
-      changed();
+      commit();
     });
 
     adjustHost.querySelectorAll("[data-move-selected]").forEach(button => button.addEventListener("click", () => {
@@ -566,14 +642,14 @@
       [items[from], items[to]] = [items[to], items[from]];
       activeIndex = to;
       items = window.DemoStore.validateMedia(items);
-      changed();
+      commit();
     }));
 
     adjustHost.querySelector("[data-delete-selected]")?.addEventListener("click", () => {
       items.splice(activeIndex, 1);
       items = window.DemoStore.validateMedia(items);
       activeIndex = Math.max(0, activeIndex - (activeIndex >= items.length ? 1 : 0));
-      changed();
+      commit();
     });
   }
 
@@ -582,18 +658,19 @@
     normalizeMediaOrder();
     activeIndex = items.findIndex(item => item.is_primary);
     if (activeIndex < 0) activeIndex = 0;
-    changed();
+    commit();
   }
 
   function append(next) {
     items = window.DemoStore.validateMedia([...items, ...next]);
     if (!hasItems()) activeIndex = 0;
-    changed();
+    commit();
   }
 
   openStudioButton?.addEventListener("click", () => {
     if (!studio) return;
     previewCatalog = store.catalogType === "external_catalog" ? "external_catalog" : "commerce";
+    activeTab = "adjust";
     titleNode.textContent = "Fotos y video del producto";
     studio.hidden = false;
     studio.classList.add("is-open");
@@ -649,7 +726,7 @@
       }
 
       status(intent === "video" ? "Video agregado. Guarda el producto para conservarlo." : "Medio agregado. Guarda el producto para conservarlo.");
-      changed();
+      commit();
     } catch (error) {
       status(error.message);
     } finally {
@@ -670,7 +747,7 @@
       items = window.DemoStore.validateMedia([...items, { source_url: url, type: "image", is_primary: !items.some(item => item.is_primary) }]);
       activeIndex = items.length - 1;
       input.value = "";
-      changed();
+      commit();
       status("URL agregada. Guarda el producto para conservarla.");
     } catch (error) {
       status(error.message);
