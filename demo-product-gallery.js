@@ -15,6 +15,7 @@
   let busy = false;
   let activeIndex = 0;
   let previewCatalog = store.catalogType === "external_catalog" ? "external_catalog" : "commerce";
+  let previewContext = "store";
 
   const safe = value => String(value ?? "").replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character]));
   const clamp = (value, min, max) => Math.max(min, Math.min(max, Number(value) || 0));
@@ -168,28 +169,84 @@
     `;
   }
 
-  function previewBoardMarkup() {
-    const mode = store.catalogType === "external_catalog" ? "external_catalog" : "commerce";
+  function contextPreviewMarkup(item, source) {
+    if (previewContext === "presentation") {
+      return `
+        <article class="context-preview-card context-preview-presentation">
+          <div class="context-preview-image">${productCardMarkup(item, source).match(/<div class="studio-card-media-frame"[\s\S]*?<\/div>/)?.[0] || ""}</div>
+          <div class="context-preview-copy">
+            <span>Presentación</span>
+            <h3>${safe(productDraft().name)}</h3>
+            <p>${safe(productDraft().description)}</p>
+            <button type="button">Conocer más ↗</button>
+          </div>
+        </article>`;
+    }
+
+    if (previewContext === "featured") {
+      return `
+        <article class="context-preview-card context-preview-featured">
+          <div class="context-preview-image">${productCardMarkup(item, source).match(/<div class="studio-card-media-frame"[\s\S]*?<\/div>/)?.[0] || ""}</div>
+          <div class="context-preview-copy">
+            <span>Producto destacado</span>
+            <h3>${safe(productDraft().name)}</h3>
+            <p>${safe(productDraft().description)}</p>
+            <strong>${safe(productDraft().price || "Precio del producto")}</strong>
+          </div>
+        </article>`;
+    }
+
+    if (previewContext === "detail") {
+      const draft = productDraft();
+      return `
+        <article class="context-preview-card context-preview-detail">
+          <div class="context-preview-image">${productCardMarkup(item, source).match(/<div class="studio-card-media-frame"[\s\S]*?<\/div>/)?.[0] || ""}</div>
+          <div class="context-preview-copy">
+            <span>${safe(draft.category)}</span>
+            <h2>${safe(draft.name)}</h2>
+            <p>${safe(draft.description)}</p>
+            <strong>${safe(draft.price || "Precio opcional")}</strong>
+            <button type="button">${draft.type === "external_catalog" ? "Ver oferta ↗" : "Agregar al carrito"}</button>
+          </div>
+        </article>`;
+    }
+
+    return productCardMarkup(item, source);
+  }
+
+  function previewBoardMarkup(item, source) {
+    const mode = previewCatalog === "external_catalog" ? "Catálogo" : "Tienda";
+    const contexts = [
+      ["presentation", "Presentación"],
+      ["featured", "Destacados"],
+      ["store", "Tienda"],
+      ["detail", "Ver detalles"]
+    ];
+
     return `
       <section class="studio-preview-shell">
         <header class="studio-section-head">
           <div>
             <p class="studio-kicker">Vista en vivo</p>
-            <h3>Así lo verá el público</h3>
-            <p>Esta es la tienda real del recorrido activo.</p>
+            <h3>Así se verá este producto</h3>
+            <p>Comprueba la tarjeta en cada lugar donde puede aparecer.</p>
           </div>
-          <div class="studio-mode-badge">
-            ${mode === "commerce" ? icon("cart") : icon("link")}
-            <span>${mode === "commerce" ? "Tienda" : "Catálogo"}</span>
-          </div>
+          <div class="studio-mode-badge">${mode}</div>
         </header>
-        <div class="studio-live-frame-wrap">
-          <iframe
-            id="studio-live-frame"
-            class="studio-live-frame"
-            title="Vista pública del producto"
-            src="../demo-casa-nopal/tienda.html?catalog=${mode}&editor_preview=1">
-          </iframe>
+
+        <nav class="studio-context-tabs" aria-label="Contexto de vista previa">
+          ${contexts.map(([value, label]) => `<button type="button" class="${previewContext === value ? "is-active" : ""}" data-preview-context="${value}">${label}</button>`).join("")}
+        </nav>
+
+        <div class="studio-preview-board">
+          <div class="studio-preview-sheet">
+            ${contextPreviewMarkup(item, source)}
+          </div>
+        </div>
+
+        <div class="studio-preview-caption">
+          <span>${icon("preview")}Vista del producto</span>
+          <small>${safe(contexts.find(([value]) => value === previewContext)?.[1] || "Tienda")} · ${mode}</small>
         </div>
       </section>
     `;
@@ -383,10 +440,7 @@
     adjustHost.hidden = false;
     adjustHost.innerHTML = `${previewBoardMarkup(selected, currentSource)}${inspectorMarkup(selected, currentSource)}`;
 
-    const frame = document.querySelector("#studio-live-frame");
-    frame?.addEventListener("load", sendLivePreview, { once: true });
     bindStudioInteractions();
-    sendLivePreview();
   }
 
   function bindStudioInteractions() {
@@ -403,6 +457,13 @@
       activeIndex = Number(button.dataset.selectMedia) || 0;
       renderStudio();
     }));
+
+    adjustHost.querySelectorAll("[data-preview-context]").forEach(button => {
+      button.addEventListener("click", () => {
+        previewContext = button.dataset.previewContext || "store";
+        renderStudio();
+      });
+    });
 
     const selected = selectedItem();
     if (!selected) return;

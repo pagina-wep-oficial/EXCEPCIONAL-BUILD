@@ -1486,3 +1486,123 @@
     height:680px;
   }
 }
+
+.studio-context-tabs{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  padding:14px 20px;
+  border-bottom:1px solid rgba(125,171,143,.16);
+  background:#17281e;
+}
+
+.studio-context-tabs button{
+  min-height:38px;
+  padding:7px 13px;
+  border:1px solid #45634d;
+  border-radius:999px;
+  background:#20372a;
+  color:#c8dfce;
+  font-size:12px;
+  font-weight:750;
+}
+
+.studio-context-tabs button:hover,
+.studio-context-tabs button.is-active{
+  border-color:#83db9f;
+  background:#83db9f;
+  color:#102018;
+}
+
+.context-preview-card{
+  width:min(100%,520px);
+  overflow:hidden;
+  border:1px solid #d6c6b9;
+  border-radius:28px;
+  background:#f9e4d7;
+  color:#332332;
+  box-shadow:0 18px 40px rgba(20,20,20,.2);
+}
+
+.context-preview-card .studio-card-media-frame{
+  width:100%;
+}
+
+.context-preview-copy{
+  display:grid;
+  gap:10px;
+  padding:20px;
+}
+
+.context-preview-copy span{
+  color:#8a526c;
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+}
+
+.context-preview-copy h2,
+.context-preview-copy h3,
+.context-preview-copy p{
+  margin:0;
+}
+
+.context-preview-copy p{
+  color:#6f5a67;
+  line-height:1.5;
+}
+
+.context-preview-copy strong{
+  font-size:20px;
+}
+
+.context-preview-copy button{
+  min-height:42px;
+  border:0;
+  border-radius:12px;
+  background:#6b3d55;
+  color:#fff7ef;
+  font-weight:800;
+}
+
+.context-preview-presentation{
+  display:grid;
+  grid-template-columns:1.15fr .85fr;
+  align-items:center;
+}
+
+.context-preview-presentation .context-preview-image{
+  min-width:0;
+}
+
+.context-preview-featured{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  align-items:center;
+}
+
+.context-preview-featured .context-preview-image{
+  min-width:0;
+}
+
+.context-preview-detail{
+  max-width:430px;
+}
+
+@media(max-width:700px){
+  .studio-context-tabs{
+    flex-wrap:nowrap;
+    overflow-x:auto;
+    padding:12px 14px;
+  }
+
+  .studio-context-tabs button{
+    flex:0 0 auto;
+  }
+
+  .context-preview-presentation,
+  .context-preview-featured{
+    grid-template-columns:1fr;
+  }
+}
