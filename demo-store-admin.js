@@ -125,8 +125,8 @@
     if (currentCatalog) currentCatalog.textContent = catalogLabel();
     query("#commerce-settings").hidden = external;
     query("#catalog-settings").hidden = !external;
-    const values = { ...store.state.storeSettings, ...store.model.catalogs.external_catalog.settings };
-    for (const name of ["whatsappCountryCode", "whatsappNumber", "ctaLabel", "disclosureText", "contactPhone"]) settingsForm.elements[name].value = values[name] || "";
+    const values = { ...store.state.storeSettings, ...store.state.imageSettings, ...store.model.catalogs.external_catalog.settings };
+    for (const name of ["whatsappCountryCode", "whatsappNumber", "ctaLabel", "disclosureText", "contactPhone", "imageFit", "imageAspect", "imageRadius", "imageBackground", "imagePadding"]) settingsForm.elements[name].value = values[name] ?? "";
     settingsForm.elements.showContactPhone.checked = values.showContactPhone;
     settingsForm.elements.catalogEnabled.checked = values.enabled;
     for (const field of query("#commerce-settings").querySelectorAll("input")) field.disabled = external;
@@ -136,6 +136,13 @@
   }
   function saveSettings() {
     if (externalChange) throw new Error("Actualiza la vista antes de guardar.");
+    store.state.imageSettings = {
+      fitMode: settingsForm.elements.imageFit.value,
+      aspect: settingsForm.elements.imageAspect.value,
+      radius: settingsForm.elements.imageRadius.value,
+      background: settingsForm.elements.imageBackground.value,
+      padding: Number(settingsForm.elements.imagePadding.value || 12)
+    };
     if (store.catalogType === "commerce") {
       const country = settingsForm.elements.whatsappCountryCode.value.replace(/\D/g, "");
       const number = settingsForm.elements.whatsappNumber.value.replace(/\D/g, "");

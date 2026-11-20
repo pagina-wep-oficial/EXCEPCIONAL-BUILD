@@ -23,6 +23,7 @@
         external_catalog: { products: [product(["cafe", "Café para disfrutar en casa", "Favoritos", 180, "Oferta ficticia para conocer el recorrido hacia otro sitio.", "home-chilaquiles-900.jpg"], "oferta-"), product(["recetas", "Recetas de cocina mexicana", "Favoritos", 250, "Producto de ejemplo. No se realiza ninguna compra desde la demo.", "home-enchiladas-900.jpg"], "oferta-")], categories: ["Todos", "Favoritos"], customUnits: [], settings: { ctaLabel: "Ver oferta", disclosureText: "Abrirás otro sitio. Esta oferta es un ejemplo de demostración.", contactPhone: "", showContactPhone: false, enabled: true } }
       },
       storeSettings: { whatsappCountryCode: "52", whatsappNumber: "5629767176" },
+      imageSettings: { fitMode: "contain", aspect: "4/3", radius: "rounded", background: "soft", padding: 12 },
       comments: [{ id: "demo-comment-1", name: "Mariana R.", score: 5, text: "La página se siente clara y el pedido es muy sencillo." }, { id: "demo-comment-2", name: "Carlos M.", score: 5, text: "Todo se ve muy rico y fácil de elegir." }],
       commentModeration: { hiddenIds: [], visitorBlocked: false }, profile: { name: "Cuenta demo", phone: "", location: "", reference: "" }, visitorReview: { score: null, comment: "", updatedAt: "" }, cart: [], orders: [],
       checkout: { customerName: "", shippingType: "Entrega a domicilio", locationMethod: "address", manualLocation: "", deliveryNotes: "", gpsCoords: null, mapCoords: null }
@@ -32,7 +33,7 @@
   function normalize(saved) {
     const base = seed();
     if (!saved || typeof saved !== "object") return base;
-    for (const key of ["storeSettings", "commentModeration", "profile", "visitorReview", "checkout"]) base[key] = { ...base[key], ...saved[key] };
+    for (const key of ["storeSettings", "imageSettings", "commentModeration", "profile", "visitorReview", "checkout"]) base[key] = { ...base[key], ...saved[key] };
     for (const key of ["cart", "orders", "comments"]) if (Array.isArray(saved[key])) base[key] = saved[key];
     if (Array.isArray(saved.currencies) && saved.currencies.length) base.currencies = saved.currencies;
     if (types.has(saved.active_catalog_type)) base.active_catalog_type = saved.active_catalog_type;
@@ -62,7 +63,7 @@
   let model = load();
   const view = {};
   for (const key of ["products", "categories", "customUnits"]) Object.defineProperty(view, key, { enumerable: true, get: () => model.catalogs[model.active_catalog_type][key], set: value => { model.catalogs[model.active_catalog_type][key] = value; } });
-  for (const key of ["storeSettings", "comments", "commentModeration", "profile", "visitorReview", "cart", "orders", "checkout"]) Object.defineProperty(view, key, { enumerable: true, get: () => model[key], set: value => { model[key] = value; } });
+  for (const key of ["storeSettings", "imageSettings", "comments", "commentModeration", "profile", "visitorReview", "cart", "orders", "checkout"]) Object.defineProperty(view, key, { enumerable: true, get: () => model[key], set: value => { model[key] = value; } });
   function save() {
     try { localStorage.setItem(stateKey, JSON.stringify(model)); }
     catch { fail("No se pudieron guardar los cambios en este navegador. Revisa el espacio o los permisos de almacenamiento."); }

@@ -45,7 +45,29 @@
     return media.length ? media : (product?.image ? [{ source_url: product.image, is_primary: true, fit_mode: "cover", focal_x: 50, focal_y: 50, zoom: 1, rotation: 0 }] : []);
   };
   const productPrimaryMedia = (product) => productGallery(product).find((item) => item.is_primary) || productGallery(product)[0] || { source_url: mediaFallback, fit_mode: "cover", focal_x: 50, focal_y: 50, zoom: 1, rotation: 0 };
-  const productImageStyle = (media) => `object-fit:${media?.fit_mode === "contain" ? "contain" : "cover"};object-position:${Math.max(0, Math.min(100, Number(media?.focal_x ?? 50)))}% ${Math.max(0, Math.min(100, Number(media?.focal_y ?? 50)))}%;transform:scale(${Math.max(1, Math.min(3, Number(media?.zoom ?? 1)))}) rotate(${Math.max(-180, Math.min(180, Number(media?.rotation ?? 0)))}deg)`;
+  const productImageStyle = (media) => {
+    const settings = state.imageSettings || {};
+    const fit = media?.fit_mode === "contain" || media?.fit_mode === "cover"
+      ? media.fit_mode
+      : settings.fitMode || "contain";
+    const x = Math.max(0, Math.min(100, Number(media?.focal_x ?? 50)));
+    const y = Math.max(0, Math.min(100, Number(media?.focal_y ?? 50)));
+    const zoom = Math.max(1, Math.min(3, Number(media?.zoom ?? 1)));
+    const rotation = Math.max(-180, Math.min(180, Number(media?.rotation ?? 0)));
+    return `object-fit:${fit};object-position:${x}% ${y}%;transform:scale(${zoom}) rotate(${rotation}deg)`;
+  };
+  const applyImageSettings = () => {
+    const settings = state.imageSettings || {};
+    const aspects = { "1/1": "1/1", "4/3": "4/3", "3/4": "3/4", auto: "auto" };
+    const radii = { square: "4px", soft: "14px", rounded: "24px", pill: "38px" };
+    const backgrounds = { soft: "linear-gradient(145deg,#f8f2e8,#eadfce)", light: "#ffffff", dark: "#18221d" };
+    document.body.style.setProperty("--demo-product-aspect", aspects[settings.aspect] || "4/3");
+    document.body.style.setProperty("--demo-product-radius", radii[settings.radius] || "24px");
+    document.body.style.setProperty("--demo-product-background", backgrounds[settings.background] || backgrounds.soft);
+    document.body.style.setProperty("--demo-product-padding", `${Math.max(0, Math.min(28, Number(settings.padding ?? 12)))}px`);
+  };
+  applyImageSettings();
+  window.addEventListener("demo-casa-nopal-updated", applyImageSettings);
 
   const mediaDatabaseName = "eb-casa-nopal-demo-media-v1";
   const mediaStoreName = "files";

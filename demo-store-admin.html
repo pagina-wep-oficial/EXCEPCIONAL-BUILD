@@ -33,7 +33,44 @@
       </section>
     <section data-admin-view="products" hidden><div class="section-heading"><div><h1>Productos</h1><p>Los productos de Tienda y Catálogo se guardan por separado.</p></div><button class="button primary" id="new-product" type="button">Agregar producto</button></div><label class="field">Buscar productos<input id="product-search" type="search" placeholder="Nombre o descripción"></label><div id="admin-products" class="admin-products-grid"></div></section>
     <section data-admin-view="settings" hidden><h1>Configuración</h1><article class="panel"><h2>Tipo de tienda</h2><p>Cambiar conserva por separado productos, categorías y unidades.</p><label class="field">¿Qué administras?<select id="catalog-type"><option value="commerce">Tienda · contacto por WhatsApp</option><option value="external_catalog">Catálogo · productos en otros sitios</option></select></label></article>
-      <form id="store-settings-form" class="panel"><section id="commerce-settings"><h2>Tienda base</h2><p>El botón de contacto abre WhatsApp marcado [DEMO]. Nadie lo envía automáticamente.</p><div class="form-grid"><label class="field">Código de país<input name="whatsappCountryCode" inputmode="numeric" maxlength="4"></label><label class="field">Número de contacto<input name="whatsappNumber" type="tel" maxlength="16"></label></div></section><section id="catalog-settings" hidden><h2>Catálogo</h2><p>Los clientes ven el producto y abren su oferta en otro sitio.</p><label class="field">Texto del botón principal<input name="ctaLabel" minlength="2" maxlength="60" placeholder="Ver oferta"></label><label class="field">Aviso antes de salir<textarea name="disclosureText" rows="3" maxlength="600"></textarea></label><label class="field">Teléfono de contacto opcional<input name="contactPhone" type="tel" maxlength="20"></label><label class="check"><input name="showContactPhone" type="checkbox"> Mostrar teléfono al público</label><label class="check"><input name="catalogEnabled" type="checkbox"> Catálogo visible para visitantes</label></section><button class="button primary" type="submit">Guardar configuración</button><p id="settings-status" role="status"></p></form>
+      <form id="store-settings-form" class="panel"><section id="commerce-settings"><h2>Tienda base</h2><p>El botón de contacto abre WhatsApp marcado [DEMO]. Nadie lo envía automáticamente.</p><div class="form-grid"><label class="field">Código de país<input name="whatsappCountryCode" inputmode="numeric" maxlength="4"></label><label class="field">Número de contacto<input name="whatsappNumber" type="tel" maxlength="16"></label></div></section><section id="image-settings">
+<h2>Imágenes de productos</h2>
+<p>Esta configuración se aplica por defecto. Puedes personalizar cada producto al editarlo.</p>
+<div class="form-grid">
+<label class="field">Cómo llenar el espacio
+<select name="imageFit">
+<option value="contain">Mostrar completa</option>
+<option value="cover">Llenar espacio</option>
+</select>
+</label>
+<label class="field">Proporción
+<select name="imageAspect">
+<option value="4/3">Horizontal</option>
+<option value="1/1">Cuadrada</option>
+<option value="3/4">Vertical</option>
+<option value="auto">Original</option>
+</select>
+</label>
+<label class="field">Bordes
+<select name="imageRadius">
+<option value="square">Rectos</option>
+<option value="soft">Suaves</option>
+<option value="rounded">Redondos</option>
+<option value="pill">Muy redondos</option>
+</select>
+</label>
+<label class="field">Fondo
+<select name="imageBackground">
+<option value="soft">Claro suave</option>
+<option value="light">Claro</option>
+<option value="dark">Oscuro</option>
+</select>
+</label>
+<label class="field">Espacio interior
+<input name="imagePadding" type="range" min="0" max="28" step="1">
+</label>
+</div>
+</section><section id="catalog-settings" hidden><h2>Catálogo</h2><p>Los clientes ven el producto y abren su oferta en otro sitio.</p><label class="field">Texto del botón principal<input name="ctaLabel" minlength="2" maxlength="60" placeholder="Ver oferta"></label><label class="field">Aviso antes de salir<textarea name="disclosureText" rows="3" maxlength="600"></textarea></label><label class="field">Teléfono de contacto opcional<input name="contactPhone" type="tel" maxlength="20"></label><label class="check"><input name="showContactPhone" type="checkbox"> Mostrar teléfono al público</label><label class="check"><input name="catalogEnabled" type="checkbox"> Catálogo visible para visitantes</label></section><button class="button primary" type="submit">Guardar configuración</button><p id="settings-status" role="status"></p></form>
       <article class="panel"><h2>Restablecer demo</h2><p>Restaura catálogos, presentación, monedas, perfil y medios de esta demostración. No toca proyectos reales.</p><button class="button danger" type="button" id="reset-demo">Restablecer demo</button></article></section>
     <section data-admin-view="comments" hidden><h1>Comentarios</h1><p>Las opiniones y su moderación son locales.</p><label class="check"><input id="block-visitor" type="checkbox"> Impedir nuevos comentarios de Cuenta demo</label><div id="admin-comments"></div></section>
     </main>
