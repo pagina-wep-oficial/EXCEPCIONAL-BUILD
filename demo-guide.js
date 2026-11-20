@@ -222,6 +222,7 @@
     if (!steps.length) return;
     active = true;
     index = 0;
+    moveLayerToDialog();
     layer.hidden = false;
     document.body.classList.add("demo-guide-open");
     render();
@@ -239,10 +240,22 @@
     index >= steps.length ? finish() : render();
   }
 
+  function moveLayerToDialog() {
+    const dialog = document.querySelector("#product-dialog[open], #manager-dialog[open]");
+    (dialog || document.body).appendChild(layer);
+    layer.style.zIndex = dialog ? "2147483647" : "1000";
+  }
+
+  function returnLayerToBody() {
+    document.body.appendChild(layer);
+    layer.style.zIndex = "1000";
+  }
+
   function finish() {
     active = false;
     clearHighlight();
     layer.hidden = true;
+    returnLayerToBody();
     document.body.classList.remove("demo-guide-open");
     state[activeTour] = true;
     saveState();
