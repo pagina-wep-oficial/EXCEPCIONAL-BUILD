@@ -236,16 +236,63 @@
     </button>
   </nav>
 
-  <div class="highlights-overlay" data-highlights-overlay hidden>
-    <div class="highlights-backdrop" data-close-highlights></div>
-    <section class="highlights-viewer" role="dialog" aria-modal="true" aria-labelledby="highlights-title">
-      <button class="highlights-close" type="button" data-close-highlights aria-label="Cerrar destacados">×</button>
-      <div class="highlights-progress"><i></i></div>
-      <p class="highlights-kicker">DESTACADOS</p>
-      <h2 id="highlights-title">Conoce cómo funciona</h2>
-      <div class="highlights-frame">
-        <iframe src="presentacion.html" title="Presentación de Excepcional Build" loading="lazy"></iframe>
+  <div class="highlights-overlay" data-highlights-overlay hidden aria-hidden="true">
+    <div class="highlights-backdrop" data-close-highlights aria-hidden="true"></div>
+
+    <section class="highlights-story-card" role="dialog" aria-modal="true" aria-labelledby="highlights-title">
+      <h2 class="highlights-sr-only" id="highlights-title">Destacados de Excepcional Build</h2>
+
+      <div class="highlights-media">
+        <iframe
+          data-story-frame
+          src="destacados/como-funciona.html"
+          title="Presentación de Excepcional Build"
+          loading="lazy"
+          allow="autoplay; fullscreen; picture-in-picture"
+          allowfullscreen></iframe>
       </div>
+
+      <div class="highlights-topbar">
+        <div class="highlights-progress" data-story-progress role="progressbar" aria-label="Progreso de la presentación" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <span class="highlights-progress-segment"><i></i></span>
+        </div>
+
+        <div class="highlights-account-row">
+          <div class="highlights-account">
+            <span class="highlights-avatar" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="highlights-account-copy">
+              <strong>EXCEPCIONAL BUILD</strong>
+              <small data-story-counter>Destacados · 1 de 1</small>
+            </span>
+          </div>
+
+          <div class="highlights-actions">
+            <button class="highlights-icon-button" type="button" data-story-toggle aria-label="Pausar presentación" title="Pausar presentación">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6v12M15 6v12"/></svg>
+            </button>
+            <button class="highlights-icon-button" type="button" data-close-highlights aria-label="Cerrar destacados" title="Cerrar">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <button class="highlights-hit-area highlights-hit-area-prev" type="button" data-story-prev aria-label="Escena anterior">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg>
+      </button>
+      <button class="highlights-hit-area highlights-hit-area-next" type="button" data-story-next aria-label="Siguiente escena">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
+      </button>
+
+      <div class="highlights-bottom">
+        <span class="highlights-bottom-label">EXCEPCIONAL BUILD</span>
+        <a class="highlights-cta" href="#contacto" data-close-highlights>
+          Conoce el servicio
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+        </a>
+      </div>
+
+      <p class="highlights-sr-only" data-story-status aria-live="polite">Presentación lista.</p>
     </section>
   </div>
 

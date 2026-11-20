@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#132A26">
+<title>Excepcional Build — Destacados</title>
+<style>
+:root {
+  --deep: #132A26;
+  --lime: #D8EB82;
+  --paper: #F7F5ED;
+ --orange: #F36B3F;
+  --muted: #A9B8AD;
+  --clay-shadow: 0 20px 40px rgba(5, 15, 13, 0.5), inset 0 4px 8px rgba(255, 255, 255, 0.15), inset 0 -4px 8px rgba(0, 0, 0, 0.3);
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  min-height: 100vh;
+ background: #081210;
+  color: var(--paper);
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+ display: flex;
+  flex-direction: column;
+  align-items: center;
+ justify-content: center;
+ padding: 10px;
+  overflow-x: hidden;
+}
+header.viewer-head {
+  width: min(100%, 480px);
+ display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+ color: var(--muted);
+  font-size: 12px;
+  letter-spacing: .04em;
+ margin-bottom: 8px;
+}
+header.viewer-head strong { color: var(--paper); font-size: 14px; }
+.stage {
+  position: relative;
+ isolation: isolate;
+  width: min(calc(100vw - 20px), calc((100dvh - 150px) * 9 / 16), 420px);
+ aspect-ratio: 9/16;
+  container-type: inline-size;
+  overflow: hidden;
+  border-radius: 32px;
+  background: var(--deep);
+ box-shadow: 0 30px 90px rgba(0,0,0,0.7), inset 0 0 0 3px rgba(255,255,255,0.08);
+ user-select: none;
+}
+.scene {
+  position: absolute;
+ inset: 0;
+  opacity: 0;
+ pointer-events: none;
+  display: flex;
+  flex-direction: column;
+ align-items: center;
+  justify-content: center;
+  padding: 8% 7%;
+ text-align: center;
+  will-change: opacity, transform;
+  background: radial-gradient(circle at 50% 25%, #224a41 0%, #132a26 65%, #0b1714 100%);
+  transform: scale(1.04);
+  transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.scene.active {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1);
+}
+.ambient-glow {
+  position: absolute;
+ width: 75cqw; height: 75cqw;
+ background: radial-gradient(circle, rgba(216,235,130,0.18) 0%, transparent 70%);
+  border-radius: 50%;
+  top: 20%; left: 50%;
+ transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.brand-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #1c3d36;
+ border-radius: 99px;
+  font-size: 2.8cqw;
+  font-weight: 800;
+ letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--lime);
+ margin-bottom: 3.5cqw;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.3), inset 0 2px 4px rgba(255,255,255,0.2), inset 0 -2px 4px rgba(0,0,0,0.4);
+}
+.brand-badge svg { width: 3.5cqw; height: 3.5cqw; fill: var(--lime); }
+
+h1.headline {
+  font-size: 8.2cqw;
+  font-weight: 900;
+ line-height: 1.08;
+  letter-spacing: -0.04em;
+  margin: 0 0 3cqw 0;
+  color: var(--paper);
+ text-wrap: balance;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+h1.headline em { font-style: normal; color: var(--lime); }
+p.description {
+  font-size: 3.6cqw;
+  line-height: 1.4;
+  color: var(--muted);
+  margin: 0 0 5cqw 0;
+  max-width: 92%;
+}
+
+.clay-card {
+  width: 100%;
+  background: #193832;
+  border-radius: 28px;
+  padding: 4.5cqw;
+ box-shadow: var(--clay-shadow);
+ text-align: left;
+}
+
+.browser-mock {
+  width: 100%;
+  background: #15322c;
+  border-radius: 26px;
+  overflow: hidden;
+ box-shadow: var(--clay-shadow);
+ text-align: left;
+}
+.browser-top {
+  height: 5.5cqw;
+  background: #0e2420;
+  display: flex;
+ align-items: center;
+  padding: 0 3.5cqw;
+  gap: 1.2cqw;
+ box-shadow: inset 0 -2px 4px rgba(0,0,0,0.3);
+}
+.dot { width: 1.5cqw; height: 1.5cqw; border-radius: 50%; box-shadow: inset 0 1px 2px rgba(0,0,0,0.3); }
+.dot:nth-child(1) { background: var(--orange); }
+.dot:nth-child(2) { background: var(--lime); }
+.dot:nth-child(3) { background: var(--muted); }
+.address-bar {
+  flex: 1;
+  background: #173832;
+ border-radius: 12px;
+  height: 3.2cqw;
+  margin-left: 2cqw;
+ display: flex;
+  align-items: center;
+  padding: 0 2.5cqw;
+ font-size: 2.2cqw;
+  color: var(--lime);
+  font-family: monospace;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.4);
+}
+.browser-body { padding: 4.5cqw; display: flex; flex-direction: column; gap: 2.5cqw; }
+
+.search-typing {
+  background: #f7f5ed;
+ color: #132A26;
+  padding: 3.2cqw 4cqw;
+  border-radius: 18px;
+  font-weight: 800;
+ font-size: 3.2cqw;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.3), inset 0 -3px 6px rgba(0,0,0,0.15), inset 0 3px 6px rgba(255,255,255,0.8);
+}
+.cursor-blink {
+  display: inline-block;
+ width: 2.5px;
+  height: 3.2cqw;
+ background: var(--orange);
+ margin-left: 2px;
+  animation: blink 0.8s infinite;
+}
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+.grid-features {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2.5cqw;
+ margin-top: 1cqw;
+}
+.feature-pill {
+  background: #193832;
+ border-radius: 22px;
+  padding: 4cqw 2cqw;
+  display: flex;
+ flex-direction: column;
+ align-items: center;
+  gap: 1.5cqw;
+  text-align: center;
+ box-shadow: var(--clay-shadow);
+}
+.feature-pill svg { width: 5.5cqw; height: 5.5cqw; stroke: var(--lime); fill: none; stroke-width: 2.2; }
+.feature-pill span { font-size: 2.3cqw; font-weight: 700; color: var(--paper); }
+
+.price-tag {
+  font-size: 13.5cqw;
+  font-weight: 900;
+ color: var(--lime);
+  line-height: 1;
+  letter-spacing: -0.05em;
+ margin: 1.5cqw 0 0.5cqw 0;
+ text-shadow: 0 4px 12px rgba(216,235,130,0.3);
+}
+.price-sub { font-size: 3.4cqw; color: var(--muted); font-weight: 600; }
+.features-list { display: flex; flex-direction: column; gap: 2cqw; margin-top: 3cqw; text-align: left; width: 100%; }
+.feature-item {
+ display: flex; align-items: center; gap: 2.5cqw;
+  font-size: 3.1cqw; color: var(--paper);
+ background: #193832; padding: 2.2cqw 3.5cqw;
+  border-radius: 16px;
+  box-shadow: 0 8px 16px rgba(0,0,0,0.25), inset 0 2px 4px rgba(255,255,255,0.1);
+}
+.feature-item svg { width: 4cqw; height: 4cqw; stroke: var(--lime); fill: none; stroke-width: 2.5; flex-shrink: 0; }
+
+.cta-button {
+  background: var(--lime);
+ color: var(--deep);
+  font-weight: 900;
+  font-size: 3.8cqw;
+ padding: 3.8cqw 6cqw;
+  border-radius: 99px;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+ align-items: center;
+  gap: 2cqw;
+  box-shadow: 0 12px 30px rgba(216,235,130,0.4), inset 0 3px 6px rgba(255,255,255,0.8), inset 0 -3px 6px rgba(0,0,0,0.2);
+ margin-top: 3cqw;
+  text-decoration: none;
+  transition: transform 0.2s ease;
+}
+.cta-button:hover { transform: scale(1.04); }
+.cta-button svg { width: 4.5cqw; height: 4.5cqw; stroke: var(--deep); fill: none; stroke-width: 2.5; }
+
+.subtitle-box {
+  position: absolute; bottom: 5%; left: 6%; right: 6%;
+ background: #122b26;
+  border-radius: 24px;
+  padding: 3.2cqw 4cqw;
+ text-align: center;
+  font-size: 3.5cqw; font-weight: 700; color: var(--paper);
+  z-index: 50;
+  box-shadow: 0 15px 35px rgba(0,0,0,0.6), inset 0 2px 4px rgba(255,255,255,0.15), inset 0 -2px 4px rgba(0,0,0,0.4);
+}
+.progress-track { position: absolute; top: 0; left: 0; right: 0; height: 1.2%; background: rgba(0,0,0,0.3); z-index: 60; }
+.progress-fill { height: 100%; width: 0%; background: var(--lime); box-shadow: 0 0 12px var(--lime); }
+
+.controls {
+  width: min(100%, 480px); display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap;
+}
+.controls button, .controls a {
+  background: #17322c; border: 1px solid #284e44; color: var(--paper);
+ cursor: pointer; font-weight: 700; border-radius: 12px; font-size: 12px;
+  padding: 10px 12px; display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+ box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+}
+.controls button:hover, .controls a:hover { background: #20423a; border-color: var(--lime); }
+.controls input[type=range] { flex: 1; min-width: 60px; accent-color: var(--lime); cursor: pointer; }
+.time { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.hint { width: min(100%, 480px); color: var(--muted); text-align: center; font-size: 11px; margin-top: 6px; line-height: 1.35; }
+@media (min-width: 900px) {
+  .stage {
+    width: min(calc((100dvh - 180px) * 9 / 16), 390px);
+  }
+
+  html:fullscreen {
+    background: #071512;
+  }
+
+  html:fullscreen body {
+    min-height: 100dvh;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    justify-items: center;
+    align-content: center;
+    gap: 10px;
+    padding: 18px 24px;
+    overflow: hidden;
+  }
+
+  html:fullscreen .viewer-head,
+  html:fullscreen .controls,
+  html:fullscreen .hint {
+    width: min(100%, 760px);
+  }
+
+  html:fullscreen .stage {
+    width: min(calc(100dvh - 150px), calc(100vw * 9 / 16));
+    height: auto;
+    max-width: 100%;
+    max-height: calc(100dvh - 150px);
+    margin: 0 auto;
+  }
+}
+
+.scene.leaving {
+  opacity: 0;
+  transform: translateY(-18px) scale(.98);
+  transition: opacity .42s ease, transform .42s ease;
+}
+
+.visual-animation-target {
+  opacity: 0;
+  transform: translateY(24px) scale(.94);
+  transform-origin: center;
+}
+
+.scene.active .visual-animation-target {
+  animation: visualEnter .7s cubic-bezier(.16,1,.3,1) forwards;
+}
+
+.scene.active .visual-animation-target:nth-child(2) { animation-delay: .12s; }
+.scene.active .visual-animation-target:nth-child(3) { animation-delay: .24s; }
+.scene.active .visual-animation-target:nth-child(4) { animation-delay: .36s; }
+.scene.active .visual-animation-target:nth-child(5) { animation-delay: .48s; }
+
+.scene.leaving .visual-animation-target {
+  animation: visualExit .42s ease forwards;
+}
+
+@keyframes visualEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(.94);
+  }
+  65% {
+    opacity: 1;
+    transform: translateY(-3px) scale(1.01);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes visualExit {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-18px) scale(.97);
+  }
+}
+
+.scene.active .phone-mock,
+.scene.active .browser-mock,
+.scene.active .site-mock,
+.scene.active .shop-mock,
+.scene.active .cart-mock,
+.scene.active .dual-mock {
+  animation: visualEnter .72s cubic-bezier(.16,1,.3,1) both;
+}
+
+.scene.leaving .phone-mock,
+.scene.leaving .browser-mock,
+.scene.leaving .site-mock,
+.scene.leaving .shop-mock,
+.scene.leaving .cart-mock,
+.scene.leaving .dual-mock {
+  animation: visualExit .42s ease both;
+}
+
+.scene.active .chat-bubble,
+.scene.active .pdf-card,
+.scene.active .search-row,
+.scene.active .result-card,
+.scene.active .site-info,
+.scene.active .category-row,
+.scene.active .product-grid article,
+.scene.active .cart-line,
+.scene.active .cart-total,
+.scene.active .cart-action,
+.scene.active .message-mock,
+.scene.active .admin-mock,
+.scene.active .cta-button {
+  animation: visualEnter .58s cubic-bezier(.16,1,.3,1) both;
+}
+
+.scene.active .chat-bubble:nth-child(2),
+.scene.active .product-grid article:nth-child(2),
+.scene.active .cart-line:nth-child(2),
+.scene.active .message-mock,
+.scene.active .admin-mock {
+  animation-delay: .16s;
+}
+
+.scene.active .chat-bubble:nth-child(3),
+.scene.active .cart-line:nth-child(3),
+.scene.active .cart-action,
+.scene.active .cta-button {
+  animation-delay: .32s;
+}
+
+.scene.leaving .chat-bubble,
+.scene.leaving .pdf-card,
+.scene.leaving .search-row,
+.scene.leaving .result-card,
+.scene.leaving .site-info,
+.scene.leaving .category-row,
+.scene.leaving .product-grid article,
+.scene.leaving .cart-line,
+.scene.leaving .cart-total,
+.scene.leaving .cart-action,
+.scene.leaving .message-mock,
+.scene.leaving .admin-mock,
+.scene.leaving .cta-button {
+  animation: visualExit .36s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .visual-animation-target,
+  .scene.active .phone-mock,
+  .scene.active .browser-mock,
+  .scene.active .site-mock,
+  .scene.active .shop-mock,
+  .scene.active .cart-mock,
+  .scene.active .dual-mock,
+  .scene.active .chat-bubble,
+  .scene.active .pdf-card,
+  .scene.active .search-row,
+  .scene.active .result-card,
+  .scene.active .site-info,
+  .scene.active .category-row,
+  .scene.active .product-grid article,
+  .scene.active .cart-line,
+  .scene.active .cart-total,
+  .scene.active .cart-action,
+  .scene.active .message-mock,
+  .scene.active .admin-mock,
+  .scene.active .cta-button {
+    animation: none!important;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+
+.controls button svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.controls button{display:inline-flex;align-items:center;gap:7px}
+</style>
+
+<style>
+.phone-mock,.site-mock,.shop-mock,.cart-mock,.dual-mock{width:min(88cqw,360px);margin:2cqw auto 0}
+.phone-mock{padding:4cqw;border:1px solid rgba(255,255,255,.15);border-radius:7cqw;background:#102822;box-shadow:0 12px 30px #0008}
+.phone-top,.site-header-mock,.cart-title,.category-row{display:flex;align-items:center;justify-content:space-between;gap:2cqw}
+.phone-top{color:var(--lime);font-size:3cqw;padding-bottom:3cqw;border-bottom:1px solid #ffffff18}
+.chat-bubble{width:max-content;max-width:85%;padding:2.5cqw;margin-top:3cqw;border-radius:3cqw;color:#17332c;background:#d9f58a;font-size:3cqw}
+.chat-bubble.incoming{background:#f3f0df}
+.pdf-card{display:grid;gap:1.5cqw;margin:3cqw 0;padding:3cqw;border-radius:3cqw;background:#f7f0dc;color:#17332c;font-size:3cqw}
+.pdf-card span{color:#6c7d73}.pdf-card i{height:1cqw;border-radius:2cqw;background:#b7c3b7}
+.browser-mock,.site-mock,.shop-mock,.cart-mock{padding:3cqw;border-radius:4cqw;background:#f5f1df;color:#17332c;box-shadow:0 16px 30px #0006}
+.search-row,.result-card,.site-info,.cart-line,.cart-total,.message-mock,.admin-mock{display:flex;align-items:center;gap:2cqw}
+.search-row{margin-top:4cqw;padding:3cqw;border-radius:2cqw;background:#fff}.search-row strong{margin-right:auto;font-size:3cqw}.search-row b{padding:2cqw;border-radius:2cqw;background:#e96f42;color:#fff;font-size:2.7cqw}
+.result-card{margin-top:3cqw;padding:3cqw;border-radius:3cqw;background:#fff}.result-card div:nth-child(2){display:grid;gap:1cqw;margin-right:auto}.result-card small{color:#718077;font-size:2.5cqw}.result-logo,.mini-logo{display:grid;place-items:center;width:10cqw;height:10cqw;border-radius:3cqw;background:#17332c;color:#d9f58a;font-weight:900}
+.site-header-mock{font-size:3cqw}.site-header-mock span:last-child{font-size:5cqw}
+.site-cover{display:grid;gap:2cqw;margin-top:3cqw;padding:5cqw;border-radius:3cqw;background:linear-gradient(145deg,#17352e,#34705b);color:#fff}.site-cover small{color:var(--lime);font-size:2.5cqw}.site-cover strong{font-size:6cqw;line-height:1.05}.site-cover button,.product-grid button,.cart-action,.admin-mock button{border:0;border-radius:2cqw;padding:2.5cqw;background:#ed7044;color:#fff;font-weight:800;font-size:2.8cqw}
+.site-info{justify-content:space-between;padding-top:3cqw;color:#718077;font-size:2.5cqw}
+.category-row{padding-bottom:3cqw;color:#718077;font-size:2.7cqw}.category-row b{padding:2cqw 3cqw;border-radius:5cqw;background:#17332c;color:#d9f58a}
+.product-grid{display:grid;grid-template-columns:1fr 1fr;gap:2cqw}.product-grid article{display:grid;gap:1.5cqw;padding:2cqw;border-radius:3cqw;background:#fff}.product-grid strong{font-size:3cqw}.product-grid small{color:#e96f42;font-weight:800;font-size:2.7cqw}.product-image{display:grid;place-items:center;height:18cqw;border-radius:2cqw;background:#d9e6bc;color:#34705b;font-size:8cqw}.food-two{background:#f6d7ad;color:#e96f42}
+.cart-title{padding-bottom:3cqw;border-bottom:1px solid #17332c22;font-size:3.5cqw}.cart-title span{color:#718077;font-size:2.7cqw}.cart-line{padding:3cqw 0;border-bottom:1px solid #17332c18}.cart-line>span:nth-child(2){display:grid;gap:1cqw;margin-right:auto;font-size:2.8cqw}.cart-line small{color:#718077;font-size:2.4cqw}.cart-thumb{display:grid;place-items:center;width:9cqw;height:9cqw;border-radius:2cqw;background:#d9e6bc;color:#34705b}.cart-total{justify-content:space-between;padding:3cqw 0;font-size:3.5cqw}.cart-action{width:100%}
+.dual-mock{display:grid;gap:3cqw}.message-mock,.admin-mock{display:grid;justify-items:start;padding:3cqw;border-radius:3cqw;background:#f5f1df;color:#17332c}.message-mock{background:#d9f58a}.message-mock p{margin:2cqw 0;font-size:2.8cqw}.message-mock strong{font-size:3cqw}.message-mock small,.admin-mock small{color:#718077;font-size:2.4cqw}.message-head,.admin-mock span{font-weight:900;font-size:3cqw}.admin-mock{gap:2cqw}.admin-mock b{font-size:3.5cqw}.admin-mock button{background:#17332c;color:#d9f58a}
+.scene.active .phone-mock,.scene.active .browser-mock,.scene.active .site-mock,.scene.active .shop-mock,.scene.active .cart-mock,.scene.active .dual-mock{animation:visualRise .75s cubic-bezier(.16,1,.3,1) both}
+.scene.active .chat-bubble,.scene.active .product-grid article,.scene.active .cart-line,.scene.active .message-mock,.scene.active .admin-mock{animation:visualPop .55s ease both}
+.scene.active .chat-bubble:nth-child(3),.scene.active .product-grid article:nth-child(2),.scene.active .cart-line:nth-child(3),.scene.active .admin-mock{animation-delay:.18s}
+@keyframes visualRise{from{opacity:0;transform:translateY(22px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes visualPop{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:none}}
+</style>
+<style>
+html,body{
+  width:100%;
+  min-height:100%;
+  margin:0;
+  overflow:hidden;
+}
+
+body{
+  display:grid;
+  place-items:center;
+  padding:0;
+  background:#050b09;
+}
+
+.viewer-head{
+  position:fixed;
+  top:14px;
+  left:16px;
+  right:16px;
+  z-index:90;
+  width:auto!important;
+  margin:0;
+  pointer-events:none;
+}
+
+.viewer-head strong{
+  font-size:12px!important;
+  letter-spacing:.08em;
+}
+
+.stage{
+  width:min(100vw,calc(100dvh * 9 / 16))!important;
+  height:min(100dvh,calc(100vw * 16 / 9))!important;
+  max-width:100vw!important;
+  max-height:100dvh!important;
+  margin:0!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+}
+
+.controls{
+  position:fixed!important;
+  left:50%!important;
+  bottom:max(16px,env(safe-area-inset-bottom))!important;
+  z-index:100!important;
+  width:auto!important;
+  max-width:calc(100vw - 28px)!important;
+  margin:0!important;
+  transform:translateX(-50%)!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:6px!important;
+  padding:7px!important;
+  border:1px solid rgba(255,255,255,.22)!important;
+  border-radius:999px!important;
+  background:rgba(5,18,14,.78)!important;
+  box-shadow:0 12px 32px rgba(0,0,0,.38)!important;
+  backdrop-filter:blur(14px)!important;
+}
+
+.controls a,
+.controls button{
+  min-width:38px!important;
+  min-height:38px!important;
+  padding:0 11px!important;
+  border:0!important;
+  border-radius:999px!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  font-size:0!important;
+}
+
+.controls a:hover,
+.controls button:hover{
+  background:rgba(216,235,130,.18)!important;
+}
+
+.controls svg{
+  width:18px!important;
+  height:18px!important;
+}
+
+.controls input[type=range]{
+  width:90px!important;
+  min-width:70px!important;
+  flex:0 1 90px!important;
+}
+
+.controls .time{
+  display:none!important;
+}
+
+.controls a{
+  color:var(--lime)!important;
+}
+
+.controls button{
+  color:var(--paper)!important;
+}
+
+@media(max-width:520px){
+  .viewer-head{
+    top:calc(18px + env(safe-area-inset-top));
+    left:14px;
+    right:14px;
+  }
+
+  .stage{
+    width:100vw!important;
+    height:100dvh!important;
+  }
+
+  .controls{
+    bottom:calc(14px + env(safe-area-inset-bottom))!important;
+  }
+
+  .controls input[type=range]{
+    width:64px!important;
+    min-width:48px!important;
+  }
+
+  .controls a,
+  .controls button{
+    min-width:42px!important;
+    min-height:42px!important;
+  }
+}
+</style>
+
+<style>
+/* Modo integrado: la interfaz exterior aporta progreso, cabecera y CTA. */
+html.is-embedded,
+html.is-embedded body {
+  width:100%;
+  height:100%;
+  min-height:100%;
+  overflow:hidden;
+}
+html.is-embedded .viewer-head,
+html.is-embedded .controls,
+html.is-embedded .hint,
+html.is-embedded .progress-track {
+  display:none!important;
+}
+html.is-embedded body {
+  padding:0!important;
+  background:#050b09;
+}
+html.is-embedded .stage {
+  width:100vw!important;
+  height:100dvh!important;
+  max-width:100vw!important;
+  max-height:100dvh!important;
+  margin:0!important;
+  border:0!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+  touch-action:pan-y;
+  cursor:pointer;
+}
+html.is-embedded .subtitle-box {
+  bottom:clamp(112px,16%,150px)!important;
+  left:6%!important;
+  right:6%!important;
+  z-index:50;
+}
+html.is-embedded .cta-button {
+  display:none!important;
+}
+html.is-embedded .scene {
+  padding-top:13%;
+  padding-bottom:22%;
+}
+@media(max-height:600px) {
+  html.is-embedded .subtitle-box { bottom:116px!important; }
+}
+@media(prefers-reduced-motion:reduce) {
+  html.is-embedded .scene,
+  html.is-embedded .scene.leaving {
+    transition:none!important;
+    animation:none!important;
+  }
+}
+</style>
+
+</head>
+<body>
+
+<header class="viewer-head">
+  <strong>EXCEPCIONAL BUILD</strong>
+</header>
+
+<main class="stage" id="stage" aria-label="Anuncio publicitario estilo plastilina">
+  <div class="progress-track"><div id="progressFill" class="progress-fill"></div></div>
+
+
+ <!-- ESCENA 1: EL PROBLEMA -->
+ <section class="scene active" id="scene0" data-start="0" data-end="6">
+   <div class="ambient-glow"></div>
+   <div class="brand-badge">El problema</div>
+   <h1 class="headline">Pedir no debería sentirse <em>complicado</em>.</h1>
+   <p class="description">Un PDF largo. Muchos mensajes. Poco orden.</p>
+   <div class="phone-mock problem-phone">
+     <div class="phone-top"><b>WhatsApp</b><span>10:42</span></div>
+     <div class="chat-bubble incoming">¿Me puedes mandar el menú?</div>
+     <div class="pdf-card"><strong>MENÚ COMPLETO</strong><span>24 páginas</span><i></i><i></i><i></i><i></i></div>
+     <div class="chat-bubble incoming">¿Cuánto cuesta el combo?</div>
+   </div>
+ </section>
+
+ <!-- ESCENA 2: DESCUBRIMIENTO -->
+ <section class="scene" id="scene1" data-start="6" data-end="12">
+   <div class="ambient-glow"></div>
+   <div class="brand-badge">Tu negocio en internet</div>
+   <h1 class="headline">Que te encuentren y entiendan <em>lo que ofreces</em>.</h1>
+   <p class="description">Una página clara para presentar tu negocio.</p>
+   <div class="browser-mock search-mock">
+     <div class="browser-top"><i class="dot"></i><i class="dot"></i><i class="dot"></i><div class="address-bar">buscar negocio</div></div>
+     <div class="search-row"><span>⌕</span><strong>Fonda Lupita</strong><b>Buscar</b></div>
+     <div class="result-card"><div class="result-logo">FL</div><div><strong>Fonda Lupita</strong><small>Comida casera · Pedidos por WhatsApp</small></div><em>›</em></div>
+   </div>
+ </section>
+
+ <!-- ESCENA 3: PRESENTACIÓN -->
+ <section class="scene" id="scene2" data-start="12" data-end="18">
+   <div class="ambient-glow"></div>
+   <div class="brand-badge">Página de presentación</div>
+   <h1 class="headline">Todo lo importante, <em>en un solo lugar</em>.</h1>
+   <p class="description">Información, horario, ubicación y contacto.</p>
+   <div class="site-mock">
+     <div class="site-header-mock"><span class="mini-logo">FL</span><strong>Fonda Lupita</strong><span>☰</span></div>
+     <div class="site-cover"><small>ABIERTO HOY</small><strong>Comida casera<br>hecha con cariño</strong><button>Contactar</button></div>
+     <div class="site-info"><span>⌖ Hopelchén</span><span>◷ 9:00–21:00</span></div>
+   </div>
+ </section>
+
+ <!-- ESCENA 4: TIENDA -->
+ <section class="scene" id="scene3" data-start="18" data-end="23">
+   <div class="ambient-glow"></div>
+   <div class="brand-badge">Tienda online</div>
+   <h1 class="headline">Encuentra tus productos <em>sin buscar de más</em>.</h1>
+   <p class="description">Categorías claras y productos fáciles de elegir.</p>
+   <div class="shop-mock">
+     <div class="category-row"><b>Todos</b><span>Desayunos</span><span>Comidas</span></div>
+     <div class="product-grid">
+       <article><div class="product-image food-one">◉</div><strong>Enchiladas</strong><small>$145 MXN</small><button>Agregar</button></article>
+       <article><div class="product-image food-two">✦</div><strong>Tacos de carnitas</strong><small>$120 MXN</small><button>Agregar</button></article>
+     </div>
+   </div>
+ </section>
+
+ <!-- ESCENA 5: CARRITO -->
+ <section class="scene" id="scene4" data-start="23" data-end="29">
+   <div class="ambient-glow"></div>
+   <div class="brand-badge">Pedido ordenado</div>
+   <h1 class="headline">Tu cliente arma su pedido <em>en unos toques</em>.</h1>
+   <p class="description">Productos, cantidades y total quedan organizados.</p>
+   <div class="cart-mock">
+     <div class="cart-title"><strong>Tu carrito</strong><span>2 productos</span></div>
+     <div class="cart-line"><span class="cart-thumb">◉</span><span>Enchiladas<small>1 × $145</small></span><b>$145</b></div>
+     <div class="cart-line"><span class="cart-thumb">✦</span><span>Tacos de carnitas<small>1 × $120</small></span><b>$120</b></div>
+     <div class="cart-total"><span>Total</span><strong>$265 MXN</strong></div>
+     <button class="cart-action">Continuar pedido →</button>
+   </div>
+ </section>
+
+ <!-- ESCENA 6: WHATSAPP Y ADMINISTRACIÓN -->
+ <section class="scene" id="scene5" data-start="29" data-end="35">
+   <div class="ambient-glow"></div>
+   <div class="brand-badge">WhatsApp + administración</div>
+   <h1 class="headline">Recibes la información <em>mucho más clara</em>.</h1>
+   <p class="description">Y tú puedes actualizar tu tienda cuando lo necesites.</p>
+   <div class="dual-mock">
+     <div class="message-mock"><span class="message-head">WhatsApp</span><p>Hola, quiero realizar este pedido:</p><p>1 × Enchiladas<br>1 × Tacos de carnitas</p><strong>Total: $265 MXN</strong><small>Nombre · WhatsApp · Entrega</small></div>
+     <div class="admin-mock"><span>Administrar tienda</span><b>Enchiladas</b><small>Precio · Imagen · Disponible</small><button>Guardar cambios</button></div>
+   </div>
+ </section>
+
+ <!-- ESCENA 7: CIERRE -->
+ <section class="scene" id="scene6" data-start="35" data-end="41">
+   <div class="ambient-glow"></div>
+   <div class="brand-badge">Excepcional Build</div>
+   <h1 class="headline">Tu negocio tiene mucho que ofrecer. <em>Dale su espacio.</em></h1>
+   <p class="description">Tu página y tienda, listas para trabajar.</p>
+   <a href="https://excepcional-build.pages.dev/#contacto" target="_top" class="cta-button">
+     QUIERO MI PÁGINA Y TIENDA
+     <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+   </a>
+ </section>
+
+  <div class="subtitle-box" id="subtitle" aria-live="polite">¿Y si alguien busca tu negocio en internet?</div>
+</main>
+
+<div class="controls" role="group" aria-label="Controles del video">
+  <a href="../index.html" aria-label="Volver a la portada">← Volver</a>
+  <button id="playBtn" type="button" aria-label="Pausar presentación">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg>
+  <span>⏸ Pausar</span>
+</button>
+ <button id="replayBtn" type="button" aria-label="Reiniciar presentación">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0 1 4"/><path d="M20 5v6h-6"/></svg>
+  <span>↺ Reiniciar</span>
+</button>
+  <input id="scrub" type="range" min="0" max="41" step="0.05" value="0" aria-label="Barra de avance">
+  <span class="time"><span id="current">0:00</span> / 0:41</span>
+  <button id="fullscreenBtn" type="button" title="Pantalla completa" aria-label="Pantalla completa">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4H4v4M16 4h4v4M8 20H4v-4M20 16v4h-4"/></svg>
+</button>
+</div>
+
+
+<script>
+'use strict';
+
+const isEmbedded = window.parent !== window;
+document.documentElement.classList.toggle('is-embedded', isEmbedded);
+
+const narration = [
+  "A veces, pedir por WhatsApp se vuelve complicado cuando toda la información está desordenada.",
+  "Por eso, tu cliente necesita encontrar tu negocio de forma rápida y clara.",
+  "Una página propia reúne tu información, tu horario, tu ubicación y tus formas de contacto.",
+  "Después, tu cliente puede revisar tus categorías y elegir exactamente lo que quiere.",
+  "Agrega productos al carrito y prepara el pedido sin tener que escribirlo desde cero.",
+  "El mensaje llega ordenado por WhatsApp y tú puedes mantener tu tienda actualizada.",
+  "Excepcional Build. Tu página y tu tienda listas para trabajar."
+];
+
+const captions = [
+  "Pedir no debería sentirse complicado.",
+  "Que te encuentren fácilmente.",
+  "Todo lo importante, en un solo lugar.",
+  "Productos claros y fáciles de elegir.",
+  "El pedido se arma en unos toques.",
+  "Más orden para ti y tus clientes.",
+  "Dale a tu negocio el espacio que merece."
+];
+
+const scenes = [...document.querySelectorAll('.scene')].map((el, index) => ({
+  el,
+  start: Number(el.dataset.start),
+  end: Number(el.dataset.end),
+  text: narration[index] || '',
+  caption: captions[index] || ''
+}));
+
+const TOTAL = scenes.length ? scenes[scenes.length - 1].end : 41;
+const stage = document.getElementById('stage');
+const progressFill = document.getElementById('progressFill');
+const scrub = document.getElementById('scrub');
+const playBtn = document.getElementById('playBtn');
+const subtitle = document.getElementById('subtitle');
+const timeLabel = document.getElementById('current');
+
+let elapsed = 0;
+let playing = !isEmbedded;
+let last = 0;
+let endedSent = false;
+let lastRenderedScene = -1;
+let lastParentScene = -1;
+let lastParentProgressAt = 0;
+
+const speech = ('speechSynthesis' in window) ? window.speechSynthesis : null;
+let lastSpokenIndex = -1;
+
+function postToParent(message) {
+  if (isEmbedded) window.parent.postMessage(message, window.location.origin);
+}
+
+function stopVoice() {
+  if (speech) speech.cancel();
+  lastSpokenIndex = -1;
+}
+
+function speakScene(index) {
+  if (!speech || index < 0 || index >= scenes.length || lastSpokenIndex === index) return;
+  speech.cancel();
+  lastSpokenIndex = index;
+
+  const utterance = new SpeechSynthesisUtterance(scenes[index].text);
+  utterance.lang = 'es-MX';
+  utterance.rate = 1.08;
+  utterance.pitch = 1;
+
+  const voices = speech.getVoices();
+  const spanishVoice = voices.find(voice => /^es-MX$/i.test(voice.lang))
+    || voices.find(voice => /^es/i.test(voice.lang));
+  if (spanishVoice) utterance.voice = spanishVoice;
+  speech.speak(utterance);
+}
+
+function formatTime(value) {
+  return Math.floor(value / 60) + ':' + String(Math.floor(value % 60)).padStart(2, '0');
+}
+
+function currentSceneIndex(time = elapsed) {
+  if (!scenes.length) return -1;
+  if (time >= TOTAL) return scenes.length - 1;
+  return scenes.findIndex(scene => time >= scene.start && time < scene.end);
+}
+
+function updatePlayButton() {
+  if (!playBtn) return;
+  playBtn.setAttribute('aria-label', playing ? 'Pausar presentación' : 'Reproducir presentación');
+  playBtn.innerHTML = playing
+    ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg><span>Pausar</span>'
+    : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z"/></svg><span>Reproducir</span>';
+}
+
+function syncParent(index) {
+  if (!isEmbedded || index < 0) return;
+  const scene = scenes[index];
+  const localProgress = elapsed >= TOTAL
+    ? 1
+    : Math.max(0, Math.min(1, (elapsed - scene.start) / (scene.end - scene.start)));
+  const now = performance.now();
+
+  if (index !== lastParentScene) {
+    lastParentScene = index;
+    postToParent({ type: 'presentation-scene', index, total: scenes.length });
+  }
+
+  if (now - lastParentProgressAt >= 90) {
+    lastParentProgressAt = now;
+    postToParent({
+      type: 'presentation-progress',
+      index,
+      total: scenes.length,
+      progress: localProgress,
+      elapsed,
+      duration: TOTAL
+    });
+  }
+}
+
+function render(time) {
+  elapsed = Math.max(0, Math.min(TOTAL, Number(time) || 0));
+  if (progressFill) progressFill.style.width = (100 * elapsed / TOTAL) + '%';
+  if (scrub) scrub.value = String(elapsed);
+  if (timeLabel) timeLabel.textContent = formatTime(elapsed);
+
+  const activeIndex = currentSceneIndex();
+  scenes.forEach((scene, index) => {
+    const active = index === activeIndex;
+    scene.el.classList.toggle('active', active);
+    scene.el.classList.toggle('leaving', active && elapsed < TOTAL && elapsed >= scene.end - 0.42);
+  });
+
+  if (activeIndex >= 0) {
+    if (subtitle) subtitle.textContent = scenes[activeIndex].caption;
+    if (activeIndex !== lastRenderedScene) {
+      lastRenderedScene = activeIndex;
+      if (playing) {
+        stopVoice();
+        speakScene(activeIndex);
+      }
+    } else if (playing) {
+      speakScene(activeIndex);
+    }
+    syncParent(activeIndex);
+  } else if (subtitle) {
+    subtitle.textContent = 'Excepcional Build · Demostración';
+  }
+}
+
+function setPlaying(nextState) {
+  const next = Boolean(nextState);
+  if (next && elapsed >= TOTAL) {
+    elapsed = 0;
+    endedSent = false;
+    lastRenderedScene = -1;
+    lastParentScene = -1;
+  }
+
+  playing = next;
+  last = performance.now();
+  if (playing) lastSpokenIndex = -1;
+  else stopVoice();
+
+  updatePlayButton();
+  render(elapsed);
+  postToParent({ type: 'presentation-state', paused: !playing });
+}
+
+function jumpToScene(index) {
+  if (!scenes.length) return;
+
+  if (Number(index) >= scenes.length) {
+    elapsed = TOTAL;
+    endedSent = true;
+    setPlaying(false);
+    render(TOTAL);
+    postToParent({ type: 'presentation-ended' });
+    return;
+  }
+
+  const target = Math.max(0, Math.min(scenes.length - 1, Number(index) || 0));
+  elapsed = scenes[target].start;
+  endedSent = false;
+  lastRenderedScene = -1;
+  lastParentScene = -1;
+  stopVoice();
+
+  if (!playing) setPlaying(true);
+  else render(elapsed);
+}
+
+function togglePlayback() {
+  setPlaying(!playing);
+}
+
+window.addEventListener('message', event => {
+  if (!isEmbedded || event.source !== window.parent || event.origin !== window.location.origin) return;
+  const type = event.data?.type;
+
+  if (type === 'presentation-pause') {
+    setPlaying(false);
+  } else if (type === 'presentation-play') {
+    setPlaying(true);
+  } else if (type === 'presentation-restart') {
+    elapsed = 0;
+    endedSent = false;
+    lastRenderedScene = -1;
+    lastParentScene = -1;
+    stopVoice();
+    setPlaying(true);
+  } else if (type === 'presentation-next') {
+    jumpToScene(currentSceneIndex() + 1);
+  } else if (type === 'presentation-previous') {
+    jumpToScene(currentSceneIndex() - 1);
+  }
+});
+
+function frame(stamp) {
+  if (!last) last = stamp;
+  const delta = Math.min((stamp - last) / 1000, 0.1);
+  last = stamp;
+
+  if (playing) {
+    elapsed += delta;
+    if (elapsed >= TOTAL) {
+      elapsed = TOTAL;
+      playing = false;
+      stopVoice();
+      updatePlayButton();
+      postToParent({ type: 'presentation-state', paused: true });
+      if (!endedSent) {
+        endedSent = true;
+        postToParent({ type: 'presentation-ended' });
+      }
+    }
+  }
+
+  render(elapsed);
+  requestAnimationFrame(frame);
+}
+
+playBtn?.addEventListener('click', togglePlayback);
+
+document.getElementById('replayBtn')?.addEventListener('click', () => {
+  elapsed = 0;
+  endedSent = false;
+  lastRenderedScene = -1;
+  lastParentScene = -1;
+  stopVoice();
+  setPlaying(true);
+});
+
+scrub?.addEventListener('input', event => {
+  elapsed = Number(event.target.value);
+  endedSent = false;
+  lastRenderedScene = -1;
+  lastParentScene = -1;
+  stopVoice();
+  render(elapsed);
+  if (playing) speakScene(currentSceneIndex());
+});
+
+document.getElementById('fullscreenBtn')?.addEventListener('click', () => {
+  if (document.fullscreenElement) document.exitFullscreen?.();
+  else document.documentElement.requestFullscreen?.();
+});
+
+// Tocar los lados avanza o retrocede; deslizar cambia de escena; mantener pulsado pausa.
+let gesture = null;
+let holdTimer = null;
+
+function isControlTarget(target) {
+  return Boolean(target?.closest?.('a[href], .controls, input, textarea, select, [data-no-story-nav]'));
+}
+
+stage?.addEventListener('pointerdown', event => {
+  if (event.pointerType === 'mouse' && event.button !== 0) return;
+  if (isControlTarget(event.target)) return;
+
+  gesture = {
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    held: false
+  };
+
+  try { stage.setPointerCapture(event.pointerId); } catch (error) {}
+
+  window.clearTimeout(holdTimer);
+  holdTimer = window.setTimeout(() => {
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    gesture.held = true;
+    setPlaying(false);
+  }, 280);
+});
+
+stage?.addEventListener('pointerup', event => {
+  if (!gesture || gesture.pointerId !== event.pointerId) return;
+  window.clearTimeout(holdTimer);
+
+  const current = gesture;
+  gesture = null;
+
+  if (current.held) {
+    setPlaying(true);
+    return;
+  }
+
+  const deltaX = event.clientX - current.startX;
+  const deltaY = event.clientY - current.startY;
+
+  if (Math.abs(deltaX) > 38 && Math.abs(deltaX) > Math.abs(deltaY) * 1.15) {
+    jumpToScene(currentSceneIndex() + (deltaX < 0 ? 1 : -1));
+    return;
+  }
+
+  if (Math.abs(deltaX) < 14 && Math.abs(deltaY) < 14) {
+    const bounds = stage.getBoundingClientRect();
+    const position = event.clientX - bounds.left;
+    if (position < bounds.width * 0.34) {
+      jumpToScene(currentSceneIndex() - 1);
+    } else if (position > bounds.width * 0.66) {
+      jumpToScene(currentSceneIndex() + 1);
+    } else {
+      togglePlayback();
+    }
+  }
+});
+
+stage?.addEventListener('pointercancel', event => {
+  if (!gesture || gesture.pointerId !== event.pointerId) return;
+  window.clearTimeout(holdTimer);
+  const wasHeld = gesture.held;
+  gesture = null;
+  if (wasHeld) setPlaying(true);
+});
+
+document.addEventListener('keydown', event => {
+  if (/^(INPUT|TEXTAREA|SELECT)$/.test(event.target?.tagName || '')) return;
+
+  if (event.key === 'Escape' && isEmbedded) {
+    event.preventDefault();
+    postToParent({ type: 'presentation-close-request' });
+  } else if (event.key === 'ArrowRight') {
+    event.preventDefault();
+    jumpToScene(currentSceneIndex() + 1);
+  } else if (event.key === 'ArrowLeft') {
+    event.preventDefault();
+    jumpToScene(currentSceneIndex() - 1);
+  } else if (event.code === 'Space') {
+    event.preventDefault();
+    togglePlayback();
+  }
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && playing) setPlaying(false);
+});
+
+updatePlayButton();
+render(0);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
