@@ -324,7 +324,8 @@ export async function createPendingVersion({ request, env, project, user, pages,
       r2_key: snapshotKey,
       file_kind: "manifest",
       content_type: "application/json",
-      size_bytes: manifestBytes.byteLength
+      size_bytes: manifestBytes.byteLength,
+      sha256: await sha256Hex(manifestBytes)
     });
 
     if (files.length) {
