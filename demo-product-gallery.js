@@ -8,14 +8,77 @@
   const changed = () => { window.dispatchEvent(new CustomEvent("demo-gallery-change")); };
   async function draw() {
     const revision = ++sequence;
-    host.innerHTML = items.length ? items.map((item, index) => `<article class="gallery-item"><div data-media-preview="${index}"></div><strong>${item.type === "video" ? "Video" : "Imagen"} ${index + 1}</strong><label><input type="radio" name="gallery-primary" data-primary="${index}" ${item.is_primary ? "checked" : ""}> Principal</label><div class="row"><button type="button" data-media-move="${index}" data-direction="-1" ${index === 0 ? "disabled" : ""}>←</button><button type="button" data-media-move="${index}" data-direction="1" ${index === items.length - 1 ? "disabled" : ""}>→</button><button type="button" data-media-delete="${index}">Eliminar</button></div>${item.type !== "video" ? `<label>Ajuste<select data-media-fit="${index}"><option value="inherit" ${!["cover", "contain"].includes(item.fit_mode) ? "selected" : ""}>Usar configuración general</option><option value="cover" ${item.fit_mode === "cover" ? "selected" : ""}>Llenar espacio</option><option value="contain" ${item.fit_mode === "contain" ? "selected" : ""}>Imagen completa</option></select></label><label>Encuadre horizontal<input type="range" data-media-x="${index}" min="0" max="100" value="${item.focal_x ?? 50}"></label><label>Encuadre vertical<input type="range" data-media-y="${index}" min="0" max="100" value="${item.focal_y ?? 50}"></label><label>Acercar<input type="range" data-media-zoom="${index}" min="1" max="3" step="0.01" value="${item.zoom ?? 1}"></label><label>Girar<input type="range" data-media-rotation="${index}" min="-180" max="180" step="1" value="${item.rotation ?? 0}"></label>` : ""}</article>`).join("") : '<p class="muted">Sin medios. Puedes agregar hasta 5 imágenes y 1 video.</p>';
+    const fitLabel = item => item.fit_mode === "cover"
+      ? "Llenar espacio"
+      : item.fit_mode === "contain"
+        ? "Mostrar completa"
+        : "Configuración general";
+
+    host.innerHTML = items.length ? items.map((item, index) => `
+      <article class="gallery-item${item.is_primary ? " is-primary" : ""}">
+        <div class="gallery-item-head">
+          <div>
+            <strong>${item.type === "video" ? "Video" : "Imagen"} ${index + 1}</strong>
+            <small>${item.is_primary ? "Medio principal" : "Medio adicional"}</small>
+          </div>
+          ${item.is_primary ? '<span class="gallery-primary-badge">Principal</span>' : ""}
+        </div>
+
+        <div class="gallery-preview" data-media-preview="${index}">
+          <span class="gallery-preview-loading">Cargando vista previa…</span>
+        </div>
+
+        <div class="gallery-item-actions">
+          <label class="gallery-primary-choice">
+            <input type="radio" name="gallery-primary" data-primary="${index}" ${item.is_primary ? "checked" : ""}>
+            Usar como principal
+          </label>
+          <button type="button" data-media-delete="${index}" class="gallery-delete">Eliminar</button>
+        </div>
+
+        <div class="gallery-order-actions">
+          <button type="button" data-media-move="${index}" data-direction="-1" ${index === 0 ? "disabled" : ""}>← Mover atrás</button>
+          <button type="button" data-media-move="${index}" data-direction="1" ${index === items.length - 1 ? "disabled" : ""}>Mover adelante →</button>
+        </div>
+
+        ${item.type !== "video" ? `
+          <details class="gallery-adjustments">
+            <summary>Ajustar imagen <span>${fitLabel(item)}</span></summary>
+            <label>Ajuste
+              <select data-media-fit="${index}">
+                <option value="inherit" ${!["cover", "contain"].includes(item.fit_mode) ? "selected" : ""}>Usar configuración general</option>
+                <option value="cover" ${item.fit_mode === "cover" ? "selected" : ""}>Llenar espacio</option>
+                <option value="contain" ${item.fit_mode === "contain" ? "selected" : ""}>Mostrar completa</option>
+              </select>
+            </label>
+            <label>Encuadre horizontal
+              <input type="range" data-media-x="${index}" min="0" max="100" value="${item.focal_x ?? 50}">
+            </label>
+            <label>Encuadre vertical
+              <input type="range" data-media-y="${index}" min="0" max="100" value="${item.focal_y ?? 50}">
+            </label>
+            <label>Acercar
+              <input type="range" data-media-zoom="${index}" min="1" max="3" step="0.01" value="${item.zoom ?? 1}">
+            </label>
+            <label>Girar
+              <input type="range" data-media-rotation="${index}" min="-180" max="180" step="1" value="${item.rotation ?? 0}">
+            </label>
+          </details>
+        ` : '<p class="gallery-video-note">El video conserva sus controles al publicarse.</p>'}
+      </article>
+    `).join("") : '<p class="muted gallery-empty">Todavía no hay imágenes ni video.</p>';
+
     await Promise.all(items.map(async (item, index) => {
       const target = host.querySelector(`[data-media-preview="${index}"]`);
       try {
         const url = await window.DemoMedia.resolve(item.source_url);
         if (revision !== sequence || !target) return;
-        target.innerHTML = item.type === "video" ? `<video src="${safe(url)}" controls playsinline preload="metadata"></video>` : `<img src="${safe(url)}" alt="Vista previa" style="object-fit:${item.fit_mode === "contain" ? "contain" : item.fit_mode === "cover" ? "cover" : (window.DemoStore?.state.imageSettings?.fitMode || "contain")};object-position:${Number(item.focal_x ?? 50)}% ${Number(item.focal_y ?? 50)}%">`;
-      } catch { if (target) target.textContent = "Archivo no disponible en este navegador."; }
+        target.innerHTML = item.type === "video"
+          ? `<video src="${safe(url)}" controls playsinline preload="metadata"></video>`
+          : `<img src="${safe(url)}" alt="Vista previa" style="object-fit:${item.fit_mode === "contain" ? "contain" : item.fit_mode === "cover" ? "cover" : (window.DemoStore?.state.imageSettings?.fitMode || "contain")};object-position:${Number(item.focal_x ?? 50)}% ${Number(item.focal_y ?? 50)}%;transform:scale(${Number(item.zoom ?? 1)}) rotate(${Number(item.rotation ?? 0)}deg)">`;
+      } catch {
+        if (target) target.innerHTML = '<span class="gallery-preview-error">No se pudo cargar este medio.</span>';
+      }
     }));
   }
   function set(next) { items = window.DemoStore.validateMedia(next || []); draw(); }
