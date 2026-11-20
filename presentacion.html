@@ -272,7 +272,184 @@ p.description {
 .controls input[type=range] { flex: 1; min-width: 60px; accent-color: var(--lime); cursor: pointer; }
 .time { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .hint { width: min(100%, 480px); color: var(--muted); text-align: center; font-size: 11px; margin-top: 6px; line-height: 1.35; }
-@media (min-width: 900px) { .stage { width: min(calc((100dvh - 180px) * 9 / 16), 390px); } }
+@media (min-width: 900px) {
+  .stage {
+    width: min(calc((100dvh - 180px) * 9 / 16), 390px);
+  }
+
+  html:fullscreen {
+    background: #071512;
+  }
+
+  html:fullscreen body {
+    min-height: 100dvh;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    justify-items: center;
+    align-content: center;
+    gap: 10px;
+    padding: 18px 24px;
+    overflow: hidden;
+  }
+
+  html:fullscreen .viewer-head,
+  html:fullscreen .controls,
+  html:fullscreen .hint {
+    width: min(100%, 760px);
+  }
+
+  html:fullscreen .stage {
+    width: min(calc(100dvh - 150px), calc(100vw * 9 / 16));
+    height: auto;
+    max-width: 100%;
+    max-height: calc(100dvh - 150px);
+    margin: 0 auto;
+  }
+}
+
+.scene.leaving {
+  opacity: 0;
+  transform: translateY(-18px) scale(.98);
+  transition: opacity .42s ease, transform .42s ease;
+}
+
+.visual-animation-target {
+  opacity: 0;
+  transform: translateY(24px) scale(.94);
+  transform-origin: center;
+}
+
+.scene.active .visual-animation-target {
+  animation: visualEnter .7s cubic-bezier(.16,1,.3,1) forwards;
+}
+
+.scene.active .visual-animation-target:nth-child(2) { animation-delay: .12s; }
+.scene.active .visual-animation-target:nth-child(3) { animation-delay: .24s; }
+.scene.active .visual-animation-target:nth-child(4) { animation-delay: .36s; }
+.scene.active .visual-animation-target:nth-child(5) { animation-delay: .48s; }
+
+.scene.leaving .visual-animation-target {
+  animation: visualExit .42s ease forwards;
+}
+
+@keyframes visualEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(.94);
+  }
+  65% {
+    opacity: 1;
+    transform: translateY(-3px) scale(1.01);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes visualExit {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-18px) scale(.97);
+  }
+}
+
+.scene.active .phone-mock,
+.scene.active .browser-mock,
+.scene.active .site-mock,
+.scene.active .shop-mock,
+.scene.active .cart-mock,
+.scene.active .dual-mock {
+  animation: visualEnter .72s cubic-bezier(.16,1,.3,1) both;
+}
+
+.scene.leaving .phone-mock,
+.scene.leaving .browser-mock,
+.scene.leaving .site-mock,
+.scene.leaving .shop-mock,
+.scene.leaving .cart-mock,
+.scene.leaving .dual-mock {
+  animation: visualExit .42s ease both;
+}
+
+.scene.active .chat-bubble,
+.scene.active .pdf-card,
+.scene.active .search-row,
+.scene.active .result-card,
+.scene.active .site-info,
+.scene.active .category-row,
+.scene.active .product-grid article,
+.scene.active .cart-line,
+.scene.active .cart-total,
+.scene.active .cart-action,
+.scene.active .message-mock,
+.scene.active .admin-mock,
+.scene.active .cta-button {
+  animation: visualEnter .58s cubic-bezier(.16,1,.3,1) both;
+}
+
+.scene.active .chat-bubble:nth-child(2),
+.scene.active .product-grid article:nth-child(2),
+.scene.active .cart-line:nth-child(2),
+.scene.active .message-mock,
+.scene.active .admin-mock {
+  animation-delay: .16s;
+}
+
+.scene.active .chat-bubble:nth-child(3),
+.scene.active .cart-line:nth-child(3),
+.scene.active .cart-action,
+.scene.active .cta-button {
+  animation-delay: .32s;
+}
+
+.scene.leaving .chat-bubble,
+.scene.leaving .pdf-card,
+.scene.leaving .search-row,
+.scene.leaving .result-card,
+.scene.leaving .site-info,
+.scene.leaving .category-row,
+.scene.leaving .product-grid article,
+.scene.leaving .cart-line,
+.scene.leaving .cart-total,
+.scene.leaving .cart-action,
+.scene.leaving .message-mock,
+.scene.leaving .admin-mock,
+.scene.leaving .cta-button {
+  animation: visualExit .36s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .visual-animation-target,
+  .scene.active .phone-mock,
+  .scene.active .browser-mock,
+  .scene.active .site-mock,
+  .scene.active .shop-mock,
+  .scene.active .cart-mock,
+  .scene.active .dual-mock,
+  .scene.active .chat-bubble,
+  .scene.active .pdf-card,
+  .scene.active .search-row,
+  .scene.active .result-card,
+  .scene.active .site-info,
+  .scene.active .category-row,
+  .scene.active .product-grid article,
+  .scene.active .cart-line,
+  .scene.active .cart-total,
+  .scene.active .cart-action,
+  .scene.active .message-mock,
+  .scene.active .admin-mock,
+  .scene.active .cta-button {
+    animation: none!important;
+    opacity: 1;
+    transform: none;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -284,161 +461,168 @@ p.description {
 <main class="stage" id="stage" aria-label="Anuncio publicitario estilo plastilina">
   <div class="progress-track"><div id="progressFill" class="progress-fill"></div></div>
 
- <!-- ESCENA 1 (0s - 5s) -->
+
+ <!-- ESCENA 1: EL PROBLEMA -->
  <section class="scene active" id="scene0" data-start="0" data-end="5">
-    <div class="ambient-glow"></div>
- <div class="brand-badge">
- <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
- Excepcional Build
-    </div>
- <h1 class="headline">¿Y si alguien busca tu negocio <em>en internet</em>?</h1>
- <p class="description">Imagina que tus futuros clientes intentan encontrarte ahora mismo.</p>
-    <div class="browser-mock">
- <div class="browser-top">
- <i class="dot"></i><i class="dot"></i><i class="dot"></i>
-        <div class="address-bar">google.com/search</div>
- </div>
-      <div class="browser-body">
- <div class="search-typing">
- <span>Cafetería Aroma Real<span class="cursor-blink"></span></span>
- <span style="color:var(--orange); font-size:2.4cqw;">🔍 Buscar</span>
- </div>
-      </div>
-    </div>
+   <div class="ambient-glow"></div>
+   <div class="brand-badge">El problema</div>
+   <h1 class="headline">Pedir no debería sentirse <em>complicado</em>.</h1>
+   <p class="description">Un PDF largo. Muchos mensajes. Poco orden.</p>
+   <div class="phone-mock problem-phone">
+     <div class="phone-top"><b>WhatsApp</b><span>10:42</span></div>
+     <div class="chat-bubble incoming">¿Me puedes mandar el menú?</div>
+     <div class="pdf-card"><strong>MENÚ COMPLETO</strong><span>24 páginas</span><i></i><i></i><i></i><i></i></div>
+     <div class="chat-bubble incoming">¿Cuánto cuesta el combo?</div>
+   </div>
  </section>
 
-  <!-- ESCENA 2 (5s - 12s) -->
-  <section class="scene" id="scene1" data-start="5" data-end="12">
- <div class="ambient-glow"></div>
- <div class="brand-badge">Presencia Profesional</div>
-    <h1 class="headline">Tu negocio también merece <em>su propio espacio</em>.</h1>
-    <p class="description">Una página clara, moderna y lista para mostrar lo que haces.</p>
- <div class="browser-mock">
- <div class="browser-top">
- <i class="dot"></i><i class="dot"></i><i class="dot"></i>
-        <div class="address-bar">aromareal.com</div>
- </div>
-      <div class="browser-body" style="gap:2cqw;">
-      <div style="background:#1b3d36; padding:3.5cqw; border-radius:18px; text-align:center; box-shadow: inset 0 2px 4px rgba(255,255,255,0.1);">
- <div style="font-weight:900; color:var(--lime); font-size:3.5cqw;">✦ Tu Negocio en Línea</div>
- <div style="font-size:2.8cqw; color:var(--paper); margin-top:1cqw;">Catálogo, ubicación y contacto directo</div>
- </div>
-      </div>
-    </div>
+ <!-- ESCENA 2: DESCUBRIMIENTO -->
+ <section class="scene" id="scene1" data-start="5" data-end="10">
+   <div class="ambient-glow"></div>
+   <div class="brand-badge">Tu negocio en internet</div>
+   <h1 class="headline">Que te encuentren y entiendan <em>lo que ofreces</em>.</h1>
+   <p class="description">Una página clara para presentar tu negocio.</p>
+   <div class="browser-mock search-mock">
+     <div class="browser-top"><i class="dot"></i><i class="dot"></i><i class="dot"></i><div class="address-bar">buscar negocio</div></div>
+     <div class="search-row"><span>⌕</span><strong>Fonda Lupita</strong><b>Buscar</b></div>
+     <div class="result-card"><div class="result-logo">FL</div><div><strong>Fonda Lupita</strong><small>Comida casera · Pedidos por WhatsApp</small></div><em>›</em></div>
+   </div>
  </section>
 
-  <!-- ESCENA 3 (12s - 20s) -->
-  <section class="scene" id="scene2" data-start="12" data-end="20">
- <div class="ambient-glow"></div>
- <div class="brand-badge">Experiencia Total</div>
-    <h1 class="headline">Una página diseñada para <em>tu negocio</em>.</h1>
-    <p class="description">Adaptada a tu marca, sin complicaciones y con acceso directo.</p>
- <div class="browser-mock">
- <div class="browser-top">
- <i class="dot"></i><i class="dot"></i><i class="dot"></i>
-        <div class="address-bar">casanopal.pages.dev</div>
- </div>
-      <div class="browser-body" style="gap:2cqw;">
-      <div style="background:#1b3d36; height:12cqw; border-radius:16px; display:flex; align-items:center; justify-content:center; font-weight:800; color:var(--lime); box-shadow: inset 0 2px 4px rgba(255,255,255,0.1);">Portada Interactiva</div>
-       <div style="display:flex; gap:1.5cqw;">
-          <div style="background:#1b3d36; flex:1; height:8cqw; border-radius:14px; display:grid; place-items:center; font-size:2.2cqw; box-shadow: inset 0 2px 4px rgba(255,255,255,0.1);">Productos</div>
- <div style="background:#1b3d36; flex:1; height:8cqw; border-radius:14px; display:grid; place-items:center; font-size:2.2cqw; box-shadow: inset 0 2px 4px rgba(255,255,255,0.1);">WhatsApp</div>
- </div>
-      </div>
-    </div>
+ <!-- ESCENA 3: PRESENTACIÓN -->
+ <section class="scene" id="scene2" data-start="10" data-end="16">
+   <div class="ambient-glow"></div>
+   <div class="brand-badge">Página de presentación</div>
+   <h1 class="headline">Todo lo importante, <em>en un solo lugar</em>.</h1>
+   <p class="description">Información, horario, ubicación y contacto.</p>
+   <div class="site-mock">
+     <div class="site-header-mock"><span class="mini-logo">FL</span><strong>Fonda Lupita</strong><span>☰</span></div>
+     <div class="site-cover"><small>ABIERTO HOY</small><strong>Comida casera<br>hecha con cariño</strong><button>Contactar</button></div>
+     <div class="site-info"><span>⌖ Hopelchén</span><span>◷ 9:00–21:00</span></div>
+   </div>
  </section>
 
-  <!-- ESCENA 4 (20s - 27s) -->
-  <section class="scene" id="scene3" data-start="20" data-end="27">
- <div class="ambient-glow"></div>
- <div class="brand-badge">Lo Que Hacemos</div>
-    <h1 class="headline">Diseño. Configuración. <em>Publicación.</em></h1>
- <p class="description">Nos encargamos de todo para que tú solo te ocupes de vender.</p>
- <div class="grid-features">
- <div class="feature-pill">
- <svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-  <span>Diseño Único</span>
- </div>
-      <div class="feature-pill">
- <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
- <span>Dominio .com</span>
- </div>
-      <div class="feature-pill">
- <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
- <span>Alojamiento</span>
- </div>
-    </div>
-  </section>
+ <!-- ESCENA 4: TIENDA -->
+ <section class="scene" id="scene3" data-start="16" data-end="21">
+   <div class="ambient-glow"></div>
+   <div class="brand-badge">Tienda online</div>
+   <h1 class="headline">Encuentra tus productos <em>sin buscar de más</em>.</h1>
+   <p class="description">Categorías claras y productos fáciles de elegir.</p>
+   <div class="shop-mock">
+     <div class="category-row"><b>Todos</b><span>Desayunos</span><span>Comidas</span></div>
+     <div class="product-grid">
+       <article><div class="product-image food-one">◉</div><strong>Enchiladas</strong><small>$145 MXN</small><button>Agregar</button></article>
+       <article><div class="product-image food-two">✦</div><strong>Tacos de carnitas</strong><small>$120 MXN</small><button>Agregar</button></article>
+     </div>
+   </div>
+ </section>
 
- <!-- ESCENA 5 (27s - 35s) -->
-  <section class="scene" id="scene4" data-start="27" data-end="35">
-    <div class="ambient-glow"></div>
- <div class="brand-badge" style="background:#285248; color:var(--lime);">Inversión Inicial</div>
-    <div class="price-tag">$1,450 <span style="font-size:6cqw;">MXN</span></div>
- <div class="price-sub">Activación y puesta en marcha</div>
- <div class="features-list">
- <div class="feature-item">
- <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
- <span>Diseño y configuración profesional</span>
-      </div>
-      <div class="feature-item">
- <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
- <span>Dominio .com incluido</span>
- </div>
-      <div class="feature-item">
- <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
- <span>Primeros 3 meses de servicio</span>
-      </div>
- </div>
-  </section>
+ <!-- ESCENA 5: CARRITO -->
+ <section class="scene" id="scene4" data-start="21" data-end="27">
+   <div class="ambient-glow"></div>
+   <div class="brand-badge">Pedido ordenado</div>
+   <h1 class="headline">Tu cliente arma su pedido <em>en unos toques</em>.</h1>
+   <p class="description">Productos, cantidades y total quedan organizados.</p>
+   <div class="cart-mock">
+     <div class="cart-title"><strong>Tu carrito</strong><span>2 productos</span></div>
+     <div class="cart-line"><span class="cart-thumb">◉</span><span>Enchiladas<small>1 × $145</small></span><b>$145</b></div>
+     <div class="cart-line"><span class="cart-thumb">✦</span><span>Tacos de carnitas<small>1 × $120</small></span><b>$120</b></div>
+     <div class="cart-total"><span>Total</span><strong>$265 MXN</strong></div>
+     <button class="cart-action">Continuar pedido →</button>
+   </div>
+ </section>
 
-  <!-- ESCENA 6 (35s - 40s) -->
- <section class="scene" id="scene5" data-start="35" data-end="40">
- <div class="ambient-glow"></div>
- <div class="brand-badge">Mantenimiento Mensual</div>
-    <div class="price-tag" style="font-size:11cqw;">$217 <span style="font-size:5cqw;">MXN / mes</span></div>
-    <p class="description" style="margin-top:2cqw;">Dominio, alojamiento y soporte básico incluidos mientras tu plan esté activo.</p>
-    <div class="clay-card" style="text-align:center; padding:3cqw; background:#1b3d36;">
- <span style="font-weight:800; color:var(--lime); font-size:3.2cqw;">✓ Sin contratos forzosos</span>
- </div>
-  </section>
+ <!-- ESCENA 6: WHATSAPP Y ADMINISTRACIÓN -->
+ <section class="scene" id="scene5" data-start="27" data-end="34">
+   <div class="ambient-glow"></div>
+   <div class="brand-badge">WhatsApp + administración</div>
+   <h1 class="headline">Recibes la información <em>mucho más clara</em>.</h1>
+   <p class="description">Y tú puedes actualizar tu tienda cuando lo necesites.</p>
+   <div class="dual-mock">
+     <div class="message-mock"><span class="message-head">WhatsApp</span><p>Hola, quiero realizar este pedido:</p><p>1 × Enchiladas<br>1 × Tacos de carnitas</p><strong>Total: $265 MXN</strong><small>Nombre · WhatsApp · Entrega</small></div>
+     <div class="admin-mock"><span>Administrar tienda</span><b>Enchiladas</b><small>Precio · Imagen · Disponible</small><button>Guardar cambios</button></div>
+   </div>
+ </section>
 
-  <!-- ESCENA 7 (40s - 47s) -->
- <section class="scene" id="scene6" data-start="40" data-end="47">
- <div class="ambient-glow"></div>
- <div class="brand-badge">Excepcional Build</div>
-    <h1 class="headline">Tu negocio tiene mucho que ofrecer. <em>Dale su espacio.</em></h1>
- <p class="description">Hagamos que tu negocio tenga la presencia que merece.</p>
-    <a href="#contacto" class="cta-button" onclick="alert('¡Gracias por tu interés! Escríbenos para comenzar tu página.')">
- QUIERO MI PÁGINA
-      <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
- </a>
-  </section>
+ <!-- ESCENA 7: CIERRE -->
+ <section class="scene" id="scene6" data-start="34" data-end="41">
+   <div class="ambient-glow"></div>
+   <div class="brand-badge">Excepcional Build</div>
+   <h1 class="headline">Tu negocio tiene mucho que ofrecer. <em>Dale su espacio.</em></h1>
+   <p class="description">Tu página y tienda, listas para trabajar.</p>
+   <a href="https://excepcional-build.pages.dev/#contacto" class="cta-button">
+     QUIERO MI PÁGINA Y TIENDA
+     <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+   </a>
+ </section>
 
   <div class="subtitle-box" id="subtitle">¿Y si alguien busca tu negocio en internet?</div>
 </main>
 
 <div class="controls" role="group" aria-label="Controles del video">
+  <a href="index.html" aria-label="Volver a la portada">← Volver</a>
   <button id="playBtn" type="button">⏸ Pausar</button>
  <button id="replayBtn" type="button">↺ Reiniciar</button>
-  <input id="scrub" type="range" min="0" max="47" step="0.05" value="0" aria-label="Barra de avance">
-  <span class="time"><span id="current">0:00</span> / 0:47</span>
+  <input id="scrub" type="range" min="0" max="41" step="0.05" value="0" aria-label="Barra de avance">
+  <span class="time"><span id="current">0:00</span> / 0:41</span>
   <button id="fullscreenBtn" type="button" title="Pantalla completa">⛶</button>
 </div>
 
 
 <script>
 'use strict';
-const TOTAL = 47;
+const TOTAL = 41;
 const scenes = [
-  { el: document.getElementById('scene0'), start: 0, end: 5, text: "Imagina que alguien escucha hablar de tu negocio y decide buscarlo en internet." },
-  { el: document.getElementById('scene1'), start: 5, end: 12, text: "Ahora imagina que encuentra una página con tu nombre, tus productos y toda la información necesaria." },
-  { el: document.getElementById('scene2'), start: 12, end: 20, text: "En Excepcional Build preparamos una página adaptada a la identidad de tu negocio, clara y profesional." },
- { el: document.getElementById('scene3'), start: 20, end: 27, text: "Nos encargamos del diseño, la configuración y la puesta en marcha, para que tengas tu espacio." },
-  { el: document.getElementById('scene4'), start: 27, end: 35, text: "Puedes comenzar con una inversión inicial de mil cuatrocientos cincuenta pesos, con tres meses incluidos." },
-  { el: document.getElementById('scene5'), start: 35, end: 40, text: "Después, mantén tu página activa por solo doscientos diecisiete pesos al mes." },
-  { el: document.getElementById('scene6'), start: 40, end: 47, text: "Excepcional Build. Hagamos que tu negocio tenga la presencia que merece. Escríbenos y comienza." }
-];
+  {
+    el: document.getElementById('scene0'),
+    start: 0,
+    end: 6,
+    text: "A veces, pedir por WhatsApp se vuelve complicado cuando toda la información está desordenada.",
+    caption: "Pedir no debería sentirse complicado."
+  },
+  {
+    el: document.getElementById('scene1'),
+    start: 6,
+    end: 12,
+    text: "Por eso, tu cliente necesita encontrar tu negocio de forma rápida y clara.",
+    caption: "Que te encuentren fácilmente."
+  },
+  {
+    el: document.getElementById('scene2'),
+    start: 10,
+    end: 16,
+    text: "Una página propia reúne tu información, tu horario, tu ubicación y tus formas de contacto.",
+    caption: "Todo lo importante, en un solo lugar."
+  },
+  {
+    el: document.getElementById('scene3'),
+    start: 16,
+    end: 21,
+    text: "Después, tu cliente puede revisar tus categorías y elegir exactamente lo que quiere.",
+    caption: "Productos claros y fáciles de elegir."
+  },
+  {
+    el: document.getElementById('scene4'),
+    start: 21,
+    end: 27,
+    text: "Agrega productos al carrito y prepara el pedido sin tener que escribirlo desde cero.",
+    caption: "El pedido se arma en unos toques."
+  },
+  {
+    el: document.getElementById('scene5'),
+    start: 27,
+    end: 34,
+    text: "El mensaje llega ordenado por WhatsApp y tú puedes mantener tu tienda actualizada.",
+    caption: "Más orden para ti y tus clientes."
+  },
+  {
+    el: document.getElementById('scene6'),
+    start: 34,
+    end: 41,
+    text: "Excepcional Build. Tu página y tu tienda listas para trabajar.",
+    caption: "Dale a tu negocio el espacio que merece."
+  }
+]
 
 let elapsed = 0, playing = true, last = 0;
 const progressFill = document.getElementById('progressFill');
@@ -464,13 +648,38 @@ function speakScene(idx) {
   lastSpokenIndex = idx;
   const utterance = new SpeechSynthesisUtterance(scenes[idx].text);
  utterance.lang = 'es-MX';
- utterance.rate = 0.97; // Velocidad natural y pausada
+ utterance.rate = 1.15; // Velocidad natural y pausada
  utterance.pitch = 1.0;
   
   const voices = speech.getVoices();
  const spanishVoice = voices.find(v => /^es-MX$/i.test(v.lang)) || voices.find(v => /^es/i.test(v.lang));
  if (spanishVoice) utterance.voice = spanishVoice;
   
+  utterance.onend = () => {
+    if (idx < 4 || !playing) return;
+    if (idx === scenes.length - 1) {
+      playing = false;
+      playBtn.textContent = '▶ Reproducir';
+      render(TOTAL);
+      return;
+    }
+
+    const scene = scenes[idx];
+    const remaining = Math.max(0, scene.end - elapsed);
+
+    if (remaining > 0.1) {
+      playing = false;
+      scene.el.classList.add('leaving');
+      setTimeout(() => {
+        scene.el.classList.remove('leaving');
+        elapsed = Math.min(TOTAL, scene.end);
+        playing = true;
+        last = performance.now();
+        render(elapsed);
+      }, 850);
+    }
+  };
+
   speech.speak(utterance);
 }
 
@@ -486,17 +695,23 @@ function render(t) {
 
  let currentIdx = -1;
   scenes.forEach((scene, idx) => {
-    const active = elapsed >= scene.start && elapsed < scene.end;
- if (active) {
+    const isFinalScene = idx === scenes.length - 1 && elapsed >= TOTAL;
+    const active = (elapsed >= scene.start && elapsed < scene.end) || isFinalScene;
+
+    if (active) {
       currentIdx = idx;
       scene.el.classList.add('active');
- } else {
-      scene.el.classList.remove('active');
- }
+      scene.el.classList.toggle(
+        'leaving',
+        !isFinalScene && elapsed >= scene.end - 0.42
+      );
+    } else {
+      scene.el.classList.remove('active', 'leaving');
+    }
   });
 
   if (currentIdx !== -1) {
-    subtitle.textContent = scenes[currentIdx].text;
+    subtitle.textContent = scenes[currentIdx].caption;
  if (playing && voiceEnabled) {
       speakScene(currentIdx);
  }
@@ -559,9 +774,11 @@ scrub.addEventListener('input', (ev) => {
   }
 });
 document.getElementById('fullscreenBtn').addEventListener('click', () => {
-  const stage = document.getElementById('stage');
- if (document.fullscreenElement) document.exitFullscreen();
- else stage.requestFullscreen?.();
+  if (document.fullscreenElement) {
+    document.exitFullscreen();
+  } else {
+    document.documentElement.requestFullscreen?.();
+  }
 });
 
 document.addEventListener('keydown', (ev) => {
@@ -576,3 +793,29 @@ requestAnimationFrame(frame);
 </script>
 </body>
 </html>
+<style>
+.phone-mock,.site-mock,.shop-mock,.cart-mock,.dual-mock{width:min(88cqw,360px);margin:2cqw auto 0}
+.phone-mock{padding:4cqw;border:1px solid rgba(255,255,255,.15);border-radius:7cqw;background:#102822;box-shadow:0 12px 30px #0008}
+.phone-top,.site-header-mock,.cart-title,.category-row{display:flex;align-items:center;justify-content:space-between;gap:2cqw}
+.phone-top{color:var(--lime);font-size:3cqw;padding-bottom:3cqw;border-bottom:1px solid #ffffff18}
+.chat-bubble{width:max-content;max-width:85%;padding:2.5cqw;margin-top:3cqw;border-radius:3cqw;color:#17332c;background:#d9f58a;font-size:3cqw}
+.chat-bubble.incoming{background:#f3f0df}
+.pdf-card{display:grid;gap:1.5cqw;margin:3cqw 0;padding:3cqw;border-radius:3cqw;background:#f7f0dc;color:#17332c;font-size:3cqw}
+.pdf-card span{color:#6c7d73}.pdf-card i{height:1cqw;border-radius:2cqw;background:#b7c3b7}
+.browser-mock,.site-mock,.shop-mock,.cart-mock{padding:3cqw;border-radius:4cqw;background:#f5f1df;color:#17332c;box-shadow:0 16px 30px #0006}
+.search-row,.result-card,.site-info,.cart-line,.cart-total,.message-mock,.admin-mock{display:flex;align-items:center;gap:2cqw}
+.search-row{margin-top:4cqw;padding:3cqw;border-radius:2cqw;background:#fff}.search-row strong{margin-right:auto;font-size:3cqw}.search-row b{padding:2cqw;border-radius:2cqw;background:#e96f42;color:#fff;font-size:2.7cqw}
+.result-card{margin-top:3cqw;padding:3cqw;border-radius:3cqw;background:#fff}.result-card div:nth-child(2){display:grid;gap:1cqw;margin-right:auto}.result-card small{color:#718077;font-size:2.5cqw}.result-logo,.mini-logo{display:grid;place-items:center;width:10cqw;height:10cqw;border-radius:3cqw;background:#17332c;color:#d9f58a;font-weight:900}
+.site-header-mock{font-size:3cqw}.site-header-mock span:last-child{font-size:5cqw}
+.site-cover{display:grid;gap:2cqw;margin-top:3cqw;padding:5cqw;border-radius:3cqw;background:linear-gradient(145deg,#17352e,#34705b);color:#fff}.site-cover small{color:var(--lime);font-size:2.5cqw}.site-cover strong{font-size:6cqw;line-height:1.05}.site-cover button,.product-grid button,.cart-action,.admin-mock button{border:0;border-radius:2cqw;padding:2.5cqw;background:#ed7044;color:#fff;font-weight:800;font-size:2.8cqw}
+.site-info{justify-content:space-between;padding-top:3cqw;color:#718077;font-size:2.5cqw}
+.category-row{padding-bottom:3cqw;color:#718077;font-size:2.7cqw}.category-row b{padding:2cqw 3cqw;border-radius:5cqw;background:#17332c;color:#d9f58a}
+.product-grid{display:grid;grid-template-columns:1fr 1fr;gap:2cqw}.product-grid article{display:grid;gap:1.5cqw;padding:2cqw;border-radius:3cqw;background:#fff}.product-grid strong{font-size:3cqw}.product-grid small{color:#e96f42;font-weight:800;font-size:2.7cqw}.product-image{display:grid;place-items:center;height:18cqw;border-radius:2cqw;background:#d9e6bc;color:#34705b;font-size:8cqw}.food-two{background:#f6d7ad;color:#e96f42}
+.cart-title{padding-bottom:3cqw;border-bottom:1px solid #17332c22;font-size:3.5cqw}.cart-title span{color:#718077;font-size:2.7cqw}.cart-line{padding:3cqw 0;border-bottom:1px solid #17332c18}.cart-line>span:nth-child(2){display:grid;gap:1cqw;margin-right:auto;font-size:2.8cqw}.cart-line small{color:#718077;font-size:2.4cqw}.cart-thumb{display:grid;place-items:center;width:9cqw;height:9cqw;border-radius:2cqw;background:#d9e6bc;color:#34705b}.cart-total{justify-content:space-between;padding:3cqw 0;font-size:3.5cqw}.cart-action{width:100%}
+.dual-mock{display:grid;gap:3cqw}.message-mock,.admin-mock{display:grid;justify-items:start;padding:3cqw;border-radius:3cqw;background:#f5f1df;color:#17332c}.message-mock{background:#d9f58a}.message-mock p{margin:2cqw 0;font-size:2.8cqw}.message-mock strong{font-size:3cqw}.message-mock small,.admin-mock small{color:#718077;font-size:2.4cqw}.message-head,.admin-mock span{font-weight:900;font-size:3cqw}.admin-mock{gap:2cqw}.admin-mock b{font-size:3.5cqw}.admin-mock button{background:#17332c;color:#d9f58a}
+.scene.active .phone-mock,.scene.active .browser-mock,.scene.active .site-mock,.scene.active .shop-mock,.scene.active .cart-mock,.scene.active .dual-mock{animation:visualRise .75s cubic-bezier(.16,1,.3,1) both}
+.scene.active .chat-bubble,.scene.active .product-grid article,.scene.active .cart-line,.scene.active .message-mock,.scene.active .admin-mock{animation:visualPop .55s ease both}
+.scene.active .chat-bubble:nth-child(3),.scene.active .product-grid article:nth-child(2),.scene.active .cart-line:nth-child(3),.scene.active .admin-mock{animation-delay:.18s}
+@keyframes visualRise{from{opacity:0;transform:translateY(22px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes visualPop{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:none}}
+</style>
