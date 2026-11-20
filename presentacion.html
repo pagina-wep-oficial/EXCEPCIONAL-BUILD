@@ -450,6 +450,9 @@ p.description {
   }
 }
 
+
+.controls button svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.controls button{display:inline-flex;align-items:center;gap:7px}
 </style>
 </head>
 <body>
@@ -561,11 +564,19 @@ p.description {
 
 <div class="controls" role="group" aria-label="Controles del video">
   <a href="index.html" aria-label="Volver a la portada">← Volver</a>
-  <button id="playBtn" type="button">⏸ Pausar</button>
- <button id="replayBtn" type="button">↺ Reiniciar</button>
+  <button id="playBtn" type="button" aria-label="Pausar presentación">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg>
+  <span>⏸ Pausar</span>
+</button>
+ <button id="replayBtn" type="button" aria-label="Reiniciar presentación">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0 1 4"/><path d="M20 5v6h-6"/></svg>
+  <span>↺ Reiniciar</span>
+</button>
   <input id="scrub" type="range" min="0" max="41" step="0.05" value="0" aria-label="Barra de avance">
   <span class="time"><span id="current">0:00</span> / 0:41</span>
-  <button id="fullscreenBtn" type="button" title="Pantalla completa">⛶</button>
+  <button id="fullscreenBtn" type="button" title="Pantalla completa" aria-label="Pantalla completa">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4H4v4M16 4h4v4M8 20H4v-4M20 16v4h-4"/></svg>
+</button>
 </div>
 
 

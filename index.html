@@ -22,7 +22,7 @@
         <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
         <span>EXCEPCIONAL BUILD</span>
       </a>
-      <button class="menu-button" type="button" aria-expanded="false" aria-controls="site-nav">Menú</button>
+
       <nav id="site-nav" aria-label="Navegación principal">
         <a href="#servicios">Servicios</a>
         <a href="#proceso">Cómo trabajamos</a>
@@ -41,7 +41,7 @@
         <div class="hero-actions">
           <a class="button button-primary" href="#contacto">Empezar ahora <span>↗</span></a>
           <a class="button button-ghost" href="https://wa.me/525629767176" target="_blank" rel="noopener">Hablar por WhatsApp</a>
-          <a class="button button-ghost" href="demo.html">Probar demo <span>↗</span></a><a class="button button-ghost" href="presentacion.html">Ver presentación <span>▶</span></a>
+          <a class="button button-ghost" href="demo.html">Probar demo <span>↗</span></a>
         </div>
         <div class="hero-facts" aria-label="Beneficios principales">
           <div><strong>$1,450</strong><span>Creación y puesta en marcha</span></div>
@@ -101,7 +101,7 @@
       </div>
     </section>
 
-   
+
 
     <section class="mission-section">
       <div class="section-shell mission-grid">
@@ -214,15 +214,40 @@
   </main>
 
   <nav class="mobile-bottom-nav" aria-label="Navegación móvil">
-    <a href="#servicios"><span class="mobile-nav-icon">⌘</span><small>Servicios</small></a>
-    <a href="#proceso"><span class="mobile-nav-icon">≡</span><small>Cómo funciona</small></a>
-    <a class="mobile-nav-main" href="#contacto" aria-label="Empezar ahora"><span>+</span><small>Empezar</small></a>
-    <a href="panel.html"><span class="mobile-nav-icon">▣</span><small>Mis proyectos</small></a>
-    <a class="mobile-nav-highlight" href="presentacion.html" aria-label="Abrir destacados">
-      <span class="featured-float-icon" aria-hidden="true"><i></i><i></i><i></i></span>
-      <small>Destacados</small>
+    <a href="#servicios">
+      <svg class="mobile-custom-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h5v5H5zM14 7h5v5h-5zM5 14h5v5H5zM14 14h5v5h-5z"/></svg>
+      <small>Servicios</small>
     </a>
+    <a href="#proceso">
+      <svg class="mobile-custom-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h5M14 7h5M8 7v10M5 17h5M14 17h5M16 7v10"/><circle cx="8" cy="7" r="2"/><circle cx="16" cy="17" r="2"/></svg>
+      <small>Cómo funciona</small>
+    </a>
+    <a class="mobile-nav-main" href="#contacto" aria-label="Empezar ahora">
+      <svg class="mobile-start-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg>
+      <small>Empezar</small>
+    </a>
+    <a href="panel.html">
+      <svg class="mobile-custom-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5h16v12H4zM7 4.5h6l2 3H7zM7 11h10M7 15h7"/></svg>
+      <small>Mis proyectos</small>
+    </a>
+    <button class="mobile-nav-highlight" type="button" data-open-highlights aria-label="Abrir destacados">
+      <span class="featured-status-icon" aria-hidden="true"><i></i><i></i><i></i></span>
+      <small>Destacados</small>
+    </button>
   </nav>
+
+  <div class="highlights-overlay" data-highlights-overlay hidden>
+    <div class="highlights-backdrop" data-close-highlights></div>
+    <section class="highlights-viewer" role="dialog" aria-modal="true" aria-labelledby="highlights-title">
+      <button class="highlights-close" type="button" data-close-highlights aria-label="Cerrar destacados">×</button>
+      <div class="highlights-progress"><i></i></div>
+      <p class="highlights-kicker">DESTACADOS</p>
+      <h2 id="highlights-title">Conoce cómo funciona</h2>
+      <div class="highlights-frame">
+        <iframe src="presentacion.html" title="Presentación de Excepcional Build" loading="lazy"></iframe>
+      </div>
+    </section>
+  </div>
 
   <footer>
     <div class="section-shell footer-grid"><div><a class="brand brand-light" href="#inicio"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>EXCEPCIONAL BUILD</span></a><p>Sitios web y soluciones digitales para negocios locales de México.</p></div><div><strong>Explora</strong><a href="#servicios">Servicios</a><a href="#proceso">Proceso</a></div><div><strong>Hablemos</strong><a href="#contacto">Solicitar diagnóstico</a></div>

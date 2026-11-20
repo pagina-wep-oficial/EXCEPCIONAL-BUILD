@@ -221,3 +221,33 @@ form?.addEventListener("submit", async (event) => {
 
 const year = document.querySelector("#year");
 if (year) year.textContent = new Date().getFullYear();
+
+
+(function initHighlightsOverlay(){
+  const overlay = document.querySelector("[data-highlights-overlay]");
+  const openButton = document.querySelector("[data-open-highlights]");
+  if (!overlay || !openButton) return;
+
+  const closeButtons = overlay.querySelectorAll("[data-close-highlights]");
+  let previousFocus = null;
+
+  function openHighlights(){
+    previousFocus = document.activeElement;
+    overlay.hidden = false;
+    document.body.classList.add("highlights-is-open");
+    overlay.querySelector(".highlights-close")?.focus();
+  }
+
+  function closeHighlights(){
+    overlay.hidden = true;
+    document.body.classList.remove("highlights-is-open");
+    previousFocus?.focus?.();
+  }
+
+  openButton.addEventListener("click", openHighlights);
+  closeButtons.forEach(button => button.addEventListener("click", closeHighlights));
+
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && !overlay.hidden) closeHighlights();
+  });
+})();
