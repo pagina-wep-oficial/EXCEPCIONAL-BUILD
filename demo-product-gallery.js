@@ -5,7 +5,17 @@
   let items = [];
   let busy = false;
   let sequence = 0;
-  const changed = () => { window.dispatchEvent(new CustomEvent("demo-gallery-change")); };
+  const changed = () => {
+    window.dispatchEvent(new CustomEvent("demo-gallery-change"));
+    const summary = document.querySelector("#media-summary-text");
+    if (summary) {
+      const images = items.filter(item => item.type !== "video").length;
+      const videos = items.filter(item => item.type === "video").length;
+      summary.textContent = images || videos
+        ? `${images} imagen${images === 1 ? "" : "es"}${videos ? ` · ${videos} video` : ""}. Pulsa Gestionar para editar los medios.`
+        : "Agrega imágenes para mostrar mejor tu producto.";
+    }
+  };
   async function draw() {
     const revision = ++sequence;
     const fitLabel = item => item.fit_mode === "cover"
@@ -156,5 +166,39 @@
     for (const [attribute, field] of [["mediaFit", "fit_mode"], ["mediaX", "focal_x"], ["mediaY", "focal_y"], ["mediaZoom", "zoom"], ["mediaRotation", "rotation"]]) if (input.dataset[attribute] != null) items[Number(input.dataset[attribute])][field] = field === "fit_mode" ? input.value : Number(input.value);
     draw(); changed();
   });
+  const studio = document.querySelector("#media-studio");
+  const openStudio = document.querySelector("#open-media-studio");
+
+  const closeStudio = () => {
+    if (!studio) return;
+    studio.hidden = true;
+    studio.classList.remove("is-open");
+  };
+
+  openStudio?.addEventListener("click", () => {
+    studio.hidden = false;
+    studio.classList.add("is-open");
+    draw();
+    changed();
+  });
+
+  studio?.addEventListener("click", event => {
+    if (event.target.closest("[data-close-media]")) closeStudio();
+  });
+
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && studio?.classList.contains("is-open")) closeStudio();
+  });
+
+  window.addEventListener("demo-gallery-change", () => {
+    const summary = document.querySelector("#media-summary-text");
+    if (!summary) return;
+    const images = items.filter(item => item.type !== "video").length;
+    const videos = items.filter(item => item.type === "video").length;
+    summary.textContent = images || videos
+      ? `${images} imagen${images === 1 ? "" : "es"}${videos ? ` · ${videos} video` : ""}. Pulsa Gestionar para editar los medios.`
+      : "Agrega imágenes para mostrar mejor tu producto.";
+  });
+
   window.DemoProductGallery = { set, get: () => JSON.parse(JSON.stringify(items)), isBusy: () => busy };
 })();
