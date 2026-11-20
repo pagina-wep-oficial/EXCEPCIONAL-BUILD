@@ -473,8 +473,8 @@
         </div>
 
         <div class="studio-editor-actions">
-          ${isVideo ? "" : `<button type="button" class="studio-outline-button ${item.is_primary ? "is-active" : ""}" data-set-primary>${icon("star")}${item.is_primary ? "Principal" : "Usar principal"}</button>`}
-          ${isVideo ? "" : `
+          ${isVideo || item.is_primary ? "" : `<button type="button" class="studio-outline-button" data-set-primary>${icon("star")}Usar principal</button>`}
+          ${isVideo || item.is_primary ? "" : `
             <button type="button" class="studio-outline-button" data-move-selected="-1" ${activeIndex <= 1 ? "disabled" : ""}>${icon("left")}Mover</button>
             <button type="button" class="studio-outline-button" data-move-selected="1" ${activeIndex === items.length - 1 || items[activeIndex + 1]?.type === "video" ? "disabled" : ""}>${icon("right")}Mover</button>
           `}
