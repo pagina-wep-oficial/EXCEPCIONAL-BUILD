@@ -61,11 +61,12 @@
     const x = Math.max(0, Math.min(100, Number(media?.focal_x ?? 50)));
     const y = Math.max(0, Math.min(100, Number(media?.focal_y ?? 50)));
     const rotation = Math.max(-180, Math.min(180, Number(media?.rotation ?? 0)));
+    const radius = Math.max(0, Math.min(32, Number(media?.radius ?? 16)));
     const sideways = Math.abs(((rotation % 180) + 180) % 180) === 90;
     const bounds = sideways
       ? "max-width:min(72vh,1000px);max-height:min(72vw,1000px)"
       : "max-width:min(92vw,1200px);max-height:72vh";
-    return `${bounds};object-fit:contain;object-position:${x}% ${y}%;transform:rotate(${rotation}deg) scaleX(${media?.flip_x ? -1 : 1}) scaleY(${media?.flip_y ? -1 : 1});border-radius:0`;
+    return `${bounds};object-fit:contain;object-position:${x}% ${y}%;transform:rotate(${rotation}deg) scaleX(${media?.flip_x ? -1 : 1}) scaleY(${media?.flip_y ? -1 : 1});border-radius:${radius}px`;
   };
   const CROP_ASPECTS = { "1/1": "1/1", "4/3": "4/3", "3/4": "3/4" };
   const mediaCropAspect = media => CROP_ASPECTS[media?.crop] || "";
@@ -377,7 +378,8 @@
       if (!media) return;
       const local = isLocalMedia(media.source_url);
       if (media.type === "video") {
-        viewerStage.innerHTML = `<video ${local ? `data-demo-media="${safe(media.source_url)}"` : `src="${safe(media.source_url)}"`} controls playsinline autoplay muted preload="metadata" aria-label="${safe(product.name)}"></video>`;
+        const radius = Math.max(0, Math.min(32, Number(media.radius ?? 16)));
+        viewerStage.innerHTML = `<video ${local ? `data-demo-media="${safe(media.source_url)}"` : `src="${safe(media.source_url)}"`} controls playsinline autoplay muted preload="metadata" aria-label="${safe(product.name)}" style="border-radius:${radius}px"></video>`;
       } else {
         viewerStage.innerHTML = `<img src="${safe(local ? mediaFallback : media.source_url || mediaFallback)}"${local ? ` data-demo-media="${safe(media.source_url)}"` : ""} alt="${safe(product.name)}" style="${viewerImageStyle(media)}">`;
       }
