@@ -19,6 +19,7 @@
   let previewContext = "store";
   let hudPanelOpen = !window.matchMedia("(max-width: 760px)").matches;
   let hudHidden = false;
+  let confirmDelete = false;
 
   const safe = value => String(value ?? "").replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character]));
   const clamp = (value, min, max) => Math.max(min, Math.min(max, Number(value) || 0));
@@ -29,6 +30,11 @@
   const imageCount = () => items.filter(item => item.type !== "video").length;
   const videoCount = () => items.filter(item => item.type === "video").length;
   const selectedItem = () => items[activeIndex] || null;
+  const primaryImage = () => items.find(item => item.type !== "video" && item.is_primary) || items.find(item => item.type !== "video") || null;
+  const isPrimarySelected = () => {
+    const item = selectedItem();
+    return !!item && item.type !== "video" && item.is_primary;
+  };
 
   const CROP_RATIOS = { "1/1": "1 / 1", "4/3": "4 / 3", "3/4": "3 / 4" };
   const cropRatio = item => CROP_RATIOS[item?.crop] || "";
@@ -57,6 +63,7 @@
     flipH: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16"></path><path d="m4 7 5 5-5 5zM20 7l-5 5 5 5z"></path></svg>',
     flipV: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16"></path><path d="m7 4 5 5 5-5zM7 20l5-5 5 5z"></path></svg>',
     crop: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3v15a3 3 0 0 0 3 3h12M3 6h15a3 3 0 0 1 3 3v12"></path></svg>',
+    lock: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="10" width="15" height="10" rx="2.5"></rect><path d="M8 10V7.5a4 4 0 0 1 8 0V10"></path></svg>',
     check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg>'
   }[name] || "");
 
@@ -109,6 +116,7 @@
   }
 
   function commit() {
+    confirmDelete = false;
     normalizeMediaOrder();
     normalizeSelection();
     if (summary) summary.textContent = countsLabel();
@@ -191,8 +199,7 @@
   }
 
   function featuredImageMarkup(item) {
-    const url = item?.source_url || item?.url || item?.data_url || item?.preview_url || "";
-    if (!url) {
+    if (!item) {
       return `<img class="home-featured-image-media" src="demo-casa-nopal/assets/home-chilaquiles-900.jpg" alt="Producto" style="object-fit:cover;object-position:50% 50%;transform:scale(1) rotate(0deg) scaleX(1) scaleY(1)" data-live-media>`;
     }
     return previewMediaMarkup(item, "home-featured-image-media", true);
@@ -200,7 +207,7 @@
 
   function featuredPreviewMarkup() {
     const draft = productDraft();
-    const image = selectedItem();
+    const image = primaryImage();
 
     return `
       <div class="studio-featured-preview">
@@ -224,7 +231,7 @@
 
   function storePreviewMarkup() {
     const draft = productDraft();
-    const image = selectedItem();
+    const image = primaryImage();
     const external = previewCatalog === "external_catalog";
 
     return `
@@ -318,11 +325,20 @@
     const mode = previewCatalog === "external_catalog" ? "Catálogo" : "Tienda";
     const item = selectedItem();
     const isVideo = item?.type === "video";
+    const primarySelected = isPrimarySelected();
     const contexts = [
-      ["featured", "Destacados"],
-      ["store", mode],
-      ["detail", "Detalle"]
+      ["featured", "Destacados", primarySelected],
+      ["store", mode, primarySelected],
+      ["detail", "Detalle", true]
     ];
+    const contextTab = ([value, label, available]) => {
+      const active = previewContext === value;
+      const locked = !available;
+      const reason = "Solo la foto principal se muestra en esta vista";
+      return `
+        <button type="button" class="studio-context-tab${active ? " is-active" : ""}${locked ? " is-locked" : ""}" data-preview-context="${value}" role="tab" aria-selected="${active ? "true" : "false"}"${locked ? ` aria-disabled="true" aria-label="${safe(label)}, solo disponible con la foto principal" title="${reason}"` : ""}>${locked ? icon("lock") : ""}${label}</button>
+      `;
+    };
 
     return `
       <section class="studio-live-shell" aria-label="Vista en vivo">
@@ -333,9 +349,7 @@
           </div>
 
           <div class="studio-context-tabs" role="tablist" aria-label="Contexto">
-            ${contexts.map(([value, label]) => `
-              <button type="button" class="studio-context-tab${previewContext === value ? " is-active" : ""}" data-preview-context="${value}" role="tab" aria-selected="${previewContext === value ? "true" : "false"}">${label}</button>
-            `).join("")}
+            ${contexts.map(contextTab).join("")}
           </div>
 
           <div class="studio-live-tools">
@@ -441,6 +455,8 @@
     const panelIcon = isVideo ? "video" : panelTab === "crop" ? "crop" : panelTab === "rotate" ? "rotate" : "adjust";
     const panelTitle = isVideo ? "Video" : panelTab === "crop" ? "Recortar" : panelTab === "rotate" ? "Girar" : "Ajustar";
     const showPrimaryActions = !isVideo && !item.is_primary;
+    const hasPrimary = items.some(entry => entry.type !== "video" && entry.is_primary);
+    const primaryLabel = hasPrimary ? "Reemplazar foto principal" : "Usar como principal";
 
     const controls = isVideo
       ? `<div class="studio-video-note">${icon("video")}<div><strong>Video listo para publicar</strong><p>En el sitio se mostrará con controles propios. Aquí solo puedes conservarlo, reordenarlo o reemplazarlo.</p></div></div>`
@@ -468,13 +484,29 @@
           `).join("")}
           ${isVideo ? "" : `<span class="studio-hud-divider" aria-hidden="true"></span>`}
           ${showPrimaryActions ? `
-            <button type="button" class="studio-hud-tool" data-set-primary data-tip="Usar como principal" aria-label="Usar como principal">${icon("star")}</button>
+            <button type="button" class="studio-hud-tool" data-set-primary data-tip="${safe(primaryLabel)}" aria-label="${safe(primaryLabel)}">${icon("star")}</button>
             <button type="button" class="studio-hud-tool" data-move-selected="-1" ${activeIndex <= 1 ? "disabled" : ""} data-tip="Mover antes" aria-label="Mover antes">${icon("left")}</button>
             <button type="button" class="studio-hud-tool" data-move-selected="1" ${activeIndex === items.length - 1 || items[activeIndex + 1]?.type === "video" ? "disabled" : ""} data-tip="Mover después" aria-label="Mover después">${icon("right")}</button>
           ` : ""}
           ${isVideo ? "" : `<button type="button" class="studio-hud-tool" data-reset-image data-tip="Restablecer ajustes" aria-label="Restablecer ajustes">${icon("reset")}</button>`}
           <button type="button" class="studio-hud-tool is-danger" data-delete-selected data-tip="Eliminar" aria-label="Eliminar">${icon("trash")}</button>
         </div>
+
+        ${confirmDelete ? `
+          <div class="studio-confirm" role="alertdialog" aria-modal="true" aria-labelledby="studio-confirm-title" aria-describedby="studio-confirm-text">
+            <div class="studio-confirm-card">
+              <span class="studio-confirm-icon" aria-hidden="true">${icon("trash")}</span>
+              <div class="studio-confirm-copy">
+                <strong id="studio-confirm-title">¿Eliminar ${isVideo ? "este video" : "esta imagen"}?</strong>
+                <p id="studio-confirm-text">${isVideo ? "El video se quitará del producto." : item.is_primary && imageCount() > 1 ? "Es la foto principal; otra imagen tomará su lugar." : "La imagen se quitará del producto."} Esta acción no se puede deshacer.</p>
+              </div>
+              <div class="studio-confirm-actions">
+                <button type="button" data-cancel-delete>Cancelar</button>
+                <button type="button" class="studio-confirm-danger" data-confirm-delete>Eliminar</button>
+              </div>
+            </div>
+          </div>
+        ` : ""}
       </div>
     `;
   }
@@ -492,11 +524,15 @@
     `;
   }
 
-  function addTileMarkup(intent, label, helper, disabled) {
-    const iconName = intent === "video" ? "video" : intent === "primary" ? "star" : "plus";
+  function addTileMarkup(intent, label, helper, options = {}) {
+    const { disabled = false, count = "" } = options;
+    const iconName = disabled ? "lock" : intent === "video" ? "video" : intent === "primary" ? "star" : "plus";
     return `
-      <label class="studio-add-tile${disabled ? " is-disabled" : ""}">
-        <span class="studio-add-icon">${icon(iconName)}</span>
+      <label class="studio-add-tile${disabled ? " is-disabled" : ""}"${disabled ? ' aria-disabled="true"' : ""}>
+        <span class="studio-add-top">
+          <span class="studio-add-icon">${icon(iconName)}</span>
+          ${count ? `<span class="studio-add-count">${safe(count)}</span>` : ""}
+        </span>
         <strong>${safe(label)}</strong>
         <small>${safe(helper)}</small>
         <span class="studio-add-hit" data-upload-intent="${safe(intent)}" ${disabled ? 'aria-disabled="true"' : ''}></span>
@@ -505,20 +541,26 @@
   }
 
   function libraryMarkup(sources) {
+    const photos = imageCount();
+    const videos = videoCount();
+    const photosFull = photos >= 5;
+    const videoFull = videos >= 1;
+    const hasPrimary = items.some(item => item.type !== "video" && item.is_primary);
+
     return `
       <section class="studio-library-shell">
         <header class="studio-library-head">
           <div>
             <p class="studio-kicker">Biblioteca de medios</p>
-            <h3>${imageCount()}/5 fotos · ${videoCount()}/1 video</h3>
+            <h3>${photos} de 5 fotos · ${videos} de 1 video</h3>
           </div>
           <button type="button" class="studio-close-inline" data-close-media>Volver al producto</button>
         </header>
 
         <div class="studio-add-strip">
-          ${addTileMarkup("primary", "Foto principal", "Define la portada del producto.", imageCount() >= 5 && !items.some(item => item.is_primary && item.type !== "video"))}
-          ${addTileMarkup("extra", "Más fotos", "Apoyo para el carrusel.", imageCount() >= 5)}
-          ${addTileMarkup("video", "Video", "Uno corto y con audio.", videoCount() >= 1)}
+          ${addTileMarkup("primary", hasPrimary ? "Reemplazar principal" : "Foto principal", hasPrimary ? "Sustituye la portada actual." : "Define la portada del producto.")}
+          ${addTileMarkup("extra", photosFull ? "Límite de fotos" : "Más fotos", photosFull ? "Elimina una para agregar otra." : "Apoyo para el carrusel.", { disabled: photosFull, count: `${photos} de 5` })}
+          ${addTileMarkup("video", videoFull ? "Video agregado" : "Video", videoFull ? "Solo se permite un video." : "Uno corto y con audio.", { disabled: videoFull, count: `${videos} de 1` })}
         </div>
 
         <div class="studio-media-strip${items.length ? "" : " is-empty"}">
@@ -544,6 +586,7 @@
   async function renderStudio() {
     if (!host) return;
     normalizeSelection();
+    if (!isPrimarySelected()) previewContext = "detail";
     const selected = selectedItem();
     if (selected?.type === "video") activeTab = "video";
     else if (activeTab === "video") activeTab = "adjust";
@@ -587,12 +630,15 @@
 
     host.querySelectorAll("[data-select-media]").forEach(button => button.addEventListener("click", () => {
       activeIndex = Number(button.dataset.selectMedia) || 0;
+      confirmDelete = false;
       renderStudio();
     }));
 
     host.querySelectorAll("[data-preview-context]").forEach(button => {
       button.addEventListener("click", () => {
-        previewContext = button.dataset.previewContext || "store";
+        const next = button.dataset.previewContext || "store";
+        if (next !== "detail" && !isPrimarySelected()) return;
+        previewContext = next;
         renderStudio();
       });
     });
@@ -605,6 +651,7 @@
     host.querySelectorAll("[data-step-media]").forEach(button => button.addEventListener("click", () => {
       const step = Number(button.dataset.stepMedia || 0);
       activeIndex = clamp(activeIndex + step, 0, items.length - 1);
+      confirmDelete = false;
       renderStudio();
     }));
   }
@@ -698,11 +745,26 @@
     }));
 
     mount.querySelector("[data-delete-selected]")?.addEventListener("click", () => {
+      if (!selectedItem()) return;
+      confirmDelete = true;
+      renderHud();
+    });
+
+    mount.querySelector("[data-cancel-delete]")?.addEventListener("click", () => {
+      confirmDelete = false;
+      renderHud();
+    });
+
+    mount.querySelector("[data-confirm-delete]")?.addEventListener("click", () => {
+      if (!selectedItem()) return;
+      confirmDelete = false;
       items.splice(activeIndex, 1);
       items = window.DemoStore.validateMedia(items);
       activeIndex = Math.max(0, activeIndex - (activeIndex >= items.length ? 1 : 0));
       commit();
     });
+
+    if (confirmDelete) mount.querySelector("[data-cancel-delete]")?.focus();
   }
 
   function set(next) {
@@ -724,6 +786,7 @@
     previewCatalog = store.catalogType === "external_catalog" ? "external_catalog" : "commerce";
     activeTab = "adjust";
     hudHidden = false;
+    confirmDelete = false;
     hudPanelOpen = !window.matchMedia("(max-width: 760px)").matches;
     titleNode.textContent = "Fotos y video del producto";
     studio.hidden = false;
@@ -745,6 +808,11 @@
 
   document.addEventListener("keydown", event => {
     if (event.key !== "Escape" || !isStudioOpen()) return;
+    if (confirmDelete) {
+      confirmDelete = false;
+      renderHud();
+      return;
+    }
     if (hudPanelOpen && !hudHidden && selectedItem()) {
       hudPanelOpen = false;
       renderHud();
