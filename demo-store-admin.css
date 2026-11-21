@@ -2374,7 +2374,7 @@
   position:static;
   display:block;
   min-height:0;
-  padding:0;
+  padding:8px;
   overflow:hidden;
   aspect-ratio:5/4;
   border-radius:24px 24px 0 0;
@@ -2686,6 +2686,7 @@
   min-height:0;
   aspect-ratio:1;
   overflow:hidden;
+  padding:8px;
   border:1px solid #f0c8b9;
   border-radius:18px;
   background:#fff;
@@ -2695,8 +2696,8 @@
 .studio-preview-public-shell[data-context="detail"] .detail-main-image{
   display:block;
   width:100%;
-  height:auto;
-  min-height:auto;
+  height:100%;
+  min-height:0;
   border-radius:0;
   background:transparent;
 }
@@ -3574,6 +3575,171 @@
   font-size:11.5px;
 }
 
+/* --- Ajuste fino: joystick y bordes --- */
+.studio-adjust-tools{
+  display:none;
+}
+
+.studio-adjust-controls{
+  display:grid;
+  gap:14px;
+}
+
+.studio-adjust-control{
+  display:block;
+}
+
+.studio-fit-short{
+  display:none;
+}
+
+.studio-joystick-block{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  padding:2px 0;
+}
+
+.studio-joystick{
+  position:relative;
+  flex:0 0 auto;
+  width:122px;
+  height:122px;
+  border:1px solid rgba(200,255,220,.2);
+  border-radius:50%;
+  background:
+    radial-gradient(circle at 50% 44%,rgba(143,240,181,.14),rgba(255,255,255,.02) 62%),
+    rgba(0,0,0,.24);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.12),inset 0 -12px 26px rgba(0,0,0,.22);
+  touch-action:none;
+  user-select:none;
+  -webkit-user-select:none;
+  cursor:grab;
+  outline:none;
+}
+
+.studio-joystick:focus-visible{
+  border-color:rgba(143,240,181,.75);
+  box-shadow:0 0 0 3px rgba(143,240,181,.18);
+}
+
+.studio-joystick.is-dragging{
+  cursor:grabbing;
+}
+
+.studio-joystick-axis{
+  position:absolute;
+  inset:14%;
+  border-radius:50%;
+  background:
+    linear-gradient(rgba(200,255,220,.12),rgba(200,255,220,.12)) center/1px 100% no-repeat,
+    linear-gradient(90deg,rgba(200,255,220,.12),rgba(200,255,220,.12)) center/100% 1px no-repeat;
+  opacity:.8;
+}
+
+.studio-joystick-knob{
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:48px;
+  height:48px;
+  border:1px solid rgba(200,255,220,.45);
+  border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.32),rgba(143,240,181,.22) 45%,rgba(20,40,29,.9));
+  box-shadow:0 8px 18px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.3);
+  transform:translate(-50%,-50%);
+  transition:transform .18s cubic-bezier(.2,.9,.3,1.2);
+  pointer-events:none;
+}
+
+.studio-joystick.is-dragging .studio-joystick-knob{
+  transition:none;
+}
+
+.studio-joystick-side{
+  display:grid;
+  gap:5px;
+  min-width:0;
+}
+
+.studio-joystick-side strong{
+  color:#eafff1;
+  font-size:12.5px;
+}
+
+.studio-joystick-side small{
+  color:#9fb7a8;
+  font-size:10.5px;
+  line-height:1.35;
+}
+
+.studio-joystick-center{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:5px;
+  min-height:32px;
+  margin-top:2px;
+  padding:0 10px;
+  border:1px solid rgba(200,255,220,.18);
+  border-radius:9px;
+  background:rgba(255,255,255,.055);
+  color:#dff1e6;
+  font-size:11px;
+  font-weight:800;
+}
+
+.studio-joystick-center:hover{
+  border-color:rgba(143,240,181,.55);
+  background:rgba(143,240,181,.12);
+}
+
+.studio-joystick-center svg{
+  width:14px;
+  height:14px;
+  stroke:currentColor;
+  fill:none;
+  stroke-width:1.8;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+
+.studio-joystick-position{
+  color:#8ff0b5;
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.04em;
+}
+
+.studio-radius-presets{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:5px;
+}
+
+.studio-radius-presets button{
+  min-height:32px;
+  padding:0 4px;
+  border:1px solid rgba(200,255,220,.14);
+  border-radius:9px;
+  background:rgba(255,255,255,.045);
+  color:#cfe3d6;
+  font-size:10.5px;
+  font-weight:800;
+}
+
+.studio-radius-presets button:hover{
+  border-color:rgba(143,240,181,.55);
+  background:rgba(255,255,255,.08);
+}
+
+.studio-radius-presets button.is-active{
+  border-color:rgba(143,240,181,.55);
+  background:rgba(143,240,181,.16);
+  color:#d6ffe4;
+  box-shadow:0 0 0 3px rgba(143,240,181,.08);
+}
+
 /* --- Biblioteca de vidrio --- */
 .studio-library-shell{
   border:1px solid rgba(190,255,214,.12);
@@ -3729,7 +3895,7 @@
   .studio-hud-panel{
     order:-1;
     width:100%;
-    max-height:44dvh;
+    max-height:56dvh;
     border-radius:20px;
     transform:translateY(8px);
     transform-origin:bottom center;
@@ -3742,7 +3908,7 @@
   .studio-hud-rail{
     flex-direction:row;
     align-items:center;
-    justify-content:center;
+    justify-content:flex-start;
     gap:3px;
     max-height:none;
     padding:6px;
@@ -3783,6 +3949,106 @@
 
   .studio-hud-panel .studio-crop-meta small{
     display:none;
+  }
+
+  .studio-hud-panel-body{
+    gap:10px;
+  }
+
+  .studio-fit-full{
+    display:none;
+  }
+
+  .studio-fit-short{
+    display:inline;
+  }
+
+  .studio-hud-panel .studio-fit-toggle button{
+    min-height:34px;
+    padding:0 6px;
+    gap:5px;
+    font-size:10.5px;
+  }
+
+  .studio-hud-panel .studio-fit-toggle svg{
+    width:15px;
+    height:15px;
+  }
+
+  .studio-adjust-tools{
+    display:grid;
+    grid-template-columns:repeat(5,minmax(0,1fr));
+    gap:4px;
+  }
+
+  .studio-adjust-tool{
+    display:grid;
+    justify-items:center;
+    gap:3px;
+    min-height:46px;
+    padding:5px 2px;
+    border:1px solid rgba(200,255,220,.14);
+    border-radius:10px;
+    background:rgba(255,255,255,.045);
+    color:#cfe3d6;
+    font-size:9px;
+    font-weight:800;
+    line-height:1.05;
+  }
+
+  .studio-adjust-tool svg{
+    width:16px;
+    height:16px;
+    stroke:currentColor;
+    fill:none;
+    stroke-width:1.7;
+    stroke-linecap:round;
+    stroke-linejoin:round;
+  }
+
+  .studio-adjust-tool.is-active{
+    border-color:rgba(143,240,181,.55);
+    background:rgba(143,240,181,.16);
+    color:#d6ffe4;
+  }
+
+  .studio-adjust-control{
+    display:none;
+  }
+
+  .studio-adjust-control.is-active{
+    display:block;
+  }
+
+  .studio-joystick-block{
+    gap:12px;
+  }
+
+  .studio-joystick{
+    width:108px;
+    height:108px;
+  }
+
+  .studio-joystick-knob{
+    width:42px;
+    height:42px;
+  }
+
+  .studio-joystick-side strong{
+    font-size:12px;
+  }
+
+  .studio-joystick-side small{
+    font-size:10px;
+  }
+
+  .studio-joystick-center{
+    min-height:30px;
+  }
+
+  .studio-radius-presets button{
+    min-height:30px;
+    font-size:10px;
   }
 }
 

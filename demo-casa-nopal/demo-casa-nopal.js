@@ -54,7 +54,8 @@
     const y = Math.max(0, Math.min(100, Number(media?.focal_y ?? 50)));
     const zoom = Math.max(1, Math.min(3, Number(media?.zoom ?? 1)));
     const rotation = Math.max(-180, Math.min(180, Number(media?.rotation ?? 0)));
-    return `object-fit:${fit};object-position:${x}% ${y}%;transform:scale(${zoom}) rotate(${rotation}deg) scaleX(${media?.flip_x ? -1 : 1}) scaleY(${media?.flip_y ? -1 : 1})`;
+    const radius = Math.max(0, Math.min(32, Number(media?.radius ?? 16)));
+    return `object-fit:${fit};object-position:${x}% ${y}%;transform:scale(${zoom}) rotate(${rotation}deg) scaleX(${media?.flip_x ? -1 : 1}) scaleY(${media?.flip_y ? -1 : 1});border-radius:${radius}px`;
   };
   const CROP_ASPECTS = { "1/1": "1/1", "4/3": "4/3", "3/4": "3/4" };
   const mediaCropAspect = media => CROP_ASPECTS[media?.crop] || "";

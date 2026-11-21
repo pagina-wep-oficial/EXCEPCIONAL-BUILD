@@ -17,6 +17,7 @@
   let resolvedUrls = new Map();
   let previewCatalog = store.catalogType === "external_catalog" ? "external_catalog" : "commerce";
   let previewContext = "store";
+  let adjustTool = "move";
   let hudPanelOpen = !window.matchMedia("(max-width: 760px)").matches;
   let hudHidden = false;
   let confirmDelete = false;
@@ -56,6 +57,11 @@
     eye: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.8 12s3.4-5.8 9.2-5.8 9.2 5.8 9.2 5.8-3.4 5.8-9.2 5.8S2.8 12 2.8 12Z"></path><circle cx="12" cy="12" r="2.7"></circle></svg>',
     eyeOff: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4 20 20"></path><path d="M9.9 6.5A10.8 10.8 0 0 1 12 6.2c5.8 0 9.2 5.8 9.2 5.8a16.4 16.4 0 0 1-2.4 3.1"></path><path d="M6.5 8.1A16 16 0 0 0 2.8 12s3.4 5.8 9.2 5.8a10.6 10.6 0 0 0 3.4-.6"></path><path d="M10.3 10.3a2.7 2.7 0 0 0 3.4 3.4"></path></svg>',
     adjust: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h7"></path><circle cx="15" cy="7" r="2.5"></circle><path d="M18 7h2"></path><path d="M4 17h2"></path><circle cx="9" cy="17" r="2.5"></circle><path d="M12 17h8"></path></svg>',
+    move: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.4"></circle><circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"></circle><path d="M12 3.6v2.2M12 18.2v2.2M3.6 12h2.2M18.2 12h2.2"></path></svg>',
+    zoom: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.4"></circle><path d="m15.4 15.4 4.6 4.6M8.2 10.5h4.6M10.5 8.2v4.6"></path></svg>',
+    horizontal: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16M7.2 8.2 3.4 12l3.8 3.8M16.8 8.2 20.6 12l-3.8 3.8"></path></svg>',
+    vertical: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16M8.2 7.2 12 3.4l3.8 3.8M8.2 16.8 12 20.6l3.8-3.8"></path></svg>',
+    radius: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4v5.5A10.5 10.5 0 0 1 9.5 20H4"></path><path d="M4 20V9.5A5.5 5.5 0 0 1 9.5 4H20"></path></svg>',
     close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"></path></svg>',
     rotateLeft: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7H4V3"></path><path d="M4.5 7A8 8 0 1 1 3 13"></path></svg>',
     rotateRight: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 7h4V3"></path><path d="M19.5 7A8 8 0 1 0 21 13"></path></svg>',
@@ -161,8 +167,9 @@
     const y = clamp(item?.focal_y ?? 50, 0, 100);
     const zoom = clamp(item?.zoom ?? 1, 1, 3);
     const rotation = clamp(item?.rotation ?? 0, -180, 180);
+    const radius = clamp(item?.radius ?? 16, 0, 32);
     const scale = large ? zoom : Math.min(zoom, 2.4);
-    return `object-fit:${fit};object-position:${x}% ${y}%;transform:scale(${scale}) rotate(${rotation}deg) scaleX(${item?.flip_x ? -1 : 1}) scaleY(${item?.flip_y ? -1 : 1})`;
+    return `object-fit:${fit};object-position:${x}% ${y}%;transform:scale(${scale}) rotate(${rotation}deg) scaleX(${item?.flip_x ? -1 : 1}) scaleY(${item?.flip_y ? -1 : 1});border-radius:${radius}px`;
   }
 
   function previewMediaMarkup(item, className = "", live = false) {
@@ -399,8 +406,72 @@
   function fitToggleMarkup(item) {
     return `
       <div class="studio-fit-toggle" role="group" aria-label="Ajuste de imagen">
-        <button type="button" class="${item.fit_mode === "cover" ? "is-active" : ""}" data-set-fit="cover">${icon("cover")}<span>Llenar espacio</span></button>
-        <button type="button" class="${item.fit_mode !== "cover" ? "is-active" : ""}" data-set-fit="contain">${icon("contain")}<span>Mostrar completa</span></button>
+        <button type="button" class="${item.fit_mode === "cover" ? "is-active" : ""}" data-set-fit="cover" aria-label="Llenar espacio">${icon("cover")}<span class="studio-fit-full">Llenar espacio</span><span class="studio-fit-short">Llenar</span></button>
+        <button type="button" class="${item.fit_mode !== "cover" ? "is-active" : ""}" data-set-fit="contain" aria-label="Mostrar completa">${icon("contain")}<span class="studio-fit-full">Mostrar completa</span><span class="studio-fit-short">Completa</span></button>
+      </div>
+    `;
+  }
+
+  function adjustToolsMarkup(active = "move") {
+    const tools = [
+      ["move", "move", "Mover"],
+      ["zoom", "zoom", "Zoom"],
+      ["x", "horizontal", "Horizontal"],
+      ["y", "vertical", "Vertical"],
+      ["radius", "radius", "Bordes"]
+    ];
+    return `
+      <div class="studio-adjust-tools" role="tablist" aria-label="Herramientas de ajuste">
+        ${tools.map(([value, iconName, label]) => `
+          <button type="button" class="studio-adjust-tool${active === value ? " is-active" : ""}" data-adjust-tool="${value}" role="tab" aria-selected="${active === value ? "true" : "false"}">
+            ${icon(iconName)}<span>${label}</span>
+          </button>
+        `).join("")}
+      </div>
+    `;
+  }
+
+  function joystickMarkup(item) {
+    const x = Math.round(clamp(item.focal_x ?? 50, 0, 100));
+    const y = Math.round(clamp(item.focal_y ?? 50, 0, 100));
+    return `
+      <div class="studio-joystick-block">
+        <div class="studio-joystick" data-joystick role="application" tabindex="0" aria-label="Joystick para mover la imagen. Arrastra la perilla o usa las flechas del teclado.">
+          <span class="studio-joystick-axis" aria-hidden="true"></span>
+          <span class="studio-joystick-knob" data-joystick-knob aria-hidden="true"></span>
+        </div>
+        <div class="studio-joystick-side">
+          <strong>Encuadre</strong>
+          <small>Arrastra la perilla para mover la imagen.</small>
+          <button type="button" class="studio-joystick-center" data-center-media>${icon("move")}Centrar</button>
+          <span class="studio-joystick-position" data-joystick-position>${x}% · ${y}%</span>
+        </div>
+      </div>
+    `;
+  }
+
+  function radiusPresetsMarkup(item) {
+    const radius = Math.round(clamp(item.radius ?? 16, 0, 32));
+    const presets = [[0, "Cuadrada"], [16, "Suave"], [28, "Redonda"]];
+    return `
+      <div class="studio-radius-presets" role="group" aria-label="Bordes de la imagen">
+        ${presets.map(([value, label]) => `<button type="button" class="${radius === value ? "is-active" : ""}" data-set-radius="${value}">${label}</button>`).join("")}
+      </div>
+    `;
+  }
+
+  function adjustTabMarkup(item) {
+    const tool = ["move", "zoom", "x", "y", "radius"].includes(adjustTool) ? adjustTool : "move";
+    const control = (name, markup) => `<div class="studio-adjust-control${tool === name ? " is-active" : ""}" data-adjust-control="${name}">${markup}</div>`;
+    return `
+      ${fitToggleMarkup(item)}
+      ${adjustToolsMarkup(tool)}
+      <div class="studio-adjust-controls" data-adjust-active="${tool}">
+        ${control("move", joystickMarkup(item))}
+        ${control("zoom", sliderRow("Zoom", "zoom", clamp(item.zoom ?? 1, 1, 3), 1, 3, 0.01, "x"))}
+        ${control("x", sliderRow("Posición horizontal", "focal_x", clamp(item.focal_x ?? 50, 0, 100), 0, 100, 1, "%"))}
+        ${control("y", sliderRow("Posición vertical", "focal_y", clamp(item.focal_y ?? 50, 0, 100), 0, 100, 1, "%"))}
+        ${control("radius", `${sliderRow("Bordes de la imagen", "radius", clamp(item.radius ?? 16, 0, 32), 0, 32, 1, "px")}${radiusPresetsMarkup(item)}`)}
       </div>
     `;
   }
@@ -434,15 +505,6 @@
         <button type="button" class="${item.flip_y ? "is-active" : ""}" data-flip="y">${icon("flipV")}<span>Voltear vertical</span></button>
       </div>
       ${sliderRow("Rotación fina", "rotation", clamp(item.rotation ?? 0, -180, 180), -180, 180, 1, "°")}
-    `;
-  }
-
-  function adjustTabMarkup(item) {
-    return `
-      ${fitToggleMarkup(item)}
-      ${sliderRow("Zoom", "zoom", clamp(item.zoom ?? 1, 1, 3), 1, 3, 0.01, "x")}
-      ${sliderRow("Posición horizontal", "focal_x", clamp(item.focal_x ?? 50, 0, 100), 0, 100, 1, "%")}
-      ${sliderRow("Posición vertical", "focal_y", clamp(item.focal_y ?? 50, 0, 100), 0, 100, 1, "%")}
     `;
   }
 
@@ -656,6 +718,184 @@
     }));
   }
 
+  function updateRangeLabel(input, field) {
+    const label = input.closest(".studio-range-row")?.querySelector("strong");
+    if (!label) return;
+    const step = Number(input.step) || 1;
+    const suffix = field === "zoom" ? "x" : field === "rotation" ? "°" : field === "radius" ? "px" : "%";
+    label.textContent = `${Number(input.value).toFixed(step < 1 ? 2 : 0)}${suffix}`.replace(/\.00(?=[^\d]|$)/, "");
+  }
+
+  function syncFitButtons(mount, item) {
+    mount.querySelectorAll("[data-set-fit]").forEach(button => {
+      const isCover = button.dataset.setFit === "cover";
+      button.classList.toggle("is-active", isCover ? item.fit_mode === "cover" : item.fit_mode !== "cover");
+    });
+  }
+
+  function syncRadiusPresets(mount, value) {
+    mount.querySelectorAll("[data-set-radius]").forEach(button => {
+      button.classList.toggle("is-active", Math.round(Number(value)) === Number(button.dataset.setRadius));
+    });
+  }
+
+  function syncJoystickPosition(mount, item) {
+    const node = mount.querySelector("[data-joystick-position]");
+    if (!node) return;
+    const x = Math.round(clamp(item.focal_x ?? 50, 0, 100));
+    const y = Math.round(clamp(item.focal_y ?? 50, 0, 100));
+    node.textContent = `${x}% · ${y}%`;
+  }
+
+  function bindJoystick(mount) {
+    const pad = mount.querySelector("[data-joystick]");
+    const knob = pad?.querySelector("[data-joystick-knob]");
+    if (!pad || !knob) return;
+
+    let frame = 0;
+    let last = 0;
+    let pointerId = null;
+    let vectorX = 0;
+    let vectorY = 0;
+
+    const currentItem = () => {
+      const item = selectedItem();
+      return item && item.type !== "video" ? item : null;
+    };
+
+    const moveKnob = (x, y) => {
+      knob.style.transform = `translate(-50%,-50%) translate(${x}px,${y}px)`;
+    };
+
+    const readVector = event => {
+      const rect = pad.getBoundingClientRect();
+      const limit = Math.max(24, Math.min(rect.width, rect.height) / 2 - 23);
+      let x = event.clientX - (rect.left + rect.width / 2);
+      let y = event.clientY - (rect.top + rect.height / 2);
+      const distance = Math.hypot(x, y);
+      if (distance > limit) {
+        x = (x / distance) * limit;
+        y = (y / distance) * limit;
+      }
+      moveKnob(x, y);
+      vectorX = x / limit;
+      vectorY = y / limit;
+    };
+
+    const applyMovement = (item, delta) => {
+      const deadzone = 0.14;
+      const axis = value => Math.abs(value) <= deadzone ? 0 : (value - Math.sign(value) * deadzone) / (1 - deadzone);
+      const nx = axis(vectorX);
+      const ny = axis(vectorY);
+      if (!nx && !ny) return;
+      if (item.fit_mode !== "cover") {
+        item.fit_mode = "cover";
+        syncFitButtons(mount, item);
+      }
+      const zoom = clamp(item.zoom ?? 1, 1, 3);
+      const speed = 46 / zoom;
+      item.focal_x = clamp((item.focal_x ?? 50) - nx * speed * delta, 0, 100);
+      item.focal_y = clamp((item.focal_y ?? 50) - ny * speed * delta, 0, 100);
+      syncJoystickPosition(mount, item);
+      ["focal_x", "focal_y"].forEach(field => {
+        const input = mount.querySelector(`[data-media-field="${field}"]`);
+        if (!input) return;
+        input.value = String(Math.round(item[field]));
+        updateRangeLabel(input, field);
+      });
+      refreshStudioMedia();
+    };
+
+    const tick = time => {
+      if (pointerId === null) return;
+      const item = currentItem();
+      if (!item) {
+        stop();
+        return;
+      }
+      const now = time || performance.now();
+      const delta = Math.min(0.05, Math.max(0, (now - last) / 1000));
+      last = now;
+      applyMovement(item, delta);
+      frame = requestAnimationFrame(tick);
+    };
+
+    const stop = () => {
+      if (pointerId === null) return;
+      if (frame) cancelAnimationFrame(frame);
+      frame = 0;
+      const released = pointerId;
+      pointerId = null;
+      vectorX = 0;
+      vectorY = 0;
+      pad.classList.remove("is-dragging");
+      moveKnob(0, 0);
+      try {
+        if (pad.hasPointerCapture?.(released)) pad.releasePointerCapture(released);
+      } catch {}
+    };
+
+    pad.addEventListener("pointerdown", event => {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      if (!currentItem()) return;
+      event.preventDefault();
+      pad.focus({ preventScroll: true });
+      pointerId = event.pointerId;
+      pad.classList.add("is-dragging");
+      try { pad.setPointerCapture?.(pointerId); } catch {}
+      readVector(event);
+      last = performance.now();
+      frame = requestAnimationFrame(tick);
+    });
+
+    pad.addEventListener("pointermove", event => {
+      if (pointerId === null || event.pointerId !== pointerId) return;
+      event.preventDefault();
+      readVector(event);
+    });
+
+    pad.addEventListener("pointerup", event => {
+      if (event.pointerId === pointerId) stop();
+    });
+
+    pad.addEventListener("pointercancel", event => {
+      if (event.pointerId === pointerId) stop();
+    });
+
+    pad.addEventListener("lostpointercapture", event => {
+      if (event.pointerId === pointerId) stop();
+    });
+
+    pad.addEventListener("keydown", event => {
+      const directions = {
+        ArrowLeft: [1, 0],
+        ArrowRight: [-1, 0],
+        ArrowUp: [0, 1],
+        ArrowDown: [0, -1]
+      };
+      const direction = directions[event.key];
+      if (!direction) return;
+      const item = currentItem();
+      if (!item) return;
+      event.preventDefault();
+      if (item.fit_mode !== "cover") {
+        item.fit_mode = "cover";
+        syncFitButtons(mount, item);
+      }
+      const step = event.shiftKey ? 6 : 2;
+      item.focal_x = clamp((item.focal_x ?? 50) + direction[0] * step, 0, 100);
+      item.focal_y = clamp((item.focal_y ?? 50) + direction[1] * step, 0, 100);
+      syncJoystickPosition(mount, item);
+      ["focal_x", "focal_y"].forEach(field => {
+        const input = mount.querySelector(`[data-media-field="${field}"]`);
+        if (!input) return;
+        input.value = String(Math.round(item[field]));
+        updateRangeLabel(input, field);
+      });
+      refreshStudioMedia();
+    });
+  }
+
   function bindHudInteractions(mount) {
     if (!mount) return;
 
@@ -670,6 +910,11 @@
       renderHud();
     }));
 
+    mount.querySelectorAll("[data-adjust-tool]").forEach(button => button.addEventListener("click", () => {
+      adjustTool = button.dataset.adjustTool || "move";
+      renderHud();
+    }));
+
     mount.querySelector("[data-close-hud]")?.addEventListener("click", () => {
       hudPanelOpen = false;
       renderHud();
@@ -680,13 +925,41 @@
       const item = selectedItem();
       if (!field || !item) return;
       item[field] = Number(input.value);
-      const label = input.closest(".studio-range-row")?.querySelector("strong");
-      if (label) {
-        const step = Number(input.step) || 1;
-        label.textContent = `${Number(input.value).toFixed(step < 1 ? 2 : 0)}${field === "zoom" ? "x" : field === "rotation" ? "°" : "%"}`;
-      }
+      updateRangeLabel(input, field);
+      if (field === "radius") syncRadiusPresets(mount, item.radius);
+      if (field === "focal_x" || field === "focal_y") syncJoystickPosition(mount, item);
       refreshStudioMedia();
     }));
+
+    mount.querySelectorAll("[data-set-radius]").forEach(button => button.addEventListener("click", () => {
+      const item = selectedItem();
+      if (!item || item.type === "video") return;
+      item.radius = clamp(Number(button.dataset.setRadius), 0, 32);
+      const input = mount.querySelector('[data-media-field="radius"]');
+      if (input) {
+        input.value = String(item.radius);
+        updateRangeLabel(input, "radius");
+      }
+      syncRadiusPresets(mount, item.radius);
+      refreshStudioMedia();
+    }));
+
+    mount.querySelector("[data-center-media]")?.addEventListener("click", () => {
+      const item = selectedItem();
+      if (!item || item.type === "video") return;
+      item.focal_x = 50;
+      item.focal_y = 50;
+      syncJoystickPosition(mount, item);
+      ["focal_x", "focal_y"].forEach(field => {
+        const input = mount.querySelector(`[data-media-field="${field}"]`);
+        if (!input) return;
+        input.value = "50";
+        updateRangeLabel(input, field);
+      });
+      refreshStudioMedia();
+    });
+
+    bindJoystick(mount);
 
     mount.querySelectorAll("[data-set-fit]").forEach(button => button.addEventListener("click", () => {
       const item = selectedItem();
@@ -720,7 +993,7 @@
     mount.querySelector("[data-reset-image]")?.addEventListener("click", () => {
       const item = selectedItem();
       if (!item || item.type === "video") return;
-      Object.assign(item, { fit_mode: "inherit", focal_x: 50, focal_y: 50, zoom: 1, rotation: 0, flip_x: false, flip_y: false, crop: undefined });
+      Object.assign(item, { fit_mode: "inherit", focal_x: 50, focal_y: 50, zoom: 1, rotation: 0, flip_x: false, flip_y: false, crop: undefined, radius: 16 });
       commit();
     });
 
@@ -785,6 +1058,7 @@
     if (!studio) return;
     previewCatalog = store.catalogType === "external_catalog" ? "external_catalog" : "commerce";
     activeTab = "adjust";
+    adjustTool = "move";
     hudHidden = false;
     confirmDelete = false;
     hudPanelOpen = !window.matchMedia("(max-width: 760px)").matches;

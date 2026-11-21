@@ -907,6 +907,7 @@ textarea:focus {
   display: grid;
   aspect-ratio: 1;
   overflow: hidden;
+  padding: 8px;
   background: white;
   border: 1px solid var(--line);
   border-radius: 18px;

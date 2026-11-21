@@ -14,7 +14,7 @@
     ["pastor", "Tacos al pastor", "Comidas", 115, "Carne adobada, piña y tortillas recién hechas.", "home-tacos-pastor-900.jpg"]
   ];
   function product(item, prefix = "") {
-    return { id: prefix + item[0], name: item[1], category: item[2], price: item[3], description: item[4], image: `assets/${item[5]}`, media: [{ source_url: `assets/${item[5]}`, type: "image", is_primary: true, fit_mode: "cover", focal_x: 50, focal_y: 50, zoom: 1, rotation: 0 }], featured: true, enabled: true, unitLabel: "c/u", compareAtPrice: null, currency_id: "demo-mxn", external_price_visible: true, external_url: prefix ? "https://example.com/" : "" };
+    return { id: prefix + item[0], name: item[1], category: item[2], price: item[3], description: item[4], image: `assets/${item[5]}`, media: [{ source_url: `assets/${item[5]}`, type: "image", is_primary: true, fit_mode: "cover", focal_x: 50, focal_y: 50, zoom: 1, rotation: 0, radius: 16 }], featured: true, enabled: true, unitLabel: "c/u", compareAtPrice: null, currency_id: "demo-mxn", external_price_visible: true, external_url: prefix ? "https://example.com/" : "" };
   }
   function seed() {
     return { version: 3, active_catalog_type: "commerce", currencies: clone(currencies),
@@ -137,7 +137,9 @@
       const url = String(item.source_url || "");
       if (!url.startsWith("demo-media:") && !/^assets\/[\w./-]+$/.test(url) && !safeUrl(url)) fail("El medio debe tener un archivo local o una URL HTTP/HTTPS válida.");
       if (item.type && !["image", "video"].includes(item.type)) fail("Tipo de medio inválido.");
-      return { ...item, type: item.type || "image", source_url: url };
+      const radiusValue = Number(item.radius);
+      const radius = Number.isFinite(radiusValue) ? Math.max(0, Math.min(32, radiusValue)) : 16;
+      return { ...item, type: item.type || "image", source_url: url, radius };
     });
     const primary = Math.max(0, result.findIndex(item => item.is_primary));
     return result.map((item, index) => ({ ...item, is_primary: index === primary }));

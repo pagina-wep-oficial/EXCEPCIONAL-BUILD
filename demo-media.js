@@ -38,7 +38,7 @@
       return store.keyPath ? store.put(record) : store.put(record, key);
     });
     owned.add(key);
-    return { source_url: `demo-media:${key}`, type, is_primary: false, fit_mode: "cover", focal_x: 50, focal_y: 50, zoom: 1, rotation: 0 };
+    return { source_url: `demo-media:${key}`, type, is_primary: false, fit_mode: "cover", focal_x: 50, focal_y: 50, zoom: 1, rotation: 0, radius: 16 };
   }
   async function resolve(source) {
     if (!String(source).startsWith("demo-media:")) return String(source).startsWith("assets/") ? `demo-casa-nopal/${source}` : source;
