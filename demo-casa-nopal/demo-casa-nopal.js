@@ -57,6 +57,16 @@
     const radius = Math.max(0, Math.min(32, Number(media?.radius ?? 16)));
     return `object-fit:${fit};object-position:${x}% ${y}%;transform:scale(${zoom}) rotate(${rotation}deg) scaleX(${media?.flip_x ? -1 : 1}) scaleY(${media?.flip_y ? -1 : 1});border-radius:${radius}px`;
   };
+  const viewerImageStyle = (media) => {
+    const x = Math.max(0, Math.min(100, Number(media?.focal_x ?? 50)));
+    const y = Math.max(0, Math.min(100, Number(media?.focal_y ?? 50)));
+    const rotation = Math.max(-180, Math.min(180, Number(media?.rotation ?? 0)));
+    const sideways = Math.abs(((rotation % 180) + 180) % 180) === 90;
+    const bounds = sideways
+      ? "max-width:min(72vh,1000px);max-height:min(72vw,1000px)"
+      : "max-width:min(92vw,1200px);max-height:72vh";
+    return `${bounds};object-fit:contain;object-position:${x}% ${y}%;transform:rotate(${rotation}deg) scaleX(${media?.flip_x ? -1 : 1}) scaleY(${media?.flip_y ? -1 : 1});border-radius:0`;
+  };
   const CROP_ASPECTS = { "1/1": "1/1", "4/3": "4/3", "3/4": "3/4" };
   const mediaCropAspect = media => CROP_ASPECTS[media?.crop] || "";
   const frameAspectAttr = product => {
@@ -86,6 +96,7 @@
   const mediaFallback = `${imageBase}home-chilaquiles-900.jpg`;
   const mediaObjectUrls = new Map();
   let mediaDatabasePromise;
+  let viewerKeydown = null;
   const isLocalMedia = (value) => String(value || "").startsWith("demo-media:");
   const openMediaDatabase = () => {
     if (mediaDatabasePromise) return mediaDatabasePromise;
@@ -335,13 +346,108 @@
     const phone = external ? String(settings.contactPhone || "").replace(/\D/g, "") : "";
     const contact = external && settings.showContactPhone && /^[0-9]{8,15}$/.test(phone) ? `<p>Contacto: <a href="tel:+${phone}">+${phone}</a></p>` : "";
     const action = external ? `${settings.disclosureText ? `<p class="external-offer-disclosure">${safe(settings.disclosureText)}</p>` : ""}${contact}${offerUrl ? `<a class="button primary external-offer-cta" href="${safe(offerUrl)}" target="_blank" rel="noopener noreferrer">${safe(settings.ctaLabel || "Ver oferta")} ↗</a>` : '<p>Enlace no disponible.</p>'}` : `<div class="detail-quantity"><span>Cantidad</span><div class="quantity quantity-input"><button type="button" data-detail-minus aria-label="Quitar uno">−</button><input id="detailQuantity" type="number" min="1" value="1" inputmode="numeric"><button type="button" data-detail-plus aria-label="Agregar uno">+</button></div></div><div class="detail-actions"><button class="button primary" data-add="${safe(product.id)}" id="detailAdd" type="button">Agregar al carrito</button><a class="button secondary" href="${localPath("carrito.html")}">Ir al carrito</a></div>`;
-    view.innerHTML = `<div class="detail-gallery"><div class="detail-media"${plainFrameAspectAttr(product)}>${productImageMarkup(product, "detail-main-image")}</div>${gallery.length > 1 ? `<div class="detail-thumbnails">${gallery.map((media, index) => `<button type="button" class="detail-thumbnail${media.is_primary ? " active" : ""}" data-detail-media="${index}" aria-label="Ver medio ${index + 1}">${media.type === "video" ? "▶ Video" : imageMarkup(media.source_url, product.name)}</button>`).join("")}</div>` : ""}</div><div class="detail-copy"><span class="section-kicker">${safe(product.category)}</span><h1>${safe(product.name)}</h1><p>${safe(product.description)}</p>${priceMarkup(product)}${action}</div>`;
+    view.innerHTML = `<div class="detail-gallery"><div class="detail-media"${plainFrameAspectAttr(product)} data-viewer-open tabindex="0" role="button" aria-label="Ver imágenes en pantalla completa">${productImageMarkup(product, "detail-main-image")}<span class="detail-expand-hint" aria-hidden="true">⤢ Ampliar</span></div>${gallery.length > 1 ? `<div class="detail-thumbnails">${gallery.map((media, index) => `<button type="button" class="detail-thumbnail${media.is_primary ? " active" : ""}" data-detail-media="${index}" aria-label="Ver medio ${index + 1}">${media.type === "video" ? "▶ Video" : imageMarkup(media.source_url, product.name)}</button>`).join("")}</div>` : ""}</div><div class="detail-copy"><span class="section-kicker">${safe(product.category)}</span><h1>${safe(product.name)}</h1><p>${safe(product.description)}</p>${priceMarkup(product)}${action}</div>`;
     hydrateMediaImages(view);
-    view.querySelectorAll("[data-detail-media]").forEach(button => button.addEventListener("click", () => {
-      const media = gallery[Number(button.dataset.detailMedia)];
+
+    let detailIndex = Math.max(0, gallery.findIndex(media => media.is_primary));
+    let viewerIndex = detailIndex;
+    let lastFocus = null;
+    let swipeStart = null;
+    document.querySelector("[data-media-viewer]")?.remove();
+    document.body.classList.remove("media-viewer-open");
+    const viewer = document.createElement("div");
+    viewer.className = "media-viewer";
+    viewer.dataset.mediaViewer = "";
+    viewer.hidden = true;
+    viewer.setAttribute("role", "dialog");
+    viewer.setAttribute("aria-modal", "true");
+    viewer.setAttribute("aria-label", `Galería de ${product.name}`);
+    viewer.innerHTML = `<div class="media-viewer-top"><span class="media-viewer-count" data-viewer-count></span><button type="button" class="media-viewer-close" data-viewer-close aria-label="Cerrar pantalla completa">✕</button></div><button type="button" class="media-viewer-nav is-prev" data-viewer-prev aria-label="Imagen anterior">‹</button><div class="media-viewer-stage" data-viewer-stage></div><button type="button" class="media-viewer-nav is-next" data-viewer-next aria-label="Imagen siguiente">›</button><div class="media-viewer-bottom"><div class="media-viewer-thumbs" data-viewer-thumbs></div></div>`;
+    document.body.appendChild(viewer);
+    const viewerStage = viewer.querySelector("[data-viewer-stage]");
+    const viewerThumbs = viewer.querySelector("[data-viewer-thumbs]");
+    viewerThumbs.innerHTML = gallery.map((media, index) => `<button type="button" class="media-viewer-thumb" data-viewer-thumb="${index}" aria-label="Ver medio ${index + 1} de ${gallery.length}">${media.type === "video" ? '<span aria-hidden="true">▶</span>' : imageMarkup(media.source_url, product.name)}</button>`).join("");
+    hydrateMediaImages(viewer);
+    viewer.querySelector("[data-viewer-prev]").hidden = gallery.length < 2;
+    viewer.querySelector("[data-viewer-next]").hidden = gallery.length < 2;
+    viewer.querySelector(".media-viewer-bottom").hidden = gallery.length < 2;
+
+    const renderViewer = () => {
+      const media = gallery[viewerIndex];
       if (!media) return;
-      const frame = view.querySelector(".detail-media");
-      frame.innerHTML = productImageMarkup({ ...product, media: [{ ...media, is_primary: true }] }, "detail-main-image");
+      const local = isLocalMedia(media.source_url);
+      if (media.type === "video") {
+        viewerStage.innerHTML = `<video ${local ? `data-demo-media="${safe(media.source_url)}"` : `src="${safe(media.source_url)}"`} controls playsinline autoplay muted preload="metadata" aria-label="${safe(product.name)}"></video>`;
+      } else {
+        viewerStage.innerHTML = `<img src="${safe(local ? mediaFallback : media.source_url || mediaFallback)}"${local ? ` data-demo-media="${safe(media.source_url)}"` : ""} alt="${safe(product.name)}" style="${viewerImageStyle(media)}">`;
+      }
+      hydrateMediaImages(viewerStage);
+      viewer.querySelector("[data-viewer-count]").textContent = gallery.length > 1 ? `${viewerIndex + 1} / ${gallery.length}` : "";
+      viewer.querySelectorAll("[data-viewer-thumb]").forEach((thumb, index) => thumb.classList.toggle("active", index === viewerIndex));
+      const active = viewer.querySelector("[data-viewer-thumb].active");
+      if (active && viewerThumbs.scrollWidth > viewerThumbs.clientWidth) active.scrollIntoView({ block: "nearest", inline: "center" });
+    };
+    const stepViewer = (step) => {
+      if (gallery.length < 2) return;
+      viewerIndex = (viewerIndex + step + gallery.length) % gallery.length;
+      renderViewer();
+    };
+    const openViewer = (index) => {
+      viewerIndex = Math.max(0, Math.min(gallery.length - 1, Number(index) || 0));
+      lastFocus = document.activeElement;
+      viewer.hidden = false;
+      document.body.classList.add("media-viewer-open");
+      renderViewer();
+      viewer.querySelector("[data-viewer-close]")?.focus({ preventScroll: true });
+    };
+    const closeViewer = () => {
+      if (viewer.hidden) return;
+      viewer.hidden = true;
+      document.body.classList.remove("media-viewer-open");
+      viewerStage.innerHTML = "";
+      lastFocus?.focus?.({ preventScroll: true });
+    };
+
+    viewer.querySelector("[data-viewer-close]").addEventListener("click", closeViewer);
+    viewer.querySelector("[data-viewer-prev]").addEventListener("click", () => stepViewer(-1));
+    viewer.querySelector("[data-viewer-next]").addEventListener("click", () => stepViewer(1));
+    viewerThumbs.querySelectorAll("[data-viewer-thumb]").forEach(button => button.addEventListener("click", () => {
+      viewerIndex = Number(button.dataset.viewerThumb) || 0;
+      renderViewer();
+    }));
+    viewer.addEventListener("click", event => {
+      if (event.target === viewer || event.target.classList.contains("media-viewer-stage")) closeViewer();
+    });
+    viewerStage.addEventListener("touchstart", event => { swipeStart = event.changedTouches[0]?.clientX ?? null; }, { passive: true });
+    viewerStage.addEventListener("touchend", event => {
+      if (swipeStart === null) return;
+      const delta = (event.changedTouches[0]?.clientX ?? swipeStart) - swipeStart;
+      swipeStart = null;
+      if (Math.abs(delta) > 45) stepViewer(delta > 0 ? -1 : 1);
+    }, { passive: true });
+    if (viewerKeydown) document.removeEventListener("keydown", viewerKeydown);
+    viewerKeydown = event => {
+      if (viewer.hidden) return;
+      if (event.key === "Escape") { event.preventDefault(); closeViewer(); }
+      else if (event.key === "ArrowLeft") { event.preventDefault(); stepViewer(-1); }
+      else if (event.key === "ArrowRight") { event.preventDefault(); stepViewer(1); }
+    };
+    document.addEventListener("keydown", viewerKeydown);
+
+    const frame = view.querySelector(".detail-media");
+    frame.addEventListener("click", event => {
+      if (event.target.closest("video")) return;
+      openViewer(detailIndex);
+    });
+    frame.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openViewer(detailIndex); }
+    });
+    view.querySelectorAll("[data-detail-media]").forEach(button => button.addEventListener("click", () => {
+      const index = Number(button.dataset.detailMedia);
+      const media = gallery[index];
+      if (!media) return;
+      detailIndex = index;
+      frame.innerHTML = `${productImageMarkup({ ...product, media: [{ ...media, is_primary: true }] }, "detail-main-image")}<span class="detail-expand-hint" aria-hidden="true">⤢ Ampliar</span>`;
       const aspect = mediaCropAspect(media);
       if (aspect) frame.style.aspectRatio = aspect; else frame.style.aspectRatio = "";
       hydrateMediaImages(view);
