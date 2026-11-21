@@ -231,7 +231,22 @@
   productForm.elements.external_price_visible.onchange = syncPrice;
   const closeProduct = async () => { if (await leave()) { close(productDialog); window.DemoMedia.prune().catch(() => {}); } };
   query("#close-product").onclick = closeProduct; query("#cancel-product").onclick = closeProduct;
-  productDialog.oncancel = event => { event.preventDefault(); closeProduct(); };
+  productDialog.addEventListener("keydown", event => {
+    if (event.key !== "Escape") return;
+    if (document.body.classList.contains("demo-guide-open")) return;
+    const studio = document.querySelector("#media-studio");
+    if (studio && !studio.hidden) return;
+    event.preventDefault();
+    event.stopPropagation();
+    closeProduct();
+  });
+  productDialog.oncancel = event => {
+    event.preventDefault();
+    // El evento cancel del input de archivos burbujea hasta el diálogo.
+    // Solo cerramos cuando el Escape se origina en el propio diálogo.
+    if (event.target !== productDialog) return;
+    closeProduct();
+  };
   query("#catalog-type").onchange = async event => { const type = event.target.value; if (!(await leave())) { event.target.value = store.catalogType; return; } try { store.selectCatalog(type); renderSettings(); renderProducts(); status("Tipo cambiado. Los datos del otro recorrido siguen guardados."); } catch (error) { status(error.message); } };
   document.querySelectorAll("[data-manager]").forEach(button => button.onclick = () => { manager = button.dataset.manager; query("#manager-form").reset(); query("#manager-status").textContent = ""; renderManager(); show(managerDialog); });
   query("#close-manager").onclick = () => { close(managerDialog); refreshOptions(); };

@@ -38,9 +38,16 @@
     "admin-product-form": [
       { target: "#product-title", title: "Datos del producto", text: "Completa los campos para crear o actualizar este producto." },
       { target: "#product-price-fields", title: "Precio y moneda", text: "Define precio actual, precio anterior opcional y la moneda de este producto." },
-      { target: "#product-files", title: "Imágenes y video", text: "Puedes subir archivos desde el teléfono o agregar una URL. Después eliges el medio principal." },
+      { target: "#open-media-studio", title: "Imágenes y video", text: "Abre el editor de medios para agregar fotos, elegir la principal y revisar cómo se verá el producto." },
       { target: "#product-form [name=\"enabled\"]", title: "Visibilidad", text: "Desactiva esta opción si quieres guardar el producto sin mostrarlo al público." },
       { target: "#product-form .button.primary", title: "Guarda tu producto", text: "Al guardar, el cambio queda solo en este navegador de demostración." }
+    ],
+    "admin-media-studio": [
+      { target: "#media-studio-title", title: "Fotos y video del producto", text: "Aquí organizas los medios. La primera foto es la principal y se usa en Destacados y Tienda." },
+      { target: ".studio-add-strip", title: "Agrega o reemplaza", text: "Sube una foto principal, más fotos o un video. Los límites se muestran en cada tarjeta." },
+      { target: ".studio-context-tabs", title: "Revisa cómo se verá", text: "Cambia entre Destacados, Tienda y Detalle. Solo la foto principal habilita las tres vistas." },
+      { target: ".studio-library-shell", title: "Biblioteca del producto", text: "Selecciona un medio para ajustar encuadre, foco y zoom, o para marcarlo como principal." },
+      { target: ".media-studio-footer", title: "Aplica los cambios", text: "Al aplicar, los medios quedan en el producto. Guarda el producto para conservarlos." }
     ],
     "admin-comments": [
       { target: "#block-visitor", title: "Controla nuevas opiniones", text: "Activa esta opción si quieres impedir nuevas opiniones de la cuenta demo." },
@@ -63,6 +70,7 @@
   let layoutTimer = 0;
   let openingGuideSection = false;
   let activeTour = page;
+  let trigger = null;
 
   function readState() {
     try { return JSON.parse(localStorage.getItem(key) || "{}"); }
@@ -115,12 +123,37 @@
     button.setAttribute("aria-label", "Abrir guía de esta página");
     button.title = "Ver guía";
     button.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m2.5 9.5 9.5-5 9.5 5-9.5 5z"/><path d="M6.5 11.6v4.1c2.8 2.2 8.2 2.2 11 0v-4.1"/><path d="M21.5 9.5v5.2"/><circle cx="21.5" cy="16.5" r="1"/></svg>`;
+    trigger = button;
     button.addEventListener("click", () => start(currentTour()));
     document.body.append(button);
   }
 
   const layer = setupLayer();
   setupTrigger();
+
+  function openGuideDialog() {
+    return document.querySelector("#product-dialog[open], #manager-dialog[open]");
+  }
+
+  // Los diálogos modales viven en la capa superior del navegador. Para que
+  // la guía y su botón flotante se vean por encima, los movemos dentro del
+  // diálogo abierto y los devolvemos al body cuando se cierra.
+  function syncGuideHost() {
+    const dialog = openGuideDialog();
+    const host = dialog || document.body;
+    if (trigger && trigger.parentElement !== host) host.appendChild(trigger);
+    if (layer.parentElement !== host) host.appendChild(layer);
+    layer.style.zIndex = dialog ? "2147483647" : "1000";
+    trigger?.classList.toggle("is-in-dialog", Boolean(dialog));
+    trigger?.classList.toggle("is-over-studio", Boolean(dialog) && Boolean(document.querySelector("#media-studio:not([hidden])")));
+  }
+
+  const guideHostObserver = new MutationObserver(syncGuideHost);
+  ["#product-dialog", "#manager-dialog", "#media-studio"].forEach(selector => {
+    const node = document.querySelector(selector);
+    if (node) guideHostObserver.observe(node, { attributes: true, attributeFilter: ["open", "hidden"] });
+  });
+  syncGuideHost();
 
   function clearHighlight() {
     clearTimeout(layoutTimer);
@@ -212,6 +245,8 @@
   }
 
   function currentTour() {
+    if (document.querySelector("#media-studio:not([hidden])")) return "admin-media-studio";
+    if (document.querySelector("#product-dialog[open]")) return "admin-product-form";
     return page === "admin" ? currentAdminView() : page;
   }
 
@@ -241,9 +276,7 @@
   }
 
   function moveLayerToDialog() {
-    const dialog = document.querySelector("#product-dialog[open], #manager-dialog[open]");
-    (dialog || document.body).appendChild(layer);
-    layer.style.zIndex = dialog ? "2147483647" : "1000";
+    syncGuideHost();
   }
 
   function returnLayerToBody() {

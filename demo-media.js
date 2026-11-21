@@ -31,7 +31,12 @@
     if (!type) throw new Error("Usa imágenes JPG, PNG o WebP, o videos MP4/WebM.");
     if (!file.size || file.size > (type === "video" ? 25 : 5) * 1024 * 1024) throw new Error(type === "video" ? "El video debe pesar hasta 25 MB." : "La imagen debe pesar hasta 5 MB.");
     const key = prefix + crypto.randomUUID();
-    await transaction("readwrite", store => store.put({ key, blob: file }));
+    await transaction("readwrite", store => {
+      const record = { key, blob: file };
+      // Algunas instalaciones crearon el almacén con keyPath "key" y otras
+      // con clave externa. Soportamos ambas para no perder la carga.
+      return store.keyPath ? store.put(record) : store.put(record, key);
+    });
     owned.add(key);
     return { source_url: `demo-media:${key}`, type, is_primary: false, fit_mode: "cover", focal_x: 50, focal_y: 50, zoom: 1, rotation: 0 };
   }

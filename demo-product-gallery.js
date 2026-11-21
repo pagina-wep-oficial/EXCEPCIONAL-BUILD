@@ -808,6 +808,10 @@
 
   document.addEventListener("keydown", event => {
     if (event.key !== "Escape" || !isStudioOpen()) return;
+    // El editor de medios vive dentro del diálogo de producto: el Escape
+    // debe cerrar solo el estudio y no el producto que está detrás.
+    event.preventDefault();
+    event.stopPropagation();
     if (confirmDelete) {
       confirmDelete = false;
       renderHud();
@@ -819,6 +823,12 @@
       return;
     }
     closeStudio();
+  });
+
+  // El evento cancel del selector de archivos burbujea hasta el diálogo
+  // de producto y lo cerraba. Lo detenemos aquí para conservar el editor.
+  uploadInput?.addEventListener("cancel", event => {
+    event.stopPropagation();
   });
 
   uploadInput?.addEventListener("change", async event => {
