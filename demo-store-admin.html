@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="es-MX">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Administrar tienda · Casa Nopal Demo</title><link rel="icon" href="favicon.svg"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700;9..144,900&family=Nunito+Sans:wght@400;600;700;800;900&display=swap" rel="stylesheet"><link rel="stylesheet" href="demo-store-admin.css?v=3"><link rel="stylesheet" href="demo-guide.css?v=2"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Administrar tienda · Casa Nopal Demo</title><link rel="icon" href="favicon.svg"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700;9..144,900&family=Nunito+Sans:wght@400;600;700;800;900&display=swap" rel="stylesheet"><link rel="stylesheet" href="demo-store-admin.css?v=4"><link rel="stylesheet" href="demo-guide.css?v=2"></head>
 <body class="demo-admin" data-demo-guide-page="admin">
   <header class="admin-header">
     <a id="admin-project-back" href="demo-project.html?catalog=commerce">← Mi proyecto</a>
@@ -112,7 +112,6 @@
 
     <main class="media-studio-content">
       <div class="product-media-grid" id="product-gallery"></div>
-      <section class="product-media-adjust" id="product-media-adjust" hidden></section>
     </main>
 
     <footer class="media-studio-footer">
@@ -134,5 +133,5 @@
 <p id="product-status" role="status"></p><div class="actions"><button class="button primary" type="submit">Guardar producto</button><button class="button" id="cancel-product" type="button">Cancelar</button></div></form></dialog>
   <dialog id="manager-dialog" aria-labelledby="manager-title"><div class="dialog-heading"><h2 id="manager-title">Personalizar</h2><button id="close-manager" type="button">Volver al producto</button></div><form id="manager-form"><label class="field" id="manager-code-field">Código<input name="code" maxlength="8" placeholder="3 a 8 letras"></label><label class="field"><span id="manager-name-label">Nombre</span><input name="label" maxlength="80" required></label><button class="button primary" type="submit">Agregar</button></form><p id="manager-status" role="status"></p><div id="manager-list"></div></dialog>
   <dialog id="decision-dialog" aria-labelledby="decision-title"><h2 id="decision-title">Cambios sin guardar</h2><p>Guarda tus cambios, descártalos o continúa editando. Cambiar de catálogo no elimina datos guardados.</p><div class="actions"><button type="button" data-decision="save">Guardar y continuar</button><button type="button" data-decision="discard">Descartar cambios</button><button type="button" data-decision="cancel">Seguir editando</button></div></dialog>
-  <script src="demo-state.js?v=3"></script><script src="demo-navigation.js?v=1"></script><script src="demo-media.js?v=3"></script><script src="demo-product-gallery.js?v=3"></script><script src="demo-store-admin.js?v=3"></script><script src="demo-guide.js?v=2"></script>
+  <script src="demo-state.js?v=3"></script><script src="demo-navigation.js?v=1"></script><script src="demo-media.js?v=3"></script><script src="demo-product-gallery.js?v=4"></script><script src="demo-store-admin.js?v=3"></script><script src="demo-guide.js?v=2"></script>
 </body></html>

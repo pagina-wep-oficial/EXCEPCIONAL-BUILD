@@ -3,7 +3,6 @@
 
   const store = window.DemoStore;
   const host = document.querySelector("#product-gallery");
-  const adjustHost = document.querySelector("#product-media-adjust");
   const studio = document.querySelector("#media-studio");
   const openStudioButton = document.querySelector("#open-media-studio");
   const uploadInput = document.querySelector("#product-files");
@@ -18,6 +17,8 @@
   let resolvedUrls = new Map();
   let previewCatalog = store.catalogType === "external_catalog" ? "external_catalog" : "commerce";
   let previewContext = "store";
+  let hudPanelOpen = !window.matchMedia("(max-width: 760px)").matches;
+  let hudHidden = false;
 
   const safe = value => String(value ?? "").replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character]));
   const clamp = (value, min, max) => Math.max(min, Math.min(max, Number(value) || 0));
@@ -46,8 +47,13 @@
     cart: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 6h2.2l1.6 7.5h8l1.8-5.3H8.8"></path><circle cx="10.2" cy="18.5" r="1"></circle><circle cx="16.2" cy="18.5" r="1"></circle></svg>',
     link: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 14.5 14.5 9.5"></path><path d="M8 16H6.8a3.3 3.3 0 1 1 0-6.6H10"></path><path d="M14 8h3.2a3.3 3.3 0 1 1 0 6.6H14"></path></svg>',
     preview: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.8 12s3.4-5.8 9.2-5.8 9.2 5.8 9.2 5.8-3.4 5.8-9.2 5.8S2.8 12 2.8 12Z"></path><circle cx="12" cy="12" r="2.7"></circle></svg>',
+    eye: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.8 12s3.4-5.8 9.2-5.8 9.2 5.8 9.2 5.8-3.4 5.8-9.2 5.8S2.8 12 2.8 12Z"></path><circle cx="12" cy="12" r="2.7"></circle></svg>',
+    eyeOff: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4 20 20"></path><path d="M9.9 6.5A10.8 10.8 0 0 1 12 6.2c5.8 0 9.2 5.8 9.2 5.8a16.4 16.4 0 0 1-2.4 3.1"></path><path d="M6.5 8.1A16 16 0 0 0 2.8 12s3.4 5.8 9.2 5.8a10.6 10.6 0 0 0 3.4-.6"></path><path d="M10.3 10.3a2.7 2.7 0 0 0 3.4 3.4"></path></svg>',
+    adjust: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h7"></path><circle cx="15" cy="7" r="2.5"></circle><path d="M18 7h2"></path><path d="M4 17h2"></path><circle cx="9" cy="17" r="2.5"></circle><path d="M12 17h8"></path></svg>',
+    close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"></path></svg>',
     rotateLeft: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7H4V3"></path><path d="M4.5 7A8 8 0 1 1 3 13"></path></svg>',
     rotateRight: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 7h4V3"></path><path d="M19.5 7A8 8 0 1 0 21 13"></path></svg>',
+    rotate: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 7h4V3"></path><path d="M19.5 7A8 8 0 1 0 21 13"></path></svg>',
     flipH: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16"></path><path d="m4 7 5 5-5 5zM20 7l-5 5 5 5z"></path></svg>',
     flipV: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16"></path><path d="m7 4 5 5 5-5zM7 20l5-5 5 5z"></path></svg>',
     crop: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3v15a3 3 0 0 0 3 3h12M3 6h15a3 3 0 0 1 3 3v12"></path></svg>',
@@ -149,16 +155,6 @@
     const rotation = clamp(item?.rotation ?? 0, -180, 180);
     const scale = large ? zoom : Math.min(zoom, 2.4);
     return `object-fit:${fit};object-position:${x}% ${y}%;transform:scale(${scale}) rotate(${rotation}deg) scaleX(${item?.flip_x ? -1 : 1}) scaleY(${item?.flip_y ? -1 : 1})`;
-  }
-
-  function stageMediaStyle(item) {
-    const ratio = cropRatio(item);
-    const fit = ratio ? "cover" : (item?.fit_mode === "cover" ? "cover" : "contain");
-    const x = clamp(item?.focal_x ?? 50, 0, 100);
-    const y = clamp(item?.focal_y ?? 50, 0, 100);
-    const zoom = clamp(item?.zoom ?? 1, 1, 3);
-    const rotation = clamp(item?.rotation ?? 0, -180, 180);
-    return `object-fit:${fit};object-position:${x}% ${y}%;transform:scale(${zoom}) rotate(${rotation}deg) scaleX(${item?.flip_x ? -1 : 1}) scaleY(${item?.flip_y ? -1 : 1})`;
   }
 
   function previewMediaMarkup(item, className = "", live = false) {
@@ -320,6 +316,8 @@
 
   function previewBoardMarkup() {
     const mode = previewCatalog === "external_catalog" ? "Catálogo" : "Tienda";
+    const item = selectedItem();
+    const isVideo = item?.type === "video";
     const contexts = [
       ["featured", "Destacados"],
       ["store", mode],
@@ -328,28 +326,45 @@
 
     return `
       <section class="studio-live-shell" aria-label="Vista en vivo">
-        <header class="studio-live-head">
-          <div>
+        <header class="studio-live-topbar">
+          <div class="studio-live-title">
+            <span class="studio-live-pulse" aria-hidden="true"></span>
             <p class="studio-kicker">Vista en vivo</p>
-            <h3>Así se ve tu producto</h3>
-            <p>Se muestra el medio que estás editando, en su contexto real.</p>
           </div>
-          <span class="studio-mode-badge">${safe(mode)}</span>
+
+          <div class="studio-context-tabs" role="tablist" aria-label="Contexto">
+            ${contexts.map(([value, label]) => `
+              <button type="button" class="studio-context-tab${previewContext === value ? " is-active" : ""}" data-preview-context="${value}" role="tab" aria-selected="${previewContext === value ? "true" : "false"}">${label}</button>
+            `).join("")}
+          </div>
+
+          <div class="studio-live-tools">
+            <span class="studio-mode-badge">${safe(mode)}</span>
+            <button type="button" class="studio-hud-toggle" data-toggle-hud aria-pressed="${hudHidden ? "true" : "false"}" aria-label="${hudHidden ? "Mostrar interfaz" : "Ocultar interfaz"}">
+              ${hudHidden ? icon("eyeOff") : icon("eye")}
+              <span>${hudHidden ? "Mostrar UI" : "Ocultar UI"}</span>
+            </button>
+          </div>
         </header>
 
-        <div class="studio-context-tabs" role="tablist" aria-label="Contexto">
-          ${contexts.map(([value, label]) => `
-            <button type="button" class="studio-context-tab${previewContext === value ? " is-active" : ""}" data-preview-context="${value}" role="tab" aria-selected="${previewContext === value ? "true" : "false"}">${label}</button>
-          `).join("")}
-        </div>
-
         <div class="studio-live-stage">
-          <div class="studio-device">
-            <div class="studio-device-bar"><span></span><span></span><span></span><em>${safe(mode)} · ${safe(previewContext === "featured" ? "Destacados" : previewContext === "detail" ? "Detalle" : mode)}</em></div>
+          <div class="studio-device${hudHidden ? " is-clean" : ""}">
+            ${hudHidden ? "" : `
+              <div class="studio-device-bar">
+                <div class="studio-device-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+                <div class="studio-device-nav">
+                  <button type="button" class="studio-device-arrow" data-step-media="-1" ${!item || activeIndex === 0 ? "disabled" : ""} aria-label="Medio anterior">${icon("left")}</button>
+                  <span class="studio-editor-counter">${safe(item ? counterLabel(item) : "Sin medios")}</span>
+                  <button type="button" class="studio-device-arrow" data-step-media="1" ${!item || activeIndex === items.length - 1 ? "disabled" : ""} aria-label="Medio siguiente">${icon("right")}</button>
+                </div>
+                <span class="studio-editor-kind${isVideo ? " is-video" : ""}">${item ? (isVideo ? `${icon("video")}Video` : `${icon("image")}Imagen`) : "Sin medios"}</span>
+              </div>
+            `}
             <div class="studio-device-screen">
               <div class="studio-preview-public-shell" data-context="${safe(previewContext)}">
                 ${contextPreviewMarkup()}
               </div>
+              <div class="studio-hud-mount" id="studio-hud-mount"></div>
             </div>
           </div>
         </div>
@@ -417,72 +432,50 @@
     `;
   }
 
-  function inspectorMarkup(item, source) {
-    if (!item) {
-      return `
-        <section class="studio-editor-shell">
-          <section class="studio-editor-empty">
-            ${emptyIllustration()}<strong>Selecciona una foto o un video</strong><p>Aquí editarás el medio elegido y verás el resultado al instante en la vista en vivo.</p>
-          </section>
-        </section>
-      `;
-    }
-
+  function hudMarkup(item) {
     const isVideo = item.type === "video";
-    const stage = isVideo
-      ? `<video src="${safe(source)}" controls playsinline preload="metadata" class="studio-editor-stage-media"></video>`
-      : `<img src="${safe(source)}" alt="${safe(itemLabel(item, activeIndex))}" class="studio-editor-stage-media" style="${stageMediaStyle(item)}">`;
-
-    const tabs = [
-      ["adjust", "Ajustar"],
-      ["crop", "Recortar"],
-      ["rotate", "Girar"]
-    ];
+    const toolTabs = isVideo
+      ? [["video", "video", "Video"]]
+      : [["adjust", "adjust", "Ajustar"], ["crop", "crop", "Recortar"], ["rotate", "rotate", "Girar"]];
+    const panelTab = isVideo ? "video" : activeTab;
+    const panelIcon = isVideo ? "video" : panelTab === "crop" ? "crop" : panelTab === "rotate" ? "rotate" : "adjust";
+    const panelTitle = isVideo ? "Video" : panelTab === "crop" ? "Recortar" : panelTab === "rotate" ? "Girar" : "Ajustar";
+    const showPrimaryActions = !isVideo && !item.is_primary;
 
     const controls = isVideo
       ? `<div class="studio-video-note">${icon("video")}<div><strong>Video listo para publicar</strong><p>En el sitio se mostrará con controles propios. Aquí solo puedes conservarlo, reordenarlo o reemplazarlo.</p></div></div>`
-      : activeTab === "crop"
+      : panelTab === "crop"
         ? cropTabMarkup(item)
-        : activeTab === "rotate"
+        : panelTab === "rotate"
           ? rotateTabMarkup(item)
           : adjustTabMarkup(item);
 
     return `
-      <section class="studio-editor-shell">
-        <header class="studio-editor-nav">
-          <button type="button" class="studio-nav-arrow" data-step-media="-1" ${activeIndex === 0 ? "disabled" : ""} aria-label="Medio anterior">${icon("left")}</button>
-          <span class="studio-editor-counter">${safe(counterLabel(item))}</span>
-          <button type="button" class="studio-nav-arrow" data-step-media="1" ${activeIndex === items.length - 1 ? "disabled" : ""} aria-label="Medio siguiente">${icon("right")}</button>
-          <span class="studio-editor-kind ${isVideo ? "is-video" : ""}">${isVideo ? icon("video") : icon("image")}${isVideo ? "Video" : "Imagen"}</span>
-        </header>
-
-        <div class="studio-editor-stage" style="${cropRatio(item) ? `aspect-ratio:${cropRatio(item)}` : ""}">
-          ${stage}
-        </div>
-
-        ${isVideo ? "" : `
-          <div class="studio-editor-tabs" role="tablist" aria-label="Herramientas de edición">
-            ${tabs.map(([value, label]) => `
-              <button type="button" class="${activeTab === value ? "is-active" : ""}" data-editor-tab="${value}" role="tab" aria-selected="${activeTab === value ? "true" : "false"}">${label}</button>
-            `).join("")}
+      <div class="studio-hud${hudPanelOpen ? " is-panel-open" : ""}">
+        <div class="studio-hud-panel" aria-hidden="${hudPanelOpen ? "false" : "true"}" aria-label="${safe(panelTitle)}">
+          <header class="studio-hud-panel-head">
+            <span class="studio-hud-panel-title">${icon(panelIcon)}${safe(panelTitle)}</span>
+            <button type="button" class="studio-hud-close" data-close-hud aria-label="Cerrar panel">${icon("close")}</button>
+          </header>
+          <div class="studio-hud-panel-body">
+            ${controls}
           </div>
-        `}
-
-        <div class="studio-editor-controls">
-          ${controls}
         </div>
 
-        <div class="studio-editor-actions">
-          ${isVideo || item.is_primary ? "" : `<button type="button" class="studio-outline-button" data-set-primary>${icon("star")}Usar principal</button>`}
-          ${isVideo || item.is_primary ? "" : `
-            <button type="button" class="studio-outline-button" data-move-selected="-1" ${activeIndex <= 1 ? "disabled" : ""}>${icon("left")}Mover</button>
-            <button type="button" class="studio-outline-button" data-move-selected="1" ${activeIndex === items.length - 1 || items[activeIndex + 1]?.type === "video" ? "disabled" : ""}>${icon("right")}Mover</button>
-          `}
-          <button type="button" class="studio-outline-button is-danger" data-delete-selected>${icon("trash")}Eliminar</button>
+        <div class="studio-hud-rail" role="toolbar" aria-label="Herramientas del medio">
+          ${toolTabs.map(([value, iconName, label]) => `
+            <button type="button" class="studio-hud-tool${panelTab === value && hudPanelOpen ? " is-active" : ""}" data-editor-tab="${value}" data-tip="${safe(label)}" aria-label="${safe(label)}" aria-pressed="${panelTab === value && hudPanelOpen ? "true" : "false"}">${icon(iconName)}</button>
+          `).join("")}
+          ${isVideo ? "" : `<span class="studio-hud-divider" aria-hidden="true"></span>`}
+          ${showPrimaryActions ? `
+            <button type="button" class="studio-hud-tool" data-set-primary data-tip="Usar como principal" aria-label="Usar como principal">${icon("star")}</button>
+            <button type="button" class="studio-hud-tool" data-move-selected="-1" ${activeIndex <= 1 ? "disabled" : ""} data-tip="Mover antes" aria-label="Mover antes">${icon("left")}</button>
+            <button type="button" class="studio-hud-tool" data-move-selected="1" ${activeIndex === items.length - 1 || items[activeIndex + 1]?.type === "video" ? "disabled" : ""} data-tip="Mover después" aria-label="Mover después">${icon("right")}</button>
+          ` : ""}
+          ${isVideo ? "" : `<button type="button" class="studio-hud-tool" data-reset-image data-tip="Restablecer ajustes" aria-label="Restablecer ajustes">${icon("reset")}</button>`}
+          <button type="button" class="studio-hud-tool is-danger" data-delete-selected data-tip="Eliminar" aria-label="Eliminar">${icon("trash")}</button>
         </div>
-
-        ${isVideo ? "" : `<button type="button" class="studio-reset-button" data-reset-image>${icon("reset")}Restablecer ajustes</button>`}
-      </section>
+      </div>
     `;
   }
 
@@ -549,21 +542,29 @@
   }
 
   async function renderStudio() {
-    if (!host || !adjustHost) return;
+    if (!host) return;
     normalizeSelection();
     const selected = selectedItem();
+    if (selected?.type === "video") activeTab = "video";
+    else if (activeTab === "video") activeTab = "adjust";
+
     const sources = await Promise.all(items.map(item => previewSource(item)));
     resolvedUrls = new Map(items.map((item, index) => [item, sources[index]]));
-    const currentSource = selected ? sources[activeIndex] : "";
 
     host.innerHTML = `${previewBoardMarkup()}${libraryMarkup(sources)}`;
-    adjustHost.hidden = false;
-    adjustHost.innerHTML = inspectorMarkup(selected, currentSource);
-
+    renderHud();
     bindStudioInteractions();
     fitDetailPreview();
     requestAnimationFrame(fitDetailPreview);
     document.fonts?.ready.then(fitDetailPreview).catch(() => {});
+  }
+
+  function renderHud() {
+    const mount = host?.querySelector("#studio-hud-mount");
+    if (!mount) return;
+    const item = selectedItem();
+    mount.innerHTML = item && !hudHidden ? hudMarkup(item) : "";
+    bindHudInteractions(mount);
   }
 
   function refreshStudioMedia() {
@@ -571,10 +572,6 @@
     if (!item) return;
 
     const liveStyle = mediaStyle(item, true);
-    const stageStyle = stageMediaStyle(item);
-
-    adjustHost.querySelector(".studio-editor-stage")?.style.setProperty("aspect-ratio", cropRatio(item) || "auto");
-    adjustHost.querySelector(".studio-editor-stage-media")?.setAttribute("style", stageStyle);
     host.querySelectorAll("[data-live-media]").forEach(el => el.setAttribute("style", liveStyle));
   }
 
@@ -600,21 +597,38 @@
       });
     });
 
-    const selected = selectedItem();
-    if (!selected) return;
+    host.querySelectorAll("[data-toggle-hud]").forEach(button => button.addEventListener("click", () => {
+      hudHidden = !hudHidden;
+      renderStudio();
+    }));
 
-    adjustHost.querySelectorAll("[data-step-media]").forEach(button => button.addEventListener("click", () => {
+    host.querySelectorAll("[data-step-media]").forEach(button => button.addEventListener("click", () => {
       const step = Number(button.dataset.stepMedia || 0);
       activeIndex = clamp(activeIndex + step, 0, items.length - 1);
       renderStudio();
     }));
+  }
 
-    adjustHost.querySelectorAll("[data-editor-tab]").forEach(button => button.addEventListener("click", () => {
-      activeTab = button.dataset.editorTab || "adjust";
-      renderStudio();
+  function bindHudInteractions(mount) {
+    if (!mount) return;
+
+    mount.querySelectorAll("[data-editor-tab]").forEach(button => button.addEventListener("click", () => {
+      const tab = button.dataset.editorTab || "adjust";
+      if (hudPanelOpen && activeTab === tab) {
+        hudPanelOpen = false;
+      } else {
+        activeTab = tab;
+        hudPanelOpen = true;
+      }
+      renderHud();
     }));
 
-    adjustHost.querySelectorAll("[data-media-field]").forEach(input => input.addEventListener("input", () => {
+    mount.querySelector("[data-close-hud]")?.addEventListener("click", () => {
+      hudPanelOpen = false;
+      renderHud();
+    });
+
+    mount.querySelectorAll("[data-media-field]").forEach(input => input.addEventListener("input", () => {
       const field = input.dataset.mediaField;
       const item = selectedItem();
       if (!field || !item) return;
@@ -627,28 +641,28 @@
       refreshStudioMedia();
     }));
 
-    adjustHost.querySelectorAll("[data-set-fit]").forEach(button => button.addEventListener("click", () => {
+    mount.querySelectorAll("[data-set-fit]").forEach(button => button.addEventListener("click", () => {
       const item = selectedItem();
       if (!item) return;
       item.fit_mode = button.dataset.setFit === "contain" ? "contain" : "cover";
       commit();
     }));
 
-    adjustHost.querySelectorAll("[data-set-crop]").forEach(button => button.addEventListener("click", () => {
+    mount.querySelectorAll("[data-set-crop]").forEach(button => button.addEventListener("click", () => {
       const item = selectedItem();
       if (!item) return;
       item.crop = button.dataset.setCrop === "original" ? undefined : button.dataset.setCrop;
       commit();
     }));
 
-    adjustHost.querySelectorAll("[data-rotate]").forEach(button => button.addEventListener("click", () => {
+    mount.querySelectorAll("[data-rotate]").forEach(button => button.addEventListener("click", () => {
       const item = selectedItem();
       if (!item) return;
       item.rotation = clamp((item.rotation ?? 0) + Number(button.dataset.rotate || 0), -180, 180);
       commit();
     }));
 
-    adjustHost.querySelectorAll("[data-flip]").forEach(button => button.addEventListener("click", () => {
+    mount.querySelectorAll("[data-flip]").forEach(button => button.addEventListener("click", () => {
       const item = selectedItem();
       if (!item) return;
       if (button.dataset.flip === "x") item.flip_x = !item.flip_x;
@@ -656,14 +670,14 @@
       commit();
     }));
 
-    adjustHost.querySelector("[data-reset-image]")?.addEventListener("click", () => {
+    mount.querySelector("[data-reset-image]")?.addEventListener("click", () => {
       const item = selectedItem();
       if (!item || item.type === "video") return;
       Object.assign(item, { fit_mode: "inherit", focal_x: 50, focal_y: 50, zoom: 1, rotation: 0, flip_x: false, flip_y: false, crop: undefined });
       commit();
     });
 
-    adjustHost.querySelector("[data-set-primary]")?.addEventListener("click", () => {
+    mount.querySelector("[data-set-primary]")?.addEventListener("click", () => {
       const current = selectedItem();
       if (!current || current.type === "video") return;
       items = [current, ...items.filter((entry, index) => index !== activeIndex)];
@@ -672,7 +686,7 @@
       commit();
     });
 
-    adjustHost.querySelectorAll("[data-move-selected]").forEach(button => button.addEventListener("click", () => {
+    mount.querySelectorAll("[data-move-selected]").forEach(button => button.addEventListener("click", () => {
       const current = selectedItem();
       const from = activeIndex;
       const to = from + Number(button.dataset.moveSelected || 0);
@@ -683,7 +697,7 @@
       commit();
     }));
 
-    adjustHost.querySelector("[data-delete-selected]")?.addEventListener("click", () => {
+    mount.querySelector("[data-delete-selected]")?.addEventListener("click", () => {
       items.splice(activeIndex, 1);
       items = window.DemoStore.validateMedia(items);
       activeIndex = Math.max(0, activeIndex - (activeIndex >= items.length ? 1 : 0));
@@ -709,6 +723,8 @@
     if (!studio) return;
     previewCatalog = store.catalogType === "external_catalog" ? "external_catalog" : "commerce";
     activeTab = "adjust";
+    hudHidden = false;
+    hudPanelOpen = !window.matchMedia("(max-width: 760px)").matches;
     titleNode.textContent = "Fotos y video del producto";
     studio.hidden = false;
     studio.classList.add("is-open");
@@ -728,7 +744,13 @@
   });
 
   document.addEventListener("keydown", event => {
-    if (event.key === "Escape" && isStudioOpen()) closeStudio();
+    if (event.key !== "Escape" || !isStudioOpen()) return;
+    if (hudPanelOpen && !hudHidden && selectedItem()) {
+      hudPanelOpen = false;
+      renderHud();
+      return;
+    }
+    closeStudio();
   });
 
   uploadInput?.addEventListener("change", async event => {
