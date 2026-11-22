@@ -205,11 +205,29 @@
     return ratio ? `aspect-ratio:${ratio}` : "";
   }
 
+  function featuredMediaStyle(item) {
+    const x = clamp(item?.focal_x ?? 50, 0, 100);
+    const y = clamp(item?.focal_y ?? 50, 0, 100);
+    const zoom = clamp(item?.zoom ?? 1, 1, 3);
+    const rotation = clamp(item?.rotation ?? 0, -180, 180);
+    return `object-fit:cover;object-position:${x}% ${y}%;transform:scale(${zoom}) rotate(${rotation}deg) scaleX(${item?.flip_x ? -1 : 1}) scaleY(${item?.flip_y ? -1 : 1})`;
+  }
+
   function featuredImageMarkup(item) {
     if (!item) {
       return `<img class="home-featured-image-media" src="demo-casa-nopal/assets/home-chilaquiles-900.jpg" alt="Producto" style="object-fit:cover;object-position:50% 50%;transform:scale(1) rotate(0deg) scaleX(1) scaleY(1)" data-live-media>`;
     }
-    return previewMediaMarkup(item, "home-featured-image-media", true);
+
+    const url = resolvedUrls.get(item) || item.source_url || item.url || item.data_url || item.preview_url || "";
+    if (!url) return `<div class="studio-preview-media-placeholder">Sin imagen</div>`;
+
+    const style = featuredMediaStyle(item);
+
+    if (item.type === "video" || String(item.mime_type || "").startsWith("video/")) {
+      return `<video class="home-featured-image-media" src="${safe(url)}" style="${style}" muted playsinline controls data-live-media></video>`;
+    }
+
+    return `<img class="home-featured-image-media" src="${safe(url)}" alt="${safe(item.alt_text || productDraft().name || "Producto")}" style="${style}" data-live-media>`;
   }
 
   function featuredPreviewMarkup() {
@@ -219,7 +237,7 @@
     return `
       <div class="studio-featured-preview">
         <article class="home-featured-card">
-          <div class="home-featured-image" data-live-frame style="${liveFrameStyle(image)}">
+          <div class="home-featured-image" data-live-frame>
             ${featuredImageMarkup(image)}
           </div>
           <div class="home-featured-body">
@@ -677,7 +695,8 @@
     if (!item) return;
 
     const liveStyle = mediaStyle(item, true);
-    host.querySelectorAll("[data-live-media]").forEach(el => el.setAttribute("style", liveStyle));
+    const featuredStyle = featuredMediaStyle(item);
+    host.querySelectorAll("[data-live-media]").forEach(el => el.setAttribute("style", el.classList.contains("home-featured-image-media") ? featuredStyle : liveStyle));
   }
 
   function bindStudioInteractions() {

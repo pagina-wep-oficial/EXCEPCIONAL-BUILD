@@ -151,6 +151,19 @@
     if (media.type === "video") return `<video class="${safe(className)}" ${local ? `data-demo-media="${safe(media.source_url)}"` : `src="${safe(media.source_url)}"`} controls playsinline preload="metadata" aria-label="${safe(product.name)}"></video>`;
     return `<img${className ? ` class="${className}"` : ""} src="${safe(local ? mediaFallback : media.source_url || mediaFallback)}"${local ? ` data-demo-media="${safe(media.source_url)}"` : ""} alt="${safe(product.name)}" style="${productImageStyle(media)}">`;
   };
+  const featuredImageStyle = (media) => {
+    const x = Math.max(0, Math.min(100, Number(media?.focal_x ?? 50)));
+    const y = Math.max(0, Math.min(100, Number(media?.focal_y ?? 50)));
+    const zoom = Math.max(1, Math.min(3, Number(media?.zoom ?? 1)));
+    const rotation = Math.max(-180, Math.min(180, Number(media?.rotation ?? 0)));
+    return `object-fit:cover;object-position:${x}% ${y}%;transform:scale(${zoom}) rotate(${rotation}deg) scaleX(${media?.flip_x ? -1 : 1}) scaleY(${media?.flip_y ? -1 : 1})`;
+  };
+  const productFeaturedMarkup = (product) => {
+    const media = productPrimaryMedia(product);
+    if (media.type === "video") return productImageMarkup(product, "home-featured-image-media");
+    const local = isLocalMedia(media.source_url);
+    return `<img class="home-featured-image-media" src="${safe(local ? mediaFallback : media.source_url || mediaFallback)}"${local ? ` data-demo-media="${safe(media.source_url)}"` : ""} alt="${safe(product.name)}" style="${featuredImageStyle(media)}">`;
+  };
   const clearLocalMedia = async () => {
     const keys = await mediaRequest("read");
     await Promise.all(keys.filter((key) => String(key).startsWith(mediaPrefix)).map((key) => mediaRequest("delete", key)));
@@ -322,7 +335,7 @@
   const renderFeatured = () => {
     const grid = document.querySelector("#homeFeaturedProducts");
     if (!grid) return;
-    grid.innerHTML = state.products.filter((product) => isProductVisible(product) && product.featured).slice(0, 6).map((product) => `<article class="home-featured-card"><div class="home-featured-image"${plainFrameAspectAttr(product)}>${productImageMarkup(product)}</div><div class="home-featured-body"><span class="home-featured-category">${safe(product.category)}</span><h3>${safe(product.name)}</h3><p class="home-featured-description">${safe(product.description)}</p><div class="home-featured-bottom">${priceMarkup(product)}<a class="button primary" href="${localPath(`detalle.html?id=${encodeURIComponent(product.id)}`)}">Ver producto</a></div></div></article>`).join("");
+    grid.innerHTML = state.products.filter((product) => isProductVisible(product) && product.featured).slice(0, 6).map((product) => `<article class="home-featured-card"><div class="home-featured-image">${productFeaturedMarkup(product)}</div><div class="home-featured-body"><span class="home-featured-category">${safe(product.category)}</span><h3>${safe(product.name)}</h3><p class="home-featured-description">${safe(product.description)}</p><div class="home-featured-bottom">${priceMarkup(product)}<a class="button primary" href="${localPath(`detalle.html?id=${encodeURIComponent(product.id)}`)}">Ver producto</a></div></div></article>`).join("");
     hydrateMediaImages(grid);
   };
   window.addEventListener("message", event => {
