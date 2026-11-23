@@ -10,12 +10,28 @@
 
   const post = (payload) => window.parent.postMessage(payload, "*");
 
+  const isolationCss = [
+    "body[data-store-preview] > *:not(#store-preview-mount){display:none!important}",
+    "body[data-store-preview]{min-height:100vh!important;margin:0!important;padding:0!important;background:transparent!important}",
+    "body[data-store-preview] #store-preview-mount{display:block!important;box-sizing:border-box!important;min-height:100vh!important;padding:16px!important}",
+    "body[data-store-preview] #store-preview-mount *{animation:none!important;transition:none!important;opacity:1!important;visibility:visible!important}",
+    "body[data-store-preview] [data-motion-ghost]{display:none!important}"
+  ].join("\n");
+
   const mount = () => {
+    const style = document.createElement("style");
+    style.id = "store-preview-isolation";
+    style.textContent = isolationCss;
+    document.head.appendChild(style);
+
     const node = document.createElement("div");
     node.id = "store-preview-mount";
-    node.style.cssText = "min-height:120px";
     document.body.appendChild(node);
+
     document.body.dataset.storePreview = "1";
+    document.body.dataset.catalogState = "ready";
+    document.body.dataset.catalogType = "commerce";
+
     post({ type: "store-preview-ready" });
   };
 
