@@ -7020,15 +7020,15 @@ window.__siteApplyDesign = (design) => {
     const shadow = `0 ${Number(shadows.y) || 0}px ${Number(shadows.blur) || 0}px ${previewRgba(shadows.color, alpha)}`;
     root.push(`--soft-shadow:${shadow}`, `--shadow:${shadow}`);
   }
-  if (root.length) css.push(`body[data-store-design]{${root.join(";")}}`);
-  if (background.type === "color" && background.color) css.push(`body[data-store-design]{background-color:${background.color}}`);
-  if (cards.image_radius !== undefined && cards.image_radius !== null) css.push(`body[data-store-design] .product-media-frame,body[data-store-design] .detail-media{border-radius:${Number(cards.image_radius) || 0}px}`);
-  if (cards.image_padding !== undefined && cards.image_padding !== null) css.push(`body[data-store-design] .product-media-frame{padding:${Number(cards.image_padding) || 0}px}`);
+  if (root.length) css.push(`body[data-store-design][data-store-design]{${root.join(";")}}`);
+  if (background.type === "color" && background.color) css.push(`body[data-store-design][data-store-design]{background-color:${background.color}}`);
+  if (cards.image_radius !== undefined && cards.image_radius !== null) css.push(`body[data-store-design][data-store-design] .product-media-frame,body[data-store-design][data-store-design] .detail-media{border-radius:${Number(cards.image_radius) || 0}px}`);
+  if (cards.image_padding !== undefined && cards.image_padding !== null) css.push(`body[data-store-design][data-store-design] .product-media-frame{padding:${Number(cards.image_padding) || 0}px}`);
   if (cards.image_background) {
     const map = { soft: "linear-gradient(145deg,#f8f2e8,#eadfce)", light: "#ffffff", dark: "#18221d" };
-    css.push(`body[data-store-design] .product-media-frame{background:${map[cards.image_background] || "#eef1ee"}}`);
+    css.push(`body[data-store-design][data-store-design] .product-media-frame{background:${map[cards.image_background] || "#eef1ee"}}`);
   }
-  if (cards.image_ratio && cards.image_ratio !== "auto") css.push(`body[data-store-design] .product-media-frame{aspect-ratio:${cards.image_ratio}}`);
+  if (cards.image_ratio && cards.image_ratio !== "auto") css.push(`body[data-store-design][data-store-design] .product-media-frame{aspect-ratio:${cards.image_ratio}}`);
 
   let node = document.getElementById("store-preview-design");
   if (!node) {
