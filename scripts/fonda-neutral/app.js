@@ -3116,8 +3116,11 @@ function productImageStyle(media) {
   const y = Math.max(0, Math.min(100, Number(media?.focal_y ?? 50)));
   const zoom = Math.max(1, Math.min(3, Number(media?.zoom ?? 1)));
   const rotation = Math.max(-180, Math.min(180, Number(media?.rotation ?? 0)));
+  const radius = Math.max(0, Math.min(32, Number(media?.radius ?? 16)));
+  const flipX = media?.flip_x ? -1 : 1;
+  const flipY = media?.flip_y ? -1 : 1;
 
-  return `object-fit:${fit};object-position:${x}% ${y}%;transform:scale(${zoom}) rotate(${rotation}deg)`;
+  return `object-fit:${fit};object-position:${x}% ${y}%;transform:scale(${zoom}) scaleX(${flipX}) scaleY(${flipY}) rotate(${rotation}deg);border-radius:${radius}px`;
 }
 
 function productImageMarkup(product, className = "", loading = "lazy") {
@@ -6940,3 +6943,104 @@ async function bootstrapPublicStore() {
 }
 
 void bootstrapPublicStore();
+
+
+/* ===== Contrato de vista previa de Excepcional Build ===== */
+function previewProductModel(input) {
+  const source = input && typeof input === "object" ? input : {};
+  const price = Number(source.price);
+  return {
+    ...source,
+    price: Number.isFinite(price) ? price : 0,
+    currency: source.currency || "MXN",
+    currency_display_label: source.currency || "MXN",
+    category: source.category || "",
+    description: source.description || "",
+    featured: source.featured === true,
+    enabled: true,
+    inventory_enabled: false,
+    available_quantity: 0,
+    payment_methods: [],
+    default_payment_method: "whatsapp",
+    media: Array.isArray(source.media) ? source.media : []
+  };
+}
+
+function previewDetailCard(product) {
+  const price = renderProductPrice(product);
+  return `
+    <article class="detail-view">
+      <div class="detail-gallery">
+        <div class="detail-media">
+          <div class="product-media-frame">${productImageMarkup(product)}</div>
+        </div>
+      </div>
+      <div class="detail-copy">
+        <span class="section-kicker">${escapeHtml(product.category || "Producto")}</span>
+        <h1>${escapeHtml(product.name)}</h1>
+        <p>${escapeHtml(product.description || "")}</p>
+        ${price}
+        <div class="detail-actions">
+          <span class="button primary">Agregar al carrito</span>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function previewRgba(hex, alpha) {
+  const value = String(hex || "").replace("#", "");
+  if (!/^[0-9a-f]{6}$/i.test(value)) return `rgba(23,36,29,${alpha})`;
+  const r = parseInt(value.slice(0, 2), 16);
+  const g = parseInt(value.slice(2, 4), 16);
+  const b = parseInt(value.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+window.__siteApplyDesign = (design) => {
+  const global = design && design.global ? design.global : {};
+  const colors = global.colors || {};
+  const cards = global.cards || {};
+  const shadows = global.shadows || {};
+  const typography = global.typography || {};
+  const background = global.background || {};
+  const root = [];
+  const css = [];
+
+  if (colors.surface) root.push(`--paper:${colors.surface}`, `--surface:${colors.surface}`);
+  if (colors.text) root.push(`--ink:${colors.text}`);
+  if (colors.muted) root.push(`--muted:${colors.muted}`);
+  if (colors.accent) root.push(`--green:${colors.accent}`, `--green-dark:${colors.accent}`);
+  if (colors.accent_text) root.push(`--accent-text:${colors.accent_text}`);
+  if (cards.radius !== undefined && cards.radius !== null) root.push(`--radius:${Number(cards.radius) || 0}px`);
+  if (typography.heading) root.push(`--font-display:${typography.heading},serif`);
+  if (typography.body) root.push(`--font-body:${typography.body},sans-serif`);
+  if (shadows.color) {
+    const alpha = Math.max(0, Math.min(40, Number(shadows.opacity) || 0)) / 100;
+    const shadow = `0 ${Number(shadows.y) || 0}px ${Number(shadows.blur) || 0}px ${previewRgba(shadows.color, alpha)}`;
+    root.push(`--soft-shadow:${shadow}`, `--shadow:${shadow}`);
+  }
+  if (root.length) css.push(`body[data-store-design]{${root.join(";")}}`);
+  if (background.type === "color" && background.color) css.push(`body[data-store-design]{background-color:${background.color}}`);
+  if (cards.image_radius !== undefined && cards.image_radius !== null) css.push(`body[data-store-design] .product-media-frame,body[data-store-design] .detail-media{border-radius:${Number(cards.image_radius) || 0}px}`);
+  if (cards.image_padding !== undefined && cards.image_padding !== null) css.push(`body[data-store-design] .product-media-frame{padding:${Number(cards.image_padding) || 0}px}`);
+  if (cards.image_background) {
+    const map = { soft: "linear-gradient(145deg,#f8f2e8,#eadfce)", light: "#ffffff", dark: "#18221d" };
+    css.push(`body[data-store-design] .product-media-frame{background:${map[cards.image_background] || "#eef1ee"}}`);
+  }
+  if (cards.image_ratio && cards.image_ratio !== "auto") css.push(`body[data-store-design] .product-media-frame{aspect-ratio:${cards.image_ratio}}`);
+
+  let node = document.getElementById("store-preview-design");
+  if (!node) {
+    node = document.createElement("style");
+    node.id = "store-preview-design";
+    document.head.appendChild(node);
+  }
+  node.textContent = css.join("\n");
+};
+
+window.__siteRender = {
+  featured: (product) => homeFeaturedProductCard(previewProductModel(product)),
+  store: (product) => productCard(previewProductModel(product)),
+  detail: (product) => previewDetailCard(previewProductModel(product))
+};
