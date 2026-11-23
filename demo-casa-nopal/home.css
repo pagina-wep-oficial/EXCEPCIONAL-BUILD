@@ -2040,7 +2040,8 @@
   }
 
   .home-featured-image {
-    aspect-ratio: 16 / 10;
+    height: 100%;
+    aspect-ratio: auto;
   }
 
   .fonda-gallery-grid {
