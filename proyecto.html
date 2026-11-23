@@ -102,5 +102,28 @@
 </dialog>
 
 <nav class="mobile-nav" aria-label="Navegación del proyecto"><a class="active" href="panel.html"><span aria-hidden="true">⌂</span><b>Inicio</b></a><a class="mobile-nav-main" href="https://wa.me/525629767176?text=Hola%2C%20necesito%20ayuda%20en%20mi%20proyecto." target="_blank" rel="noopener"><span aria-hidden="true">✦</span><b>Ayuda</b></a></nav>
+
+<nav class="project-app-nav" id="project-app-nav" aria-label="Secciones del proyecto" hidden>
+  <button class="is-active" type="button" data-project-view="summary" aria-label="Resumen">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1"></rect><rect x="14" y="4" width="6" height="6" rx="1"></rect><rect x="4" y="14" width="6" height="6" rx="1"></rect><rect x="14" y="14" width="6" height="6" rx="1"></rect></svg>
+    <b>Resumen</b>
+  </button>
+  <button type="button" data-project-view="page" aria-label="Página">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5h14v15H5z"></path><path d="M8 8h8M8 11.5h8M8 15h5"></path></svg>
+    <b>Página</b>
+  </button>
+  <button type="button" data-project-view="store" aria-label="Tienda" hidden>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h16l-1 11H5z"></path><path d="M3.5 9 5.5 4h13l2 5M8 13h8"></path></svg>
+    <b>Tienda</b>
+  </button>
+  <button type="button" data-project-view="payments" aria-label="Pagos" hidden>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="6" width="17" height="12" rx="2"></rect><path d="M3.5 10h17M7 15h3"></path></svg>
+    <b>Pagos</b>
+  </button>
+  <button type="button" data-project-view="more" aria-label="Más">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.35"></circle><circle cx="12" cy="12" r="1.35"></circle><circle cx="18" cy="12" r="1.35"></circle></svg>
+    <b>Más</b>
+  </button>
+</nav>
 <script src="supabase-config.js"></script><script src="supabase-client.js"></script><script src="portal.js"></script>
 </body></html>

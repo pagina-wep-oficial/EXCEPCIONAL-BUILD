@@ -708,3 +708,150 @@ dialog{width:min(590px,calc(100% - 36px));margin:auto;border-radius:24px}.dialog
 .auth-back-link span:first-child{font-size:20px;line-height:1}
 .mobile-nav>a{min-height:50px;padding:7px 10px;border:1px solid rgba(16,42,36,.12);border-radius:14px;background:#ffffffba}
 .mobile-nav>a.active,.mobile-nav>a:focus-visible{border-color:#f36b3f;background:#fff1e9;box-shadow:0 5px 16px rgba(16,42,36,.12);outline:none}
+
+/* Fase 1 · Navegación contextual del proyecto.
+   Permanece oculta hasta que la fase 2 conecte las condiciones reales. */
+.project-app-nav{
+  position:fixed;
+  left:0;
+  right:0;
+  bottom:0;
+  z-index:82;
+  display:grid;
+  grid-auto-flow:column;
+  grid-auto-columns:minmax(0,1fr);
+  gap:4px;
+  align-items:center;
+  min-height:72px;
+  padding:7px 10px calc(7px + env(safe-area-inset-bottom));
+  border-top:1px solid rgba(16,42,36,.1);
+  background:rgba(255,254,250,.97);
+  box-shadow:0 -12px 34px rgba(16,42,36,.08);
+  backdrop-filter:blur(18px);
+}
+.project-app-nav[hidden]{display:none!important}
+.project-app-nav button{
+  display:flex;
+  min-width:0;
+  min-height:50px;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  gap:3px;
+  padding:6px 4px;
+  border:1px solid transparent;
+  border-radius:14px;
+  background:transparent;
+  color:#718079;
+  cursor:pointer;
+}
+.project-app-nav svg{
+  width:19px;
+  height:19px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.8;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.project-app-nav b{
+  overflow:hidden;
+  max-width:100%;
+  font-size:9px;
+  line-height:1.1;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.project-app-nav button.is-active{
+  border-color:rgba(16,42,36,.12);
+  background:#edf4ee;
+  color:var(--ink);
+  box-shadow:0 5px 16px rgba(16,42,36,.09);
+}
+@media(min-width:860px){
+  .project-app-nav{
+    left:50%;
+    right:auto;
+    bottom:18px;
+    width:min(620px,calc(100% - 40px));
+    min-height:66px;
+    transform:translateX(-50%);
+    padding:6px;
+    border:1px solid rgba(16,42,36,.12);
+    border-radius:18px;
+    box-shadow:0 14px 38px rgba(16,42,36,.14);
+  }
+  .project-app-nav button{min-height:52px}
+  .project-app-nav b{font-size:10px}
+}
+
+/* Fase 2 · El proyecto usa una sola navegación contextual en todos los dispositivos. */
+body[data-portal-page="project"].project-app-ready{
+  padding-bottom:92px;
+}
+body[data-portal-page="project"].project-app-ready .mobile-nav{
+  display:none!important;
+}
+.project-app-views{
+  display:grid;
+  gap:13px;
+}
+.project-app-view{
+  display:grid;
+  gap:13px;
+}
+.project-app-view[hidden]{
+  display:none!important;
+}
+.project-app-view .content-card,
+.project-app-view .project-focus-card,
+.project-app-view .site-tool{
+  margin:0;
+}
+.project-app-view-store{
+  align-content:start;
+}
+.project-app-view-store .site-tool{
+  padding:17px;
+  border:1px solid rgba(16,42,36,.1);
+  border-radius:21px;
+  background:#fff;
+}
+.project-app-view-store .site-tool-action{
+  margin-top:12px;
+}
+@media(min-width:860px){
+  body[data-portal-page="project"].project-app-ready .desktop-nav{
+    display:none;
+  }
+  body[data-portal-page="project"].project-app-ready{
+    padding-bottom:118px;
+  }
+  .project-app-views{
+    gap:16px;
+  }
+  .project-app-view{
+    gap:16px;
+  }
+  .project-app-view-summary{
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    align-items:start;
+  }
+  .project-app-view-summary .progress-card{
+    grid-column:1/-1;
+  }
+  .project-app-view-summary .project-focus-card{
+    height:100%;
+  }
+  .project-app-view-page,
+  .project-app-view-payments,
+  .project-app-view-more{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    align-items:start;
+  }
+  .project-app-view-page #project-brief-card,
+  .project-app-view-more #project-updates-card,
+  .project-app-view-more #project-requests-card{
+    grid-column:1/-1;
+  }
+}
