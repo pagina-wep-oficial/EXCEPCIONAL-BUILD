@@ -1693,6 +1693,14 @@ function nextStepText(project) {
 
       if(!appNav||!views)return;
 
+      const summaryView=$("#project-view-summary");
+      const pageView=$("#project-view-page");
+      const storeView=$("#project-view-store");
+      const paymentsView=$("#project-view-payments");
+      const moreView=$("#project-view-more");
+
+      if(!summaryView||!pageView||!storeView||!paymentsView||!moreView)return;
+
       const hasVisibleContent=(view)=>Boolean(view)&&[...view.children].some(child=>!child.hidden);
       const availability={
         summary:true,
