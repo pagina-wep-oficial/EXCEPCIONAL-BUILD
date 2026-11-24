@@ -1674,59 +1674,23 @@ function nextStepText(project) {
     };
     const setupProjectAppNavigation=()=>{
       const appNav=$("#project-app-nav");
-      const projectRoot=$(".portal-shell-project");
+      const views=$("#project-app-views");
+      const loader=$("#project-app-loader");
       const legacyNav=$(".mobile-nav");
 
-      if(!appNav||!projectRoot)return;
+      if(!appNav||!views||!loader)return;
 
-      let views=$("#project-app-views");
-      if(!views){
-        views=document.createElement("div");
-        views.id="project-app-views";
-        views.className="project-app-views";
-        projectRoot.appendChild(views);
-      }
-
-      const ensureView=(name,label)=>{
-        let view=$(`#project-view-${name}`);
-        if(!view){
-          view=document.createElement("section");
-          view.id=`project-view-${name}`;
-          view.className=`project-app-view project-app-view-${name}`;
-          view.dataset.projectView=name;
-          view.setAttribute("aria-label",label);
-          views.appendChild(view);
-        }
-        return view;
-      };
-
-      const summaryView=ensureView("summary","Resumen del proyecto");
-      const pageView=ensureView("page","Página del proyecto");
-      const storeView=ensureView("store","Tienda del proyecto");
-      const paymentsView=ensureView("payments","Pagos del proyecto");
-      const moreView=ensureView("more","Más opciones del proyecto");
-
-      const move=(selector,target)=>{
-        const node=$(selector);
-        if(node)target.appendChild(node);
-      };
-
-      move(".progress-card",summaryView);
-      move("#project-focus",summaryView);
-      move("#public-site-card",pageView);
-      move("#project-brief-card",pageView);
-      move("#payment-card",paymentsView);
-      move("#project-upgrades-card",paymentsView);
-      move("#project-actions-card",moreView);
-      move("#project-tools-card",moreView);
-      move("#project-updates-card",moreView);
-      move("#project-requests-card",moreView);
+      const summaryView=$("#project-view-summary");
+      const pageView=$("#project-view-page");
+      const storeView=$("#project-view-store");
+      const paymentsView=$("#project-view-payments");
+      const moreView=$("#project-view-more");
 
       const toolsCard=$("#project-tools-card");
       const toolsList=toolsCard?.querySelector(".site-tools-list");
       const storeTool=toolsList?.querySelector(".site-tool-store");
 
-      if(storeTool){
+      if(storeTool&&storeView){
         storeView.appendChild(storeTool);
 
         const remainingTools=[...toolsList.querySelectorAll(".site-tool")];
@@ -1741,7 +1705,7 @@ function nextStepText(project) {
         }
       }
 
-      const hasVisibleContent=(view)=>[...view.children].some(child=>!child.hidden);
+      const hasVisibleContent=(view)=>Boolean(view)&&[...view.children].some(child=>!child.hidden);
       const availability={
         summary:true,
         page:hasVisibleContent(pageView),
@@ -1750,41 +1714,33 @@ function nextStepText(project) {
         more:hasVisibleContent(moreView)
       };
 
-      Object.entries(availability).forEach(([name,visible])=>{
-        const view=$(`#project-view-${name}`);
-        const button=appNav.querySelector(`[data-project-view="${name}"]`);
-        if(view)view.hidden=!visible;
-        if(button)button.hidden=!visible;
-      });
-
-      let active="summary";
-
       const selectView=(name,{scroll=true}={})=>{
-        if(!availability[name])name="summary";
-        active=name;
+        const active=availability[name]?name:"summary";
 
         Object.entries(availability).forEach(([viewName,visible])=>{
           const view=$(`#project-view-${viewName}`);
           const button=appNav.querySelector(`[data-project-view="${viewName}"]`);
           if(view)view.hidden=!visible||viewName!==active;
-          if(button)button.classList.toggle("is-active",visible&&viewName===active);
+          if(button){
+            button.hidden=!visible;
+            button.classList.toggle("is-active",visible&&viewName===active);
+          }
         });
 
-        if(scroll){
-          const selected=$(`#project-view-${active}`);
-          selected?.scrollIntoView({behavior:"smooth",block:"start"});
-        }
+        if(scroll)$(`#project-view-${active}`)?.scrollIntoView({behavior:"smooth",block:"start"});
       };
 
       appNav.querySelectorAll("[data-project-view]").forEach(button=>{
         button.onclick=()=>selectView(button.dataset.projectView);
       });
 
+      selectView("summary",{scroll:false});
+      views.hidden=false;
       appNav.hidden=false;
+      loader.hidden=true;
       if(legacyNav)legacyNav.hidden=true;
+      document.body.classList.remove("project-app-loading");
       document.body.classList.add("project-app-ready");
-
-      selectView(active,{scroll:false});
     };
 
     renderProjectRequests();

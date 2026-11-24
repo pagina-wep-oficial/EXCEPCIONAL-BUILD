@@ -855,3 +855,75 @@ body[data-portal-page="project"].project-app-ready .mobile-nav{
     grid-column:1/-1;
   }
 }
+
+/* Estructura final: la página nace organizada; no reacomoda tarjetas después de cargar. */
+.project-app-loader{
+  display:grid;
+  place-items:center;
+  gap:8px;
+  min-height:300px;
+  padding:36px 20px;
+  text-align:center;
+}
+.project-app-loader[hidden]{display:none!important}
+.project-app-loader-mark{
+  display:grid;
+  place-items:center;
+  width:46px;
+  height:46px;
+  border-radius:15px;
+  background:var(--ink);
+  color:var(--lime);
+  font:900 15px "Manrope";
+  box-shadow:0 10px 28px rgba(16,42,36,.16);
+}
+.project-app-loader strong{
+  margin-top:5px;
+  font:800 17px "Manrope";
+}
+.project-app-loader small{
+  color:var(--muted);
+  font-size:11px;
+}
+body[data-portal-page="project"].project-app-loading .project-app-views,
+body[data-portal-page="project"].project-app-loading .project-app-nav,
+body[data-portal-page="project"].project-app-loading .mobile-nav{
+  display:none!important;
+}
+.project-account-nav{
+  display:flex!important;
+  align-items:center;
+}
+.project-account-nav .account-menu summary{
+  min-width:48px;
+  justify-content:center;
+  padding:0 8px;
+}
+.desktop-account-avatar{
+  display:grid;
+  place-items:center;
+  width:30px;
+  height:30px;
+  overflow:hidden;
+  border:1px solid rgba(16,42,36,.12);
+  border-radius:50%;
+  background:#f0f3ed;
+  color:var(--ink);
+  font-size:11px;
+  font-weight:900;
+}
+.desktop-account-avatar svg{
+  width:19px;
+  height:19px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.8;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.account-chevron{
+  font-size:13px;
+}
+@media(max-width:700px){
+  .project-account-nav{display:none!important}
+}

@@ -6,14 +6,17 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="portal.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <title>Mi proyecto | Excepcional Build</title>
 </head>
-<body data-portal-page="project">
+<body data-portal-page="project" class="project-app-loading">
 <header class="portal-header"><div class="portal-shell portal-nav">
   <a class="portal-brand" href="panel.html" aria-label="Excepcional Build, mis páginas"><span class="portal-mark">EB</span><span>EXCEPCIONAL BUILD</span></a>
-  <nav class="desktop-nav" aria-label="Navegación">
-    <a class="is-active" href="panel.html">Mis páginas</a>
-    <a href="index.html">Página principal</a>
+  <nav class="desktop-nav project-account-nav" aria-label="Cuenta">
     <details class="account-menu">
-      <summary>Mi cuenta <span aria-hidden="true">⌄</span></summary>
+      <summary aria-label="Abrir menú de cuenta">
+        <span class="desktop-account-avatar" data-account-avatar aria-hidden="true">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.2"></circle><path d="M5.5 20c.8-3.3 3-5 6.5-5s5.7 1.7 6.5 5"></path></svg>
+        </span>
+        <span class="account-chevron" aria-hidden="true">⌄</span>
+      </summary>
       <div class="account-menu-popover">
         <a href="perfil.html">Perfil y cuenta</a>
         <button type="button" data-logout>Cerrar sesión</button>
@@ -26,11 +29,21 @@
   <a class="back-link" href="panel.html">← Mis páginas</a>
   <section class="project-heading-simple"><div><p class="eyebrow">Tu proyecto</p><h1 id="project-title">Cargando proyecto…</h1><div id="project-subtitle"></div></div><div class="hero-actions" id="project-top-actions"></div></section>
 
-  <article class="content-card progress-card"><div class="card-heading"><div><h2>¿En qué vamos?</h2><p>Solo tienes que hacer lo que aparezca marcado como “Ahora”.</p></div></div><div class="stage-track stage-track-client" id="project-stage-track"></div><div class="client-note" id="project-client-note" hidden></div></article>
+  <section class="project-app-loader" id="project-app-loader" aria-live="polite">
+    <span class="project-app-loader-mark">EB</span>
+    <strong>Cargando tu proyecto…</strong>
+    <small>Estamos preparando tus opciones disponibles.</small>
+  </section>
+
+  <div class="project-app-views" id="project-app-views" hidden>
+    <section class="project-app-view project-app-view-summary" id="project-view-summary" data-project-view="summary" aria-label="Resumen del proyecto">
+      <article class="content-card progress-card"><div class="card-heading"><div><h2>¿En qué vamos?</h2><p>Solo tienes que hacer lo que aparezca marcado como “Ahora”.</p></div></div><div class="stage-track stage-track-client" id="project-stage-track"></div><div class="client-note" id="project-client-note" hidden></div></article>
 
   <section class="project-focus-card" id="project-focus"></section>
+    </section>
 
-  <article class="content-card public-site-card" id="public-site-card" hidden></article>
+    <section class="project-app-view project-app-view-page" id="project-view-page" data-project-view="page" aria-label="Página del proyecto">
+      <article class="content-card public-site-card" id="public-site-card" hidden></article>
 
   <article class="content-card" id="project-brief-card" hidden>
     <div class="card-heading"><div><p class="eyebrow">Información para tu página</p><h2>Cuéntanos sobre este negocio</h2><p>Avanza poco a poco. Puedes guardar y continuar otro día.</p></div><div class="completion-ring"><strong id="brief-progress-number">0%</strong><span>completo</span></div></div>
@@ -69,9 +82,17 @@
     </form>
   </article>
 
-  <article class="content-card" id="payment-card" hidden><div class="card-heading"><div><h2>Pagos acordados</h2><p>Solo mostramos lo que ya acordaste con nosotros.</p></div></div><div class="payments-grid" id="project-payments"></div></article>
+    </section>
 
-  <article class="content-card" id="project-actions-card" hidden><div class="card-heading"><div><h2>¿Qué necesitas ahora?</h2><p>Estas opciones aparecen cuando tu página ya está publicada o en revisión.</p></div></div><div class="actions-grid" id="project-actions"></div></article>
+    <section class="project-app-view project-app-view-store" id="project-view-store" data-project-view="store" aria-label="Tienda del proyecto"></section>
+
+    <section class="project-app-view project-app-view-payments" id="project-view-payments" data-project-view="payments" aria-label="Pagos del proyecto">
+      <article class="content-card" id="payment-card" hidden><div class="card-heading"><div><h2>Pagos acordados</h2><p>Solo mostramos lo que ya acordaste con nosotros.</p></div></div><div class="payments-grid" id="project-payments"></div></article>
+
+    </section>
+
+    <section class="project-app-view project-app-view-more" id="project-view-more" data-project-view="more" aria-label="Más opciones del proyecto">
+      <article class="content-card" id="project-actions-card" hidden><div class="card-heading"><div><h2>¿Qué necesitas ahora?</h2><p>Estas opciones aparecen cuando tu página ya está publicada o en revisión.</p></div></div><div class="actions-grid" id="project-actions"></div></article>
   <article class="content-card" id="project-upgrades-card" hidden>
     <div class="card-heading"><div><h2>Mejora tu presencia en internet</h2><p>Si quieres una dirección más profesional o una base más flexible, aquí puedes pedirlo.</p></div></div>
     <div class="actions-grid" id="project-upgrades-list"></div>
@@ -79,7 +100,9 @@
   <article class="content-card project-tools-card" id="project-tools-card" hidden></article>
   <article class="content-card" id="project-updates-card"><div class="card-heading"><div><h2>Novedades del proyecto</h2><p id="project-updates-copy">Aquí aparecerán las novedades que agreguemos a tu proyecto.</p></div></div><div class="timeline" id="project-timeline"></div><div class="project-history-modal" id="project-timeline-history-panel" hidden><div class="project-history-backdrop" data-history-close></div><section class="project-history-window" role="dialog" aria-modal="true" aria-labelledby="project-history-title"><div class="timeline-history-heading"><strong id="project-history-title">Historial de novedades</strong><button class="project-history-close" type="button" data-history-close aria-label="Cerrar historial">×</button></div><div class="timeline timeline-history-scroll" id="project-timeline-history"></div><p class="timeline-scroll-hint" id="project-timeline-scroll-hint" hidden>↓ Desliza para ver más</p></section></div><button class="button button-light timeline-toggle" id="project-timeline-toggle" type="button" hidden></button></article>
 
-  <article class="content-card" id="project-requests-card"><div class="card-heading"><div><h2>Solicitudes y cambios</h2><p>Aquí puedes ver lo que nos has pedido y en qué etapa va cada solicitud.</p></div></div><div class="request-section-head"><h3>Activas</h3><small id="project-requests-active-count"></small></div><div class="request-client-list" id="project-requests-active"></div><div class="request-client-list request-client-list-hidden" id="project-requests-active-more" hidden></div><button class="button button-light request-more-button" id="project-requests-active-toggle" type="button" hidden></button><details class="request-history" id="project-requests-history" hidden><summary id="project-requests-history-summary">Ver historial de solicitudes</summary><div class="request-client-list request-client-list-history" id="project-requests-closed"></div><div class="request-client-list request-client-list-history request-client-list-hidden" id="project-requests-closed-more" hidden></div><button class="button button-light request-more-button" id="project-requests-closed-toggle" type="button" hidden></button></details></article>
+      <article class="content-card" id="project-requests-card"><div class="card-heading"><div><h2>Solicitudes y cambios</h2><p>Aquí puedes ver lo que nos has pedido y en qué etapa va cada solicitud.</p></div></div><div class="request-section-head"><h3>Activas</h3><small id="project-requests-active-count"></small></div><div class="request-client-list" id="project-requests-active"></div><div class="request-client-list request-client-list-hidden" id="project-requests-active-more" hidden></div><button class="button button-light request-more-button" id="project-requests-active-toggle" type="button" hidden></button><details class="request-history" id="project-requests-history" hidden><summary id="project-requests-history-summary">Ver historial de solicitudes</summary><div class="request-client-list request-client-list-history" id="project-requests-closed"></div><div class="request-client-list request-client-list-history request-client-list-hidden" id="project-requests-closed-more" hidden></div><button class="button button-light request-more-button" id="project-requests-closed-toggle" type="button" hidden></button></details></article>
+    </section>
+  </div>
 </div></main>
 
 <dialog id="request-dialog"><div class="dialog-body"><div class="dialog-head"><div><p class="eyebrow">Pedir un cambio</p><h2 id="request-title">¿Qué necesitas?</h2></div><button class="dialog-close" type="button" data-dialog-close aria-label="Cerrar">×</button></div><form class="portal-form" id="request-form"><input type="hidden" name="request_type"><label><span>Explícanos brevemente</span><textarea name="message" rows="5" required placeholder="Ej. Quiero cambiar el horario y agregar tres fotos nuevas."></textarea></label><p class="form-status" id="request-status"></p><div class="dialog-actions"><button class="button button-light" type="button" data-dialog-close>Cancelar</button><button class="button button-primary" type="submit">Enviar solicitud</button></div></form></div></dialog>
