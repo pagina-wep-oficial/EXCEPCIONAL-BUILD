@@ -1845,7 +1845,6 @@ function nextStepText(project) {
     const setupProjectAppNavigation=()=>{
       const appNav=$("#project-app-nav");
       const views=$("#project-app-views");
-      const legacyNav=$(".mobile-nav");
 
       if(!appNav||!views)return;
 
@@ -1902,7 +1901,7 @@ function nextStepText(project) {
       selectView(availability[requestedView]?requestedView:"summary",{scroll:false});
       revealProjectContent();
       appNav.hidden=false;
-      if(legacyNav)legacyNav.hidden=true;
+      appNav.removeAttribute("aria-busy");
       document.body.classList.add("project-app-ready");
     };
 
