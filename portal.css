@@ -856,38 +856,14 @@ body[data-portal-page="project"].project-app-ready .mobile-nav{
   }
 }
 
-/* Estructura final: la página nace organizada; no reacomoda tarjetas después de cargar. */
-.project-app-loader{
-  display:grid;
-  place-items:center;
-  gap:8px;
-  min-height:300px;
-  padding:36px 20px;
-  text-align:center;
+/* Render directo: el cascarón final existe desde el primer fotograma. */
+body[data-portal-page="project"]:not(.project-app-ready) .project-app-view:not(.project-app-view-summary){
+  display:none!important;
 }
-.project-app-loader[hidden]{display:none!important}
-.project-app-loader-mark{
-  display:grid;
-  place-items:center;
-  width:46px;
-  height:46px;
-  border-radius:15px;
-  background:var(--ink);
-  color:var(--lime);
-  font:900 15px "Manrope";
-  box-shadow:0 10px 28px rgba(16,42,36,.16);
+body[data-portal-page="project"]:not(.project-app-ready) #project-focus{
+  display:none!important;
 }
-.project-app-loader strong{
-  margin-top:5px;
-  font:800 17px "Manrope";
-}
-.project-app-loader small{
-  color:var(--muted);
-  font-size:11px;
-}
-body[data-portal-page="project"].project-app-loading .project-app-views,
-body[data-portal-page="project"].project-app-loading .project-app-nav,
-body[data-portal-page="project"].project-app-loading .mobile-nav{
+body[data-portal-page="project"]:not(.project-app-ready) .project-app-nav button:not([data-project-view="summary"]){
   display:none!important;
 }
 .project-account-nav{
@@ -926,4 +902,12 @@ body[data-portal-page="project"].project-app-loading .mobile-nav{
 }
 @media(max-width:700px){
   .project-account-nav{display:none!important}
+}
+
+.project-store-card{
+  padding:0;
+  overflow:hidden;
+}
+.project-store-card .site-tool{
+  padding:17px;
 }

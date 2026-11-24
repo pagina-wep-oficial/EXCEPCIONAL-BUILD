@@ -1215,8 +1215,10 @@ function nextStepText(project) {
     if(showPayments){$("#project-payments").innerHTML=`<div class="payment-box"><span>Total acordado</span><strong>${money(project.total_price)}</strong><small>${safe(project.payment_method||"")}</small></div><div class="payment-box"><span>Anticipo</span><strong>${money(project.deposit_amount)}</strong><em class="payment-state ${project.deposit_paid?"paid":""}">${project.deposit_paid?"Pagado":"Pendiente"}</em></div><div class="payment-box"><span>Saldo final</span><strong>${money(project.balance_amount)}</strong><em class="payment-state ${project.balance_paid?"paid":""}">${project.balance_paid?"Pagado":"Pendiente"}</em></div>`;}
 
     const toolsCard = $("#project-tools-card");
+    const storeCard = $("#project-store-card");
     const canShowTools = !archivedState && /^publicado$/.test(stageKey(project));
-    const tools = [];
+    const editorTools = [];
+    const storeTools = [];
 
     if (canShowTools && canClientSeeEditor(project)) {
       const access = editorAccessState(project);
@@ -1251,7 +1253,7 @@ function nextStepText(project) {
             <div class="tool-plan-grid">${planButtons}</div>
           </details>`;
 
-      tools.push(`
+      editorTools.push(`
         <section class="site-tool site-tool-editor">
           <div class="site-tool-icon">${siteToolIcon("editor")}</div>
           <div class="site-tool-copy">
@@ -1276,7 +1278,7 @@ function nextStepText(project) {
               data-store-owner-launch="1">Gestionar tienda</button>`
         : `<span class="tool-unavailable">Tienda aún no conectada</span>`;
 
-      tools.push(`
+      storeTools.push(`
         <section class="site-tool site-tool-store">
           <div class="site-tool-icon">${siteToolIcon("store")}</div>
           <div class="site-tool-copy">
@@ -1289,27 +1291,39 @@ function nextStepText(project) {
       `);
     }
 
-    if (toolsCard && tools.length) {
-      toolsCard.hidden = false;
-      toolsCard.innerHTML = `
-        <details class="site-tools-disclosure" id="project-tools-disclosure">
-          <summary>
-            <span class="site-tools-summary-icon">${siteToolIcon("tools")}</span>
-            <span class="site-tools-summary-copy">
-              <strong>Herramientas del sitio</strong>
-              <small>${tools.length === 1 ? "1 herramienta disponible" : `${tools.length} herramientas disponibles`}</small>
-            </span>
-            <span class="site-tools-chevron" aria-hidden="true">⌄</span>
-          </summary>
-          <div class="site-tools-list">${tools.join("")}</div>
-        </details>
-      `;
-    } else if (toolsCard) {
-      toolsCard.hidden = true;
-      toolsCard.innerHTML = "";
+    if(toolsCard){
+      if(editorTools.length){
+        toolsCard.hidden=false;
+        toolsCard.innerHTML=`
+          <details class="site-tools-disclosure" id="project-tools-disclosure">
+            <summary>
+              <span class="site-tools-summary-icon">${siteToolIcon("tools")}</span>
+              <span class="site-tools-summary-copy">
+                <strong>Herramientas del sitio</strong>
+                <small>${editorTools.length===1?"1 herramienta disponible":`${editorTools.length} herramientas disponibles`}</small>
+              </span>
+              <span class="site-tools-chevron" aria-hidden="true">⌄</span>
+            </summary>
+            <div class="site-tools-list">${editorTools.join("")}</div>
+          </details>
+        `;
+      }else{
+        toolsCard.hidden=true;
+        toolsCard.innerHTML="";
+      }
     }
 
-    const storeLaunchButton = toolsCard?.querySelector("[data-store-owner-launch]");
+    if(storeCard){
+      if(storeTools.length){
+        storeCard.hidden=false;
+        storeCard.innerHTML=storeTools.join("");
+      }else{
+        storeCard.hidden=true;
+        storeCard.innerHTML="";
+      }
+    }
+
+    const storeLaunchButton = storeCard?.querySelector("[data-store-owner-launch]");
 
     storeLaunchButton?.addEventListener("click", async () => {
       const originalText = storeLaunchButton.textContent;
@@ -1675,35 +1689,9 @@ function nextStepText(project) {
     const setupProjectAppNavigation=()=>{
       const appNav=$("#project-app-nav");
       const views=$("#project-app-views");
-      const loader=$("#project-app-loader");
       const legacyNav=$(".mobile-nav");
 
-      if(!appNav||!views||!loader)return;
-
-      const summaryView=$("#project-view-summary");
-      const pageView=$("#project-view-page");
-      const storeView=$("#project-view-store");
-      const paymentsView=$("#project-view-payments");
-      const moreView=$("#project-view-more");
-
-      const toolsCard=$("#project-tools-card");
-      const toolsList=toolsCard?.querySelector(".site-tools-list");
-      const storeTool=toolsList?.querySelector(".site-tool-store");
-
-      if(storeTool&&storeView){
-        storeView.appendChild(storeTool);
-
-        const remainingTools=[...toolsList.querySelectorAll(".site-tool")];
-        const toolsCopy=toolsCard.querySelector(".site-tools-summary-copy small");
-
-        if(remainingTools.length){
-          if(toolsCopy)toolsCopy.textContent=remainingTools.length===1
-            ?"1 herramienta disponible"
-            :`${remainingTools.length} herramientas disponibles`;
-        }else{
-          toolsCard.hidden=true;
-        }
-      }
+      if(!appNav||!views)return;
 
       const hasVisibleContent=(view)=>Boolean(view)&&[...view.children].some(child=>!child.hidden);
       const availability={
@@ -1735,11 +1723,8 @@ function nextStepText(project) {
       });
 
       selectView("summary",{scroll:false});
-      views.hidden=false;
       appNav.hidden=false;
-      loader.hidden=true;
       if(legacyNav)legacyNav.hidden=true;
-      document.body.classList.remove("project-app-loading");
       document.body.classList.add("project-app-ready");
     };
 
