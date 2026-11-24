@@ -911,3 +911,21 @@ body[data-portal-page="project"]:not(.project-app-ready) .project-app-nav button
 .project-store-card .site-tool{
   padding:17px;
 }
+
+/* Mensaje escrito desde CRM: visible en Resumen cuando exista. */
+.client-note{
+  display:grid;
+  gap:5px;
+}
+.client-note strong{
+  color:#655427;
+  font-size:10px;
+  font-weight:900;
+  letter-spacing:.07em;
+  text-transform:uppercase;
+}
+.client-note span{
+  color:#655427;
+  font-size:12px;
+  line-height:1.5;
+}

@@ -1184,7 +1184,16 @@ function nextStepText(project) {
       if(progressCopy) progressCopy.textContent="Solo tienes que hacer lo que aparezca marcado como “Ahora”.";
       track.innerHTML=labels.map((label,i)=>`<div class="stage-step ${(i<pos||(isMaint&&i===4))?"done":(isMaint&&i===5)?"current maint":i===pos?"current":""}"><i>${(i<pos||(isMaint&&i===4))?"✓":i+1}</i><span>${safe(label)}</span><small>${(isMaint?i===5:i===pos)?"Ahora":""}</small></div>`).join("");
     }
-    if(project.client_note && stageIndex(project) === 0){$("#project-client-note").hidden=false;$("#project-client-note").textContent=project.client_note;}
+    const clientNote=$("#project-client-note");
+    const clientNoteText=String(project.client_note||"").trim();
+    const showClientNote=Boolean(clientNoteText)&&!archivedClientState(project);
+
+    if(clientNote){
+      clientNote.hidden=!showClientNote;
+      clientNote.innerHTML=showClientNote
+        ? `<strong>Mensaje de Excepcional Build</strong><span>${safe(clientNoteText)}</span>`
+        : "";
+    }
 
     const focus=$("#project-focus"), briefCard=$("#project-brief-card"), actionsCard=$("#project-actions-card");
     const archivedState=archivedClientState(project);
