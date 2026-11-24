@@ -24,7 +24,7 @@
   const digits = (v) => String(v||"").replace(/\D/g, "");
   const money = (v) => v == null || v === "" || Number.isNaN(Number(v)) ? "—" : new Intl.NumberFormat("es-MX", {style:"currency",currency:"MXN"}).format(Number(v));
   const date = (v) => v ? new Intl.DateTimeFormat("es-MX", {day:"numeric",month:"short",year:"numeric"}).format(new Date(v)) : "—";
-  const stageKey = (p) => String(p?.project_stage || p?.status || "").toLowerCase();
+  const stageKey = (p) => String(p?.project_stage || "Configuración").toLowerCase();
   const archivedClientState = (project) => /cancelad/.test(stageKey(project)) ? "cancelado" : (/descontinuad/.test(stageKey(project)) ? "descontinuado" : "");
 
   function friendlyError(error, fallback="No pudimos completar esta acción.") {
@@ -535,7 +535,7 @@ function nextStepText(project) {
       const cardPublished=!archived&&cardPosition>=4&&p.site_visibility==="public"&&String(p.site_url||"").trim();
       const cardSiteUrl=cardPublished?String(p.site_url).trim():"";
       const publicLink=cardSiteUrl?`<div class="project-card-site-link"><span>Enlace público</span><a href="${safe(cardSiteUrl)}" target="_blank" rel="noopener" title="${safe(cardSiteUrl)}">${safe(cardSiteUrl)} ↗</a></div>`:"";
-      return `<article class="project-card-simple" data-project-id="${safe(p.id)}" data-project-signature="${projectCardSignature(p)}"><a class="project-card-main" href="${url}"><div class="project-card-icon">${stageIndex(p)===4?"OK":archived?"!":"EB"}</div><div class="project-card-copy"><span class="status-badge ${statusClass(p.status||p.project_stage)}">${safe(publicBadge)}</span><h3>${safe(p.name)}</h3><p>${safe(copy)}</p><small>${safe(p.domain||"Dirección por definir")}</small></div><span class="project-chevron">></span></a>${publicLink}<div class="project-card-footer">${ownerTag}<span>${date(p.created_at)}</span><a href="${url}">${safe(action)} ></a></div></article>`;
+      return `<article class="project-card-simple" data-project-id="${safe(p.id)}" data-project-signature="${projectCardSignature(p)}"><a class="project-card-main" href="${url}"><div class="project-card-icon">${stageIndex(p)===4?"OK":archived?"!":"EB"}</div><div class="project-card-copy"><span class="status-badge ${statusClass(p.project_stage)}">${safe(publicBadge)}</span><h3>${safe(p.name)}</h3><p>${safe(copy)}</p><small>${safe(p.domain||"Dirección por definir")}</small></div><span class="project-chevron">></span></a>${publicLink}<div class="project-card-footer">${ownerTag}<span>${date(p.created_at)}</span><a href="${url}">${safe(action)} ></a></div></article>`;
     }
 
     function projectCardElement(project){
@@ -1165,7 +1165,7 @@ function nextStepText(project) {
       }
       location.reload();
     });
-    document.title=`${project.name} | Excepcional Build`; $("#project-title").textContent=project.name; $("#project-subtitle").innerHTML=`<span class="status-badge ${statusClass(project.status||project.project_stage)}">${safe(project.status||project.project_stage)}</span>`; $("#project-top-actions").innerHTML=(stageIndex(project)<2&&!archivedClientState(project))?siteAction(project):"";
+    document.title=`${project.name} | Excepcional Build`; $("#project-title").textContent=project.name; $("#project-subtitle").innerHTML=`<span class="status-badge ${statusClass(project.project_stage)}">${safe(project.project_stage||"Configuración")}</span>`; $("#project-top-actions").innerHTML=(stageIndex(project)<2&&!archivedClientState(project))?siteAction(project):"";
     const isMaint=/mantenimiento/.test(stageKey(project));
     const isPublished=/^publicado$/.test(stageKey(project));
     const labels=["Configurar","Enviar información","Construcción","Revisión","Publicada",...(isMaint?["Mantenimiento"]:[])], pos=stageIndex(project);
