@@ -1514,9 +1514,6 @@ if(canManageUsers()) await loadUsers();
       if(el.offer_domain_enabled)el.offer_domain_enabled.checked=Boolean(setup.offer_domain_enabled);
       if(el.offer_domain_price)el.offer_domain_price.value=setup.offer_domain_price??"";
       if(el.offer_domain_note)el.offer_domain_note.value=setup.offer_domain_note||"";
-      if(el.offer_hosting_enabled)el.offer_hosting_enabled.checked=Boolean(setup.offer_hosting_enabled);
-      if(el.offer_hosting_price)el.offer_hosting_price.value=setup.offer_hosting_price??"";
-      if(el.offer_hosting_note)el.offer_hosting_note.value=setup.offer_hosting_note||"";
       const status=$("#verify-domain-status");if(status) status.textContent=setup.domain_verified_at?`Dominio verificado (${fmtDate(setup.domain_verified_at)})`:"";
       renderHostingPlans(setup.hosting_plan_id||"");
     }else{
@@ -1525,9 +1522,6 @@ if(canManageUsers()) await loadUsers();
       if(el.offer_domain_enabled)el.offer_domain_enabled.checked=false;
       if(el.offer_domain_price)el.offer_domain_price.value="";
       if(el.offer_domain_note)el.offer_domain_note.value="";
-      if(el.offer_hosting_enabled)el.offer_hosting_enabled.checked=false;
-      if(el.offer_hosting_price)el.offer_hosting_price.value="";
-      if(el.offer_hosting_note)el.offer_hosting_note.value="";
       renderHostingPlans("");
     }
     updateConfigUI();
@@ -2146,9 +2140,6 @@ if(canManageUsers()) await loadUsers();
       offer_domain_enabled:fd.get("offer_domain_enabled")==="on",
       offer_domain_price:fd.get("offer_domain_price")?Number(fd.get("offer_domain_price")):null,
       offer_domain_note:String(fd.get("offer_domain_note")||"").trim()||null,
-      offer_hosting_enabled:fd.get("offer_hosting_enabled")==="on",
-      offer_hosting_price:fd.get("offer_hosting_price")?Number(fd.get("offer_hosting_price")):null,
-      offer_hosting_note:String(fd.get("offer_hosting_note")||"").trim()||null,
       ...plan,
       updated_at:new Date().toISOString()
     };

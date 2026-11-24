@@ -1436,23 +1436,17 @@ function nextStepText(project) {
     const domainClose=$("#upgrade-domain-close");
 
     const hasDomainOffer=Boolean(setup?.offer_domain_enabled)&&String(setup?.address_type||project.address_type||"gratis")==="gratis";
-    const hasHostingOffer=Boolean(setup?.offer_hosting_enabled)&&String(setup?.hosting_type||project.hosting_type||"cloudflare")==="cloudflare";
-
     const domainOfferPrice=setup?.offer_domain_price!=null?Number(setup.offer_domain_price):(setup?.domain_first_year!=null?Number(setup.domain_first_year):null);
-    const hostingOfferPrice=setup?.offer_hosting_price!=null?Number(setup.offer_hosting_price):(setup?.hosting_first_year!=null?Number(setup.hosting_first_year):null);
-
     const domainOfferNote=String(setup?.offer_domain_note||"Pasa de un enlace gratuito a un dominio propio más profesional.").trim();
-    const hostingOfferNote=String(setup?.offer_hosting_note||"Mejora el alojamiento de tu página para una base más flexible.").trim();
-
     let selectedUpgradeDomain="";
     let selectedUpgradeDomainPrice=domainOfferPrice;
 
-    const openUpgradeWhatsapp=(kind,extraLines=[])=>{
+    const openUpgradeWhatsapp=(extraLines=[])=>{
       const text=[
         `Hola, soy ${profile.full_name}.`,
         `Proyecto: ${project.name}.`,
         `Proyecto ID: ${project.id}.`,
-        kind==="dominio"?"Quiero contratar un dominio propio.":"Quiero mejorar el alojamiento de mi página.",
+        "Quiero contratar un dominio propio.",
         ...extraLines.filter(Boolean)
       ].join("\n");
       location.assign(`https://wa.me/${WHATSAPP}?text=${encodeURIComponent(text)}`);
@@ -1467,13 +1461,10 @@ function nextStepText(project) {
       if(domainSubmit)domainSubmit.disabled=true;
     };
 
-    if(upgradesCard&&upgradesList&&!archivedState&&pos===4&&(hasDomainOffer||hasHostingOffer)){
+    if(upgradesCard&&upgradesList&&!archivedState&&pos===4&&hasDomainOffer){
       const items=[];
       if(hasDomainOffer){
         items.push(`<button class="action-card" type="button" data-upgrade-action="domain"><b>Consigue tu dominio propio</b><span>${safe(domainOfferNote)}</span><small>${domainOfferPrice!=null?`Desde ${safe(money(domainOfferPrice))} al año`:"Cotización manual"}</small></button>`);
-      }
-      if(hasHostingOffer){
-        items.push(`<button class="action-card" type="button" data-upgrade-action="hosting"><b>Mejora tu alojamiento</b><span>${safe(hostingOfferNote)}</span><small>${hostingOfferPrice!=null?`Desde ${safe(money(hostingOfferPrice))} al año`:"Cotización manual"}</small></button>`);
       }
       upgradesCard.hidden=false;
       upgradesList.innerHTML=items.join("");
@@ -1542,7 +1533,7 @@ function nextStepText(project) {
         const {error}=await db.from("client_requests").insert(payload);
         if(error)throw error;
         domainDialog?.close();
-        openUpgradeWhatsapp("dominio",detailLines);
+        openUpgradeWhatsapp(detailLines);
       }catch(err){
         if(domainStatus){domainStatus.textContent=friendlyError(err,"No pudimos enviar la solicitud.");domainStatus.className="form-status error";}
         if(b)b.disabled=false;
@@ -1557,31 +1548,6 @@ function nextStepText(project) {
         resetDomainOfferDialog();
         domainDialog?.showModal();
         return;
-      }
-      if(kind==="hosting"){
-        const detailLines=[
-          hostingOfferPrice!=null?`Precio mostrado: ${money(hostingOfferPrice)} al año.`:"",
-          hostingOfferNote?`Oferta visible: ${hostingOfferNote}`:""
-        ].filter(Boolean);
-        if(!confirm(`Se enviará una solicitud para mejorar el alojamiento${hostingOfferPrice!=null?` por ${money(hostingOfferPrice)} al año`:""}.`))return;
-        btn.disabled=true;
-        try{
-          const payload={
-            project_id:id,
-            user_id:session.user.id,
-            request_type:"hosting",
-            message:detailLines.join(" ")||"Quiero mejorar el alojamiento de mi página.",
-            status:"Nueva",
-            admin_title:"Mejora de alojamiento solicitada",
-            admin_summary:`El cliente quiere mejorar el alojamiento${hostingOfferPrice!=null?` por ${money(hostingOfferPrice)} al año`:""}.`
-          };
-          const {error}=await db.from("client_requests").insert(payload);
-          if(error)throw error;
-          openUpgradeWhatsapp("hosting",detailLines);
-        }catch(err){
-          alert(friendlyError(err,"No pudimos enviar la solicitud."));
-          btn.disabled=false;
-        }
       }
     });
 
