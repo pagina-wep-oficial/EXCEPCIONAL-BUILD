@@ -929,3 +929,18 @@ body[data-portal-page="project"]:not(.project-app-ready) .project-app-nav button
   font-size:12px;
   line-height:1.5;
 }
+
+/* Perfil estable: no se muestran datos vacíos mientras llega la sesión. */
+.profile-skeleton{display:grid;gap:18px;animation:profile-skeleton-pulse 1.25s ease-in-out infinite}
+.profile-skeleton-back{width:150px;height:18px;border-radius:999px;background:#e6ebe5}
+.profile-skeleton-intro{display:flex;align-items:center;gap:15px}
+.profile-skeleton-intro>i{display:block;flex:0 0 auto;width:64px;height:64px;border-radius:20px;background:#e6ebe5}
+.profile-skeleton-intro>div{display:grid;gap:9px;flex:1}
+.profile-skeleton-intro b,.profile-skeleton-intro span,.profile-skeleton-card b,.profile-skeleton-card i{display:block;border-radius:999px;background:#e6ebe5}
+.profile-skeleton-intro b{width:min(220px,68%);height:27px}
+.profile-skeleton-intro span{width:100%;height:13px}
+.profile-skeleton-intro span.short{width:72%}
+.profile-skeleton-card{display:grid;gap:19px;padding:19px;border:1px solid var(--line);border-radius:22px;background:#fff;box-shadow:0 5px 20px rgba(16,42,36,.035)}
+.profile-skeleton-card b{height:14px}
+.profile-skeleton-card i{height:52px;border-radius:14px}
+@keyframes profile-skeleton-pulse{50%{opacity:.58}}

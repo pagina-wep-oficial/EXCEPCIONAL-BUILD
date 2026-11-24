@@ -384,6 +384,36 @@ function nextStepText(project) {
     const meta=user?.user_metadata||{};
     return {id:user.id,full_name:meta.full_name||meta.name||"",email:user.email||"",phone:meta.phone||"",location:"",avatar_url:meta.avatar_url||meta.picture||"",onboarding_completed:false};
   }
+  const profileCacheKey=(userId)=>`excepcional.profile-cache.v1.${String(userId||"")}`;
+
+  function readProfileCache(userId){
+    try{
+      const raw=localStorage.getItem(profileCacheKey(userId));
+      const value=raw?JSON.parse(raw):null;
+      if(!value||typeof value!=="object"||value.id!==userId)return null;
+      return value;
+    }catch(_){
+      return null;
+    }
+  }
+
+  function writeProfileCache(profile){
+    if(!profile?.id)return;
+    const safeProfile={
+      id:profile.id,
+      full_name:String(profile.full_name||""),
+      phone:String(profile.phone||""),
+      location:String(profile.location||""),
+      avatar_url:String(profile.avatar_url||""),
+      onboarding_completed:Boolean(profile.onboarding_completed)
+    };
+    try{localStorage.setItem(profileCacheKey(profile.id),JSON.stringify(safeProfile));}catch(_){}
+  }
+
+  function clearProfileCache(userId){
+    try{localStorage.removeItem(profileCacheKey(userId));}catch(_){}
+  }
+
   async function getSession() {
     if(!portal.configured) return null;
     return (await db.auth.getSession()).data.session;
@@ -424,7 +454,12 @@ function nextStepText(project) {
     if(!profile.onboarding_completed){ localStorage.setItem(portal.authNextKey, `${currentFile()}${location.search}`); location.replace("acceso.html?complete=1"); throw new Error("PROFILE_REDIRECT"); }
     fillUserUI(profile,session.user); return {session,profile};
   }
-  async function logout(){ await db.auth.signOut(); location.assign("acceso.html"); }
+  async function logout(){
+    const session=await getSession();
+    if(session?.user?.id)clearProfileCache(session.user.id);
+    await db.auth.signOut();
+    location.assign("acceso.html");
+  }
   $$('[data-logout]').forEach(btn=>btn.addEventListener("click",logout));
 
   async function claimPendingProject() {
@@ -683,33 +718,84 @@ function nextStepText(project) {
   }
 
   async function initProfile() {
-    const {session,profile}=await loadContext();
+    const session=await requireSession();
+    let profile;
     const form=$("#profile-form");
     const from=getParam("from");
     const projectId=String(getParam("project")||"").trim();
     const allowedViews=new Set(["summary","page","store","payments","more"]);
     const view=allowedViews.has(getParam("view"))?getParam("view"):"summary";
 
-    if(from==="project"&&projectId){
-      const returnHref=`proyecto.html?id=${encodeURIComponent(projectId)}&view=${encodeURIComponent(view)}`;
+    const applyProfile=(value)=>{
+      fillUserUI(value,session.user);
+      ["full_name","phone","location"].forEach(name=>{
+        if(form[name])form[name].value=value[name]||"";
+      });
+      form.email.value=session.user.email||"";
+
       const returnLink=$("#profile-return-link");
       const returnNav=$("#profile-return-nav");
-      if(returnLink){
-        returnLink.href=returnHref;
-        returnLink.textContent="← Volver al proyecto";
+      if(from==="project"&&projectId){
+        const returnHref=`proyecto.html?id=${encodeURIComponent(projectId)}&view=${encodeURIComponent(view)}`;
+        if(returnLink){
+          returnLink.href=returnHref;
+          returnLink.textContent="← Volver al proyecto";
+        }
+        if(returnNav){
+          returnNav.href=returnHref;
+          returnNav.textContent="← Volver al proyecto";
+        }
       }
-      if(returnNav){
-        returnNav.href=returnHref;
-        returnNav.textContent="← Volver al proyecto";
-      }
+
+      if(returnNav)returnNav.hidden=false;
+      $("#profile-skeleton")?.setAttribute("hidden","");
+      $("#profile-content").hidden=false;
+    };
+
+    const cached=readProfileCache(session.user.id);
+    if(cached?.onboarding_completed)applyProfile(cached);
+
+    profile=await getProfile(session.user);
+    if(!profile.onboarding_completed){
+      localStorage.setItem(portal.authNextKey,`${currentFile()}${location.search}`);
+      location.replace("acceso.html?complete=1");
+      throw new Error("PROFILE_REDIRECT");
     }
-    ["full_name","phone","location"].forEach(n=>{ if(form[n]) form[n].value=profile[n]||""; }); form.email.value=session.user.email||"";
-    form.addEventListener("submit",async e=>{
-      e.preventDefault(); const fd=new FormData(form), full=String(fd.get("full_name")||"").trim(), phone=digits(fd.get("phone"));
-      if(full.length<3||phone.length<10){setStatus("#profile-page-status","Revisa tu nombre y WhatsApp.","error");return;}
-      const b=form.querySelector('button[type="submit"]'); b.disabled=true; setStatus("#profile-page-status","Guardando…");
-      try{await upsertProfile({id:session.user.id,full_name:full,email:session.user.email||"",phone,location:String(fd.get("location")||"").trim()||null,avatar_url:profile.avatar_url,onboarding_completed:true});setStatus("#profile-page-status","Cambios guardados.","success");}
-      catch(err){setStatus("#profile-page-status",friendlyError(err,"No pudimos guardar los cambios."),"error");} finally{b.disabled=false;}
+
+    writeProfileCache(profile);
+    applyProfile(profile);
+
+    form.addEventListener("submit",async event=>{
+      event.preventDefault();
+      const fd=new FormData(form);
+      const full=String(fd.get("full_name")||"").trim();
+      const phone=digits(fd.get("phone"));
+      if(full.length<3||phone.length<10){
+        setStatus("#profile-page-status","Revisa tu nombre y WhatsApp.","error");
+        return;
+      }
+
+      const button=form.querySelector('button[type="submit"]');
+      button.disabled=true;
+      setStatus("#profile-page-status","Guardando…");
+      try{
+        profile=await upsertProfile({
+          id:session.user.id,
+          full_name:full,
+          email:session.user.email||"",
+          phone,
+          location:String(fd.get("location")||"").trim()||null,
+          avatar_url:profile.avatar_url,
+          onboarding_completed:true
+        });
+        writeProfileCache(profile);
+        applyProfile(profile);
+        setStatus("#profile-page-status","Cambios guardados.","success");
+      }catch(error){
+        setStatus("#profile-page-status",friendlyError(error,"No pudimos guardar los cambios."),"error");
+      }finally{
+        button.disabled=false;
+      }
     });
   }
 
