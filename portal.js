@@ -683,7 +683,26 @@ function nextStepText(project) {
   }
 
   async function initProfile() {
-    const {session,profile}=await loadContext(); const form=$("#profile-form");
+    const {session,profile}=await loadContext();
+    const form=$("#profile-form");
+    const from=getParam("from");
+    const projectId=String(getParam("project")||"").trim();
+    const allowedViews=new Set(["summary","page","store","payments","more"]);
+    const view=allowedViews.has(getParam("view"))?getParam("view"):"summary";
+
+    if(from==="project"&&projectId){
+      const returnHref=`proyecto.html?id=${encodeURIComponent(projectId)}&view=${encodeURIComponent(view)}`;
+      const returnLink=$("#profile-return-link");
+      const returnNav=$("#profile-return-nav");
+      if(returnLink){
+        returnLink.href=returnHref;
+        returnLink.textContent="← Volver al proyecto";
+      }
+      if(returnNav){
+        returnNav.href=returnHref;
+        returnNav.textContent="← Volver al proyecto";
+      }
+    }
     ["full_name","phone","location"].forEach(n=>{ if(form[n]) form[n].value=profile[n]||""; }); form.email.value=session.user.email||"";
     form.addEventListener("submit",async e=>{
       e.preventDefault(); const fd=new FormData(form), full=String(fd.get("full_name")||"").trim(), phone=digits(fd.get("phone"));
@@ -1685,8 +1704,20 @@ function nextStepText(project) {
         more:hasVisibleContent(moreView)
       };
 
+      const updateProfileReturnLinks=(active)=>{
+        const query=new URLSearchParams({
+          from:"project",
+          project:String(id),
+          view:String(active)
+        });
+        $$("[data-profile-project-link]").forEach(link=>{
+          link.href=`perfil.html?${query.toString()}`;
+        });
+      };
+
       const selectView=(name,{scroll=true}={})=>{
         const active=availability[name]?name:"summary";
+        updateProfileReturnLinks(active);
 
         Object.entries(availability).forEach(([viewName,visible])=>{
           const view=$(`#project-view-${viewName}`);
@@ -1705,7 +1736,8 @@ function nextStepText(project) {
         button.onclick=()=>selectView(button.dataset.projectView);
       });
 
-      selectView("summary",{scroll:false});
+      const requestedView=getParam("view");
+      selectView(availability[requestedView]?requestedView:"summary",{scroll:false});
       appNav.hidden=false;
       if(legacyNav)legacyNav.hidden=true;
       document.body.classList.add("project-app-ready");
