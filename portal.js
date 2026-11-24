@@ -414,6 +414,59 @@ function nextStepText(project) {
     try{localStorage.removeItem(profileCacheKey(userId));}catch(_){}
   }
 
+  const projectShellCacheKey=(userId,projectId)=>`excepcional.project-shell.v1.${String(userId||"")}.${String(projectId||"")}`;
+
+  function readProjectShellCache(userId,projectId){
+    try{
+      const raw=localStorage.getItem(projectShellCacheKey(userId,projectId));
+      const value=raw?JSON.parse(raw):null;
+      if(!value||typeof value!=="object"||value.user_id!==userId||value.project_id!==projectId)return null;
+      return value;
+    }catch(_){
+      return null;
+    }
+  }
+
+  function writeProjectShellCache(userId,project){
+    if(!userId||!project?.id)return;
+    const value={
+      user_id:userId,
+      project_id:project.id,
+      name:String(project.name||"Tu proyecto"),
+      project_stage:String(project.project_stage||"Configuración"),
+      saved_at:Date.now()
+    };
+    try{localStorage.setItem(projectShellCacheKey(userId,project.id),JSON.stringify(value));}catch(_){}
+  }
+
+  function clearProjectShellCaches(userId){
+    try{
+      const prefix=`excepcional.project-shell.v1.${String(userId||"")}.`;
+      for(let index=localStorage.length-1;index>=0;index-=1){
+        const key=localStorage.key(index);
+        if(key&&key.startsWith(prefix))localStorage.removeItem(key);
+      }
+    }catch(_){}
+  }
+
+  function renderProjectLoadingShell(project){
+    const name=$("#project-loading-name");
+    const stage=$("#project-loading-stage");
+    if(name)name.textContent=String(project?.name||"");
+    if(stage){
+      const label=String(project?.project_stage||"");
+      stage.textContent=label;
+      stage.hidden=!label;
+    }
+    document.body.classList.toggle("project-shell-has-cache",Boolean(project?.name));
+  }
+
+  function revealProjectContent(){
+    $("#project-loading-shell")?.setAttribute("hidden","");
+    const content=$("#project-content");
+    if(content)content.hidden=false;
+  }
+
   async function getSession() {
     if(!portal.configured) return null;
     return (await db.auth.getSession()).data.session;
@@ -456,7 +509,10 @@ function nextStepText(project) {
   }
   async function logout(){
     const session=await getSession();
-    if(session?.user?.id)clearProfileCache(session.user.id);
+    if(session?.user?.id){
+      clearProfileCache(session.user.id);
+      clearProjectShellCaches(session.user.id);
+    }
     await db.auth.signOut();
     location.assign("acceso.html");
   }
@@ -1239,9 +1295,29 @@ function nextStepText(project) {
   }
 
   async function initProject() {
-    const {session,profile}=await loadContext(); const id=getParam("id"); if(!id){location.replace("panel.html");return;}
+    const id=getParam("id");
+    if(!id){location.replace("panel.html");return;}
+
+    const session=await requireSession();
+    const cachedProject=readProjectShellCache(session.user.id,id);
+    if(cachedProject)renderProjectLoadingShell(cachedProject);
+
+    const profile=await getProfile(session.user);
+    if(!profile.onboarding_completed){
+      localStorage.setItem(portal.authNextKey,`${currentFile()}${location.search}`);
+      location.replace("acceso.html?complete=1");
+      throw new Error("PROFILE_REDIRECT");
+    }
+    fillUserUI(profile,session.user);
+
     let project;
-    const loadProject=async()=>{const {data,error}=await db.from("client_projects").select("*").eq("id",id).single();if(error)throw error;project=data;};
+    const loadProject=async()=>{
+      const {data,error}=await db.from("client_projects").select("*").eq("id",id).single();
+      if(error)throw error;
+      project=data;
+      writeProjectShellCache(session.user.id,project);
+      renderProjectLoadingShell(project);
+    };
     await loadProject();
     const results=await Promise.all([
       db.from("client_requests").select("*").eq("project_id",id).order("created_at",{ascending:false}),
@@ -1824,6 +1900,7 @@ function nextStepText(project) {
 
       const requestedView=getParam("view");
       selectView(availability[requestedView]?requestedView:"summary",{scroll:false});
+      revealProjectContent();
       appNav.hidden=false;
       if(legacyNav)legacyNav.hidden=true;
       document.body.classList.add("project-app-ready");
@@ -1867,7 +1944,11 @@ function nextStepText(project) {
     }catch(error){
       if(["AUTH_REDIRECT","PROFILE_REDIRECT"].includes(error.message))return;
       console.error(error);const msg=friendlyError(error,"No pudimos cargar esta información. Intenta nuevamente.");
-      const status=$("#auth-status")||$("#callback-status")||$("#profile-page-status")||$("#setup-status")||$("#brief-status")||$("#request-status");if(status)status.textContent=msg;
+      const status=$("#auth-status")||$("#callback-status")||$("#profile-page-status")||$("#setup-status")||$("#brief-status")||$("#request-status")||$("#project-load-status");
+      if(status){
+        status.hidden=false;
+        status.textContent=msg;
+      }
       const grid=$("#projects-grid");if(grid)grid.innerHTML=`<div class="empty-card empty-card-wide"><h3>No pudimos cargar tus proyectos</h3><p>${safe(msg)}</p></div>`;
     }
   }

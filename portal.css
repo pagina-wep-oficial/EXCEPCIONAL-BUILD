@@ -944,3 +944,31 @@ body[data-portal-page="project"]:not(.project-app-ready) .project-app-nav button
 .profile-skeleton-card b{height:14px}
 .profile-skeleton-card i{height:52px;border-radius:14px}
 @keyframes profile-skeleton-pulse{50%{opacity:.58}}
+
+/* Apertura estable del proyecto: el contenido real aparece cuando ya está completo. */
+.project-loading-shell{display:grid;gap:15px;animation:project-shell-pulse 1.25s ease-in-out infinite}
+.project-loading-back{width:132px;height:18px;border-radius:999px;background:#e6ebe5}
+.project-loading-heading{display:grid;gap:9px;padding:4px 0 2px}
+.project-loading-heading>span{color:#c2cbc5;font-size:10px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}
+.project-loading-heading>strong{display:block;width:min(390px,84%);height:42px;border-radius:12px;background:#e6ebe5;color:transparent}
+.project-loading-heading>i{display:none;width:max-content;min-width:96px;height:24px;border-radius:999px;background:#e6ebe5;color:transparent;font-style:normal}
+.project-shell-has-cache .project-loading-heading>strong{width:auto;height:auto;border-radius:0;background:transparent;color:var(--ink);font:800 35px/1.04 "Manrope";letter-spacing:-.045em}
+.project-shell-has-cache .project-loading-heading>i{display:inline-flex;align-items:center;min-height:24px;padding:0 10px;background:#eef1ed;color:#42514c;font-size:9px;font-weight:900;letter-spacing:.045em;text-transform:uppercase}
+.project-loading-card{display:grid;gap:13px;padding:19px;border:1px solid var(--line);border-radius:22px;background:#fff;box-shadow:0 5px 20px rgba(16,42,36,.035)}
+.project-loading-card b,.project-loading-focus i{display:block;border-radius:999px;background:#e6ebe5}
+.project-loading-progress b{height:14px}
+.project-loading-progress b:nth-child(2){width:84%}
+.project-loading-progress b:nth-child(3){width:68%}
+.project-loading-progress b:nth-child(4){width:92%;height:42px;border-radius:14px}
+.project-loading-focus{grid-template-columns:44px minmax(0,1fr);align-items:center}
+.project-loading-focus>i{width:44px;height:44px;border-radius:14px}
+.project-loading-focus>div{display:grid;gap:9px}
+.project-loading-focus b{height:13px}
+.project-loading-focus b:nth-child(2){width:82%;height:21px}
+.project-loading-focus b:nth-child(3){width:66%}
+#project-load-status{display:none}
+@keyframes project-shell-pulse{50%{opacity:.58}}
+@media(min-width:860px){
+  .project-shell-has-cache .project-loading-heading>strong{font-size:48px}
+  .project-loading-card{padding:22px}
+}
