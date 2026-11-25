@@ -1,4 +1,4 @@
-import { bearer, getOwnedProject, supabaseConfig } from "../_lib/supabase.js";
+import { bearer, getAuthorizedProject, supabaseConfig } from "../_lib/supabase.js";
 import {
   deleteMediaRecord,
   deleteProjectMedia,
@@ -31,7 +31,7 @@ export async function onRequestPost(context) {
     if (!projectId || !ALLOWED[kind] || !(file instanceof File) || !ALLOWED[kind].test(String(file.type || ""))) {
       return json({ ok: false, message: "El archivo no corresponde al tipo seleccionado." }, 400);
     }
-    const access = await getOwnedProject(context.request, context.env, projectId);
+    const access = await getAuthorizedProject(context.request, context.env, projectId);
     if (!access) return json({ ok: false, message: "No tienes acceso a este proyecto." }, 403);
 
     const assetId = crypto.randomUUID();
@@ -83,7 +83,7 @@ export async function onRequestDelete(context) {
     const assetId = new URL(context.request.url).searchParams.get("asset_id") || "";
     const asset = await getOwnedMediaRecord(context.request, context.env, assetId);
     if (!asset) return json({ ok: false, message: "No tienes acceso a este archivo." }, 403);
-    const project = await getOwnedProject(context.request, context.env, asset.project_id);
+    const project = await getAuthorizedProject(context.request, context.env, asset.project_id);
     if (!project) return json({ ok: false, message: "No tienes acceso a este proyecto." }, 403);
     await deleteProjectMedia(context.env, asset.r2_key);
     await deleteMediaRecord(context.request, context.env, asset.id);

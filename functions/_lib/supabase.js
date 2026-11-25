@@ -22,12 +22,14 @@ export async function getUser(request, env) {
   return response.json();
 }
 
-export async function getOwnedProject(request, env, projectId) {
+// Supabase RLS es la fuente de verdad: permite al dueño y a los roles
+// administrativos autorizados, sin duplicar aquí un filtro user_id más estricto.
+export async function getAuthorizedProject(request, env, projectId) {
   const auth = bearer(request);
   const user = await getUser(request, env);
   if (!user) return null;
   const { url, key } = supabaseConfig(env);
-  const endpoint = `${url}/rest/v1/client_projects?id=eq.${encodeURIComponent(projectId)}&user_id=eq.${encodeURIComponent(user.id)}&select=id,name,user_id`;
+  const endpoint = `${url}/rest/v1/client_projects?id=eq.${encodeURIComponent(projectId)}&select=id,name,user_id`;
   const response = await fetch(endpoint, { headers: { apikey: key, Authorization: auth } });
   if (!response.ok) return null;
   const rows = await response.json();

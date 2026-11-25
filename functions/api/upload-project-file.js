@@ -1,4 +1,4 @@
-import { bearer, getOwnedProject, insertFileMetadata, supabaseConfig } from "../_lib/supabase.js";
+import { bearer, getAuthorizedProject, insertFileMetadata, supabaseConfig } from "../_lib/supabase.js";
 import {
   deleteMediaRecord,
   deleteProjectMedia,
@@ -31,7 +31,7 @@ export async function onRequestPost(context) {
     if (category !== "otro" && !CATEGORY_RULES[category].test(String(file.type || "").split(";")[0].trim().toLowerCase()))
       return json({ ok:false, message:`El archivo "${file.name}" no es ${category === "video" ? "un video" : category === "logo" ? "un logotipo (imagen)" : category === "foto" ? "una foto (imagen)" : "un documento"}.` }, 400);
 
-    const access = await getOwnedProject(context.request, context.env, projectId);
+    const access = await getAuthorizedProject(context.request, context.env, projectId);
     if (!access) return json({ ok:false, message:"No tienes acceso a este proyecto." }, 403);
 
     assetId = crypto.randomUUID();
