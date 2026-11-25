@@ -4128,7 +4128,10 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
         throw new Error(String(data?.error_code || data?.message || "MEDIA_UPLOAD"));
       }
       const url = data.asset.public_url;
-      state.lastPhotoUpload = { url, assetId: data.asset.id, type };
+      // Conservamos el blob optimizado durante esta sesión para que Ajustar
+      // imagen pueda abrirse inmediatamente después de reemplazar la foto,
+      // sin depender de una segunda descarga de R2.
+      state.lastPhotoUpload = { url, assetId: data.asset.id, type, blob };
 
       const valueField = $('#editor-v2-fields [data-inline-field="value"]');
       if (valueField) valueField.value = url;
