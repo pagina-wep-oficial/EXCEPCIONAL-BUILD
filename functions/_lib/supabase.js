@@ -67,7 +67,7 @@ export async function getOwnedProjectFile(request, env, fileId) {
   const user = await getUser(request, env);
   if (!user) return null;
   const { url, key } = supabaseConfig(env);
-  const endpoint = `${url}/rest/v1/client_project_files?id=eq.${encodeURIComponent(fileId)}&user_id=eq.${encodeURIComponent(user.id)}&select=id,project_id,user_id,drive_file_id,file_name`;
+  const endpoint = `${url}/rest/v1/client_project_files?id=eq.${encodeURIComponent(fileId)}&user_id=eq.${encodeURIComponent(user.id)}&select=id,project_id,user_id,drive_file_id,storage_provider,r2_key,media_asset_id,file_name,mime_type`;
   const response = await fetch(endpoint, { headers: { apikey: key, Authorization: bearer(request) } });
   if (!response.ok) return null;
   const rows = await response.json();

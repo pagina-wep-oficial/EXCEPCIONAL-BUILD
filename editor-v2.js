@@ -2035,13 +2035,39 @@
       });
 
       fields.querySelectorAll(".editor-video-stream-remove-btn").forEach(btn => {
-        btn.addEventListener("click", () => {
+        btn.addEventListener("click", async () => {
           const currentRaw = currentDraftData()[state.currentKey]?.value ?? state.currentNodeValue ?? "";
           const current = parseVideoStreamValue(currentRaw);
+
+          if (current.media_asset_id) {
+            try {
+              await editorApiFetch(`/api/editor-media?asset_id=${encodeURIComponent(current.media_asset_id)}`, {
+                method: "DELETE"
+              });
+            } catch (error) {
+              console.error("delete video media", error);
+              showEditorError("EB-VIDEO-002");
+              return;
+            }
+          }
+
+          if (current.asset_id) {
+            const { error } = await db
+              .from("client_site_video_assets")
+              .delete()
+              .eq("id", current.asset_id)
+              .eq("project_id", state.project.id);
+            if (error) {
+              console.error("delete video metadata", error);
+              showEditorError("EB-VIDEO-002");
+              return;
+            }
+          }
 
           updateCurrentValue(stringifyVideoStreamValue({
             ...current,
             asset_id: "",
+            media_asset_id: "",
             status: "empty",
             playback_url: ""
           }));
@@ -2211,7 +2237,7 @@
 
   function sanitizeVideoStreamProvider(value = "") {
     const raw = String(value || "").trim().toLowerCase();
-    return raw === "cloudflare_stream" || raw === "raw" ? raw : "raw";
+    return ["cloudflare_stream", "raw", "r2"].includes(raw) ? raw : "raw";
   }
 
   function sanitizeVideoStreamStatus(value = "", hasPlayback = false) {
@@ -2227,6 +2253,7 @@
     return {
       kind: "video_stream",
       asset_id: String(base.asset_id || "").trim(),
+      media_asset_id: String(base.media_asset_id || "").trim(),
       provider: sanitizeVideoStreamProvider(base.provider || ""),
       status: sanitizeVideoStreamStatus(base.status || "", !!playbackUrl),
       playback_url: playbackUrl,
@@ -4067,8 +4094,7 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
   }
 
   async function uploadPhoto(file) {
-    const storage = db?.storage;
-    if (!storage) {
+    if (!db || !state.project?.id) {
       showEditorError("EB-MEDIA-001");
       return;
     }
@@ -4080,26 +4106,30 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
 
     try {
       const { blob, type } = await optimizeImage(file);
-      const ext = type === "image/png" ? "png" : "jpg";
-      const path = `${state.project.id}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
-
       setStatus(EDITOR_STATUS_COPY.image_uploading);
 
-      const { error } = await storage.from("site-images").upload(path, blob, {
-        contentType: type,
-        cacheControl: "3600",
-        upsert: false
-      });
-      if (error) throw error;
-
-      const { data } = storage.from("site-images").getPublicUrl(path);
-      const url = data?.publicUrl;
-      state.lastPhotoUpload = { url, blob, type };
+      const payload = new FormData();
+      payload.set("project_id", state.project.id);
+      payload.set("kind", "image");
+      payload.set("page_path", String(currentPage()?.path || ""));
+      payload.set("asset_key", String(state.currentKey || ""));
+      payload.set("file", new File([blob], file.name || "imagen.jpg", { type }));
+      const response = await editorApiFetch("/api/editor-media", { method: "POST", body: payload });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data?.ok || !data?.asset?.public_url) throw new Error(data?.message || "MEDIA_UPLOAD");
+      const url = data.asset.public_url;
+      state.lastPhotoUpload = { url, assetId: data.asset.id, type };
 
       const valueField = $('#editor-v2-fields [data-inline-field="value"]');
       if (valueField) valueField.value = url;
 
-      updateCurrentValue(url);
+      updateCurrentValue(url, {
+        model: "r2",
+        storage_provider: "r2",
+        asset_id: data.asset.id,
+        media_asset_id: data.asset.id,
+        r2_key: data.asset.r2_key || ""
+      });
       setStatus(EDITOR_STATUS_COPY.image_uploaded, "success");
     } catch (err) {
       console.error("upload photo", err);
@@ -4147,10 +4177,9 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
   }
 
   async function uploadVideoStream(file) {
-    const storage = db?.storage;
     const page = currentPage();
 
-    if (!storage || !state.project?.id || !page?.id || !state.currentKey) {
+    if (!db || !state.project?.id || !page?.id || !state.currentKey) {
       showEditorError("EB-VIDEO-001");
       return;
     }
@@ -4159,12 +4188,11 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
     const extRaw = String(file.name || "").split(".").pop()?.toLowerCase() || "mp4";
     const ext = /^[a-z0-9]+$/.test(extRaw) ? extRaw : "mp4";
     const title = current.title || String(file.name || "Video").replace(/\.[^.]+$/, "");
-    const path = `${state.project.id}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
 
     updateCurrentValue(stringifyVideoStreamValue({
       ...current,
       title,
-      provider: "raw",
+      provider: "r2",
       status: "processing"
     }));
     renderSidebar();
@@ -4180,7 +4208,7 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
           page_id: page.id,
           asset_key: state.currentKey,
           kind: "video_stream",
-          provider: "raw",
+          provider: "r2",
           source_url: "",
           playback_url: "",
           poster_url: current.poster_url || "",
@@ -4200,15 +4228,15 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
 
       setStatus(EDITOR_STATUS_COPY.video_processing);
 
-      const { error: uploadError } = await storage.from("site-videos").upload(path, file, {
-        contentType: file.type || "video/mp4",
-        cacheControl: "3600",
-        upsert: false
-      });
-      if (uploadError) throw uploadError;
-
-      const { data } = storage.from("site-videos").getPublicUrl(path);
-      const playbackUrl = data?.publicUrl || "";
+      const upload = new FormData();
+      upload.set("project_id", state.project.id);
+      upload.set("kind", "video");
+      upload.set("page_path", String(page.path || ""));
+      upload.set("asset_key", String(state.currentKey || ""));
+      upload.set("file", file, file.name || `video.${ext}`);
+      const mediaResponse = await editorApiFetch("/api/editor-media", { method: "POST", body: upload });
+      const media = await mediaResponse.json().catch(() => ({}));
+      const playbackUrl = media?.asset?.public_url || "";
       if (!playbackUrl) throw new Error("VIDEO_URL");
 
       const { error: updateError } = await db
@@ -4216,6 +4244,9 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
         .update({
           source_url: playbackUrl,
           playback_url: playbackUrl,
+          provider: "r2",
+          media_asset_id: media.asset.id,
+          r2_key: media.asset.r2_key,
           poster_url: current.poster_url || "",
           mime_type: file.type || "video/mp4",
           size_bytes: Number(file.size || 0),
@@ -4233,7 +4264,8 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
         ...current,
         kind: "video_stream",
         asset_id: assetId,
-        provider: "raw",
+        media_asset_id: media.asset.id,
+        provider: "r2",
         status: "ready",
         playback_url: playbackUrl,
         poster_url: current.poster_url || "",
@@ -4265,7 +4297,7 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
       updateCurrentValue(stringifyVideoStreamValue({
         ...current,
         asset_id: assetId,
-        provider: "raw",
+          provider: "r2",
         status: "failed",
         title,
         aspect_ratio: current.aspect_ratio || "16 / 9"
@@ -4839,7 +4871,11 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
       radius: photoEdit.radius || photoTargetRadius(),
       x: +metrics.x.toFixed(6),
       y: +metrics.y.toFixed(6),
-      rotation: ((photoEdit.rot % 360) + 360) % 360
+      rotation: ((photoEdit.rot % 360) + 360) % 360,
+      storage_provider: photoEdit.meta?.storage_provider || "",
+      asset_id: photoEdit.meta?.asset_id || "",
+      media_asset_id: photoEdit.meta?.media_asset_id || "",
+      r2_key: photoEdit.meta?.r2_key || ""
     };
 
     try {

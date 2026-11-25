@@ -13,6 +13,7 @@ import {
   markRestorePlanFailed,
   markRestorePlanPublishing
 } from "../_lib/editor-restore-plans.js";
+import { deleteProjectMedia, uploadProjectMedia } from "../_lib/project-media.js";
 
 const json = (data, status = 200) => new Response(JSON.stringify(data), {
   status,
@@ -585,6 +586,14 @@ function storagePublicPrefix(env) {
   return `${url.replace(/\/+$/, "")}/storage/v1/object/public/site-images/`;
 }
 
+function storagePublicPrefixes(env) {
+  const { url } = supabaseConfig(env);
+  const base = url.replace(/\/+$/, "");
+  return ["site-images", "site-videos"].map(bucket =>
+    `${base}/storage/v1/object/public/${bucket}/`
+  );
+}
+
 function collectMatches(value, regex, out) {
   if (typeof value === "string") {
     regex.lastIndex = 0;
@@ -803,13 +812,298 @@ function removeLegacyEditorPhotoLayout(element) {
   else element.removeAttribute("style");
 }
 
+function parsePublishedVideo(value = "") {
+  if (value && typeof value === "object" && !Array.isArray(value)) return value;
+  try {
+    const parsed = JSON.parse(String(value || ""));
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return { playback_url: String(value || "") };
+  }
+}
+
+function legacyFileName(url, mimeType, fallback = "archivo") {
+  try {
+    const name = decodeURIComponent(new URL(url).pathname.split("/").pop() || "");
+    if (name) return safeSegment(name, fallback);
+  } catch {
+    // Las URLs antiguas pueden no tener un nombre válido.
+  }
+  const extension = String(mimeType || "").split("/")[1]?.replace(/[^a-z0-9]/gi, "") || "bin";
+  return `${fallback}.${extension}`;
+}
+
+async function projectMediaRecords(context, projectId) {
+  const { url, key } = supabaseConfig(context.env);
+  const response = await fetch(
+    `${url}/rest/v1/client_project_media_assets?project_id=eq.${encodeURIComponent(projectId)}&select=id,legacy_source_url,public_url,r2_key,status`,
+    { headers: { apikey: key, Authorization: bearer(context.request) } }
+  );
+  if (!response.ok) throw new Error("EDITOR_MEDIA_RECORDS_FAILED");
+  return response.json();
+}
+
+async function insertProjectMediaRecord(context, payload) {
+  const { url, key } = supabaseConfig(context.env);
+  const response = await fetch(`${url}/rest/v1/client_project_media_assets`, {
+    method: "POST",
+    headers: {
+      apikey: key,
+      Authorization: bearer(context.request),
+      "Content-Type": "application/json",
+      Prefer: "return=representation"
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!response.ok) throw new Error(await response.text());
+  return (await response.json())?.[0] || null;
+}
+
+async function patchLegacyVideoRecord(context, sourceUrl, asset) {
+  const { url, key } = supabaseConfig(context.env);
+  const encoded = encodeURIComponent(sourceUrl);
+  const response = await fetch(
+    `${url}/rest/v1/client_site_video_assets?or=(source_url.eq.${encoded},playback_url.eq.${encoded})`,
+    {
+      method: "PATCH",
+      headers: {
+        apikey: key,
+        Authorization: bearer(context.request),
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        source_url: asset.public_url,
+        playback_url: asset.public_url,
+        provider: "r2",
+        media_asset_id: asset.id,
+        r2_key: asset.r2_key
+      })
+    }
+  );
+  if (!response.ok) throw new Error("EDITOR_VIDEO_RECORD_MIGRATION_FAILED");
+}
+
+async function migrateLegacyPublicMedia(context, access, pages) {
+  const prefixes = storagePublicPrefixes(context.env);
+  const regexes = prefixes.map(prefix =>
+    new RegExp(escapeRegExp(prefix) + "[^\\\"'\\s<>)\\\\]*", "g")
+  );
+  const legacyUrls = new Set();
+
+  for (const page of pages) {
+    regexes.forEach(regex => {
+      collectMatches(page.original_html || "", regex, legacyUrls);
+      collectMatches(page.edited_html || "", regex, legacyUrls);
+      collectMatches(page.elements || {}, regex, legacyUrls);
+    });
+  }
+
+  if (!legacyUrls.size) return { pages, migrated: 0, createdKeys: [] };
+
+  const existing = await projectMediaRecords(context, access.project.id);
+  const byLegacyUrl = new Map(
+    existing
+      .filter(row => row?.legacy_source_url && row.status !== "deleted")
+      .map(row => [String(row.legacy_source_url), row])
+  );
+  const replacements = new Map();
+  const createdKeys = [];
+
+  try {
+    for (const sourceUrl of legacyUrls) {
+      const known = byLegacyUrl.get(sourceUrl);
+      if (known?.public_url) {
+        replacements.set(sourceUrl, known.public_url);
+        continue;
+      }
+
+      const response = await fetch(sourceUrl);
+      if (!response.ok) throw new Error(`EDITOR_LEGACY_MEDIA_${response.status}`);
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      if (!bytes.byteLength || bytes.byteLength > 25 * 1024 * 1024) {
+        throw new Error("EDITOR_LEGACY_MEDIA_TOO_LARGE");
+      }
+
+      const mimeType = response.headers.get("Content-Type")?.split(";")[0] || "application/octet-stream";
+      const isVideo = sourceUrl.includes("/site-videos/") || mimeType.startsWith("video/");
+      const assetId = crypto.randomUUID();
+      const file = new File(
+        [bytes],
+        legacyFileName(sourceUrl, mimeType, isVideo ? "video-migrado" : "imagen-migrada"),
+        { type: mimeType }
+      );
+      const uploaded = await uploadProjectMedia(context.env, {
+        projectId: access.project.id,
+        assetId,
+        visibility: "public",
+        file
+      });
+      createdKeys.push(uploaded.r2_key);
+
+      const record = await insertProjectMediaRecord(context, {
+        id: assetId,
+        project_id: access.project.id,
+        user_id: access.user.id,
+        purpose: isVideo ? "legacy_video" : "legacy_image",
+        visibility: "public",
+        storage_provider: "r2",
+        r2_key: uploaded.r2_key,
+        public_url: uploaded.public_url,
+        original_name: file.name,
+        mime_type: mimeType,
+        size_bytes: bytes.byteLength,
+        legacy_source_url: sourceUrl,
+        status: "ready"
+      });
+      if (!record?.public_url) throw new Error("EDITOR_LEGACY_MEDIA_RECORD_FAILED");
+      replacements.set(sourceUrl, record.public_url);
+      if (isVideo) await patchLegacyVideoRecord(context, sourceUrl, record);
+    }
+
+    return {
+      pages: pages.map(page => ({
+        ...page,
+        original_html: rewriteStringWithMap(page.original_html, replacements),
+        edited_html: rewriteStringWithMap(page.edited_html, replacements),
+        elements: rewriteValueDeep(page.elements, replacements)
+      })),
+      migrated: replacements.size,
+      createdKeys
+    };
+  } catch (error) {
+    await Promise.all(createdKeys.map(key => deleteProjectMedia(context.env, key).catch(() => {})));
+    throw error;
+  }
+}
+
+function mediaTypeForPath(path) {
+  const ext = String(path || "").split(".").pop()?.toLowerCase() || "";
+  return ({
+    jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp",
+    gif: "image/gif", avif: "image/avif", svg: "image/svg+xml",
+    mp4: "video/mp4", webm: "video/webm", mov: "video/quicktime"
+  })[ext] || "";
+}
+
+function bytesFromBase64(value) {
+  const binary = atob(String(value || "").replace(/\s/g, ""));
+  return Uint8Array.from(binary, character => character.charCodeAt(0));
+}
+
+async function migrateLegacyRepoMedia(context, access, pages, project, github) {
+  const referencedPaths = new Set();
+  pages.forEach(page => {
+    collectEditorAssetReferences(page.original_html || "", page.path, project, referencedPaths);
+    collectEditorAssetReferences(page.edited_html || "", page.path, project, referencedPaths);
+    collectEditorAssetReferences(page.elements || {}, page.path, project, referencedPaths);
+  });
+
+  const mediaPaths = [...referencedPaths].filter(path => mediaTypeForPath(path));
+  if (!mediaPaths.length) return { pages, migrated: 0, createdKeys: [] };
+
+  const existing = await projectMediaRecords(context, access.project.id);
+  const byLegacyUrl = new Map(
+    existing
+      .filter(row => row?.legacy_source_url && row.status !== "deleted")
+      .map(row => [String(row.legacy_source_url), row])
+  );
+  const replacementsByPath = new Map();
+  const createdKeys = [];
+  const tree = await githubGetBranchTree({
+    token: github.token,
+    owner: github.owner,
+    repo: github.repo,
+    branch: github.branch
+  });
+  const filesByPath = new Map(
+    tree
+      .filter(entry => entry?.type === "blob" && entry?.path)
+      .map(entry => [normalizePath(entry.path), entry])
+  );
+
+  try {
+    for (const path of mediaPaths) {
+      const legacyUrl = editorAssetUrl(project, path);
+      const known = byLegacyUrl.get(legacyUrl);
+      if (known?.public_url) {
+        replacementsByPath.set(path, known.public_url);
+        continue;
+      }
+
+      const source = filesByPath.get(path);
+      if (!source?.sha) throw new Error("EDITOR_LEGACY_REPO_MEDIA_MISSING");
+      const blob = await githubGetBlob(
+        github.token,
+        github.owner,
+        github.repo,
+        source.sha
+      );
+      const bytes = bytesFromBase64(blob?.content || "");
+      const mimeType = mediaTypeForPath(path);
+      if (!bytes.byteLength || bytes.byteLength > 25 * 1024 * 1024) {
+        throw new Error("EDITOR_LEGACY_REPO_MEDIA_TOO_LARGE");
+      }
+
+      const assetId = crypto.randomUUID();
+      const file = new File([bytes], safeSegment(path.split("/").pop() || "medio-migrado"), { type: mimeType });
+      const uploaded = await uploadProjectMedia(context.env, {
+        projectId: access.project.id,
+        assetId,
+        visibility: "public",
+        file
+      });
+      createdKeys.push(uploaded.r2_key);
+      const record = await insertProjectMediaRecord(context, {
+        id: assetId,
+        project_id: access.project.id,
+        user_id: access.user.id,
+        purpose: mimeType.startsWith("video/") ? "legacy_video" : "legacy_image",
+        visibility: "public",
+        storage_provider: "r2",
+        r2_key: uploaded.r2_key,
+        public_url: uploaded.public_url,
+        original_name: file.name,
+        mime_type: mimeType,
+        size_bytes: bytes.byteLength,
+        legacy_source_url: legacyUrl,
+        status: "ready"
+      });
+      if (!record?.public_url) throw new Error("EDITOR_LEGACY_REPO_MEDIA_RECORD_FAILED");
+      replacementsByPath.set(path, record.public_url);
+    }
+
+    return {
+      pages: pages.map(page => {
+        let replacements = new Map();
+        replacementsByPath.forEach((target, path) => {
+          const relative = buildRelativePath(page.path, path);
+          replacements.set(relative, target);
+          replacements.set(`./${relative}`, target);
+          replacements.set(editorAssetUrl(project, path), target);
+        });
+        return {
+          ...page,
+          original_html: rewriteStringWithMap(page.original_html, replacements),
+          edited_html: rewriteStringWithMap(page.edited_html, replacements),
+          elements: rewriteValueDeep(page.elements, replacements)
+        };
+      }),
+      migrated: replacementsByPath.size,
+      createdKeys
+    };
+  } catch (error) {
+    await Promise.all(createdKeys.map(key => deleteProjectMedia(context.env, key).catch(() => {})));
+    throw error;
+  }
+}
+
 async function applyEditorPatchesToHtml(sourceHtml, elements = {}) {
   const entries = Object.entries(elements || {})
     .filter(([key, entry]) =>
       key !== DRAFT_META_KEY &&
       entry &&
       typeof entry === "object" &&
-      ["text", "link", "image"].includes(entry.type)
+      ["text", "link", "image", "video_stream"].includes(entry.type)
     );
 
   const rewriter = new HTMLRewriter();
@@ -863,6 +1157,30 @@ async function applyEditorPatchesToHtml(sourceHtml, elements = {}) {
           ).trim();
 
           if (imageValue) element.setAttribute("srcset", imageValue);
+        }
+      });
+      continue;
+    }
+
+    if (entry.type === "video_stream") {
+      const video = parsePublishedVideo(entry.value);
+      const playbackUrl = String(video.playback_url || video.source_url || "").trim();
+      const posterUrl = String(video.poster_url || "").trim();
+
+      rewriter.on(selector, {
+        element(element) {
+          if (playbackUrl) element.setAttribute("src", playbackUrl);
+          else element.removeAttribute("src");
+          if (posterUrl) element.setAttribute("poster", posterUrl);
+          else element.removeAttribute("poster");
+          if (video.autoplay) element.setAttribute("autoplay", "");
+          else element.removeAttribute("autoplay");
+          if (video.muted) element.setAttribute("muted", "");
+          else element.removeAttribute("muted");
+          if (video.loop) element.setAttribute("loop", "");
+          else element.removeAttribute("loop");
+          if (video.controls !== false) element.setAttribute("controls", "");
+          else element.removeAttribute("controls");
         }
       });
     }
@@ -1061,7 +1379,19 @@ const newAssetsByPath = new Map(
   assetFiles.map(asset => [asset.path, asset])
 );
 
-const existingAssetPaths = new Set(
+const repoAssetFiles = await listBranchFiles({
+  token: github.token,
+  owner: github.owner,
+  repo: github.repo,
+  branch: github.branch,
+  rootPath: editorAssetDirectory(project)
+});
+
+const assetDeletes = repoAssetFiles.filter(path =>
+  !referencedAssetPaths.has(path) && !newAssetsByPath.has(path)
+);
+
+  const existingAssetPaths = new Set(
   [...referencedAssetPaths].filter(path => !newAssetsByPath.has(path))
 );
 
@@ -1081,6 +1411,7 @@ const snapshotAssets = [
 return {
   pages: nextPages,
   assetFiles,
+    assetDeletes,
   snapshotAssets,
   copied,
   failed
@@ -1387,6 +1718,7 @@ async function prepareRestorePublication({
 export async function onRequestPost(context) {
   let pendingVersion = null;
   let commitAccepted = false;
+  let migratedMediaKeys = [];
   try {
     const token = context.env.GITHUB_TOKEN;
     if (!token) return json({ ok: false, message: "Falta configurar GITHUB_TOKEN en Cloudflare Pages." }, 500);
@@ -1455,7 +1787,20 @@ export async function onRequestPost(context) {
       }, 403);
     }
 
-    const bundled = await bundleRepoImages(pages, context.env, project, {
+    const migratedSupabase = await migrateLegacyPublicMedia(context, access, pages);
+    const migratedRepo = await migrateLegacyRepoMedia(
+      context,
+      access,
+      migratedSupabase.pages,
+      project,
+      { token, owner, repo, branch }
+    );
+    migratedMediaKeys = [
+      ...migratedSupabase.createdKeys,
+      ...migratedRepo.createdKeys
+    ];
+    const migratedPages = migratedRepo.pages;
+    const bundled = await bundleRepoImages(migratedPages, context.env, project, {
       token,
       owner,
       repo,
@@ -1466,7 +1811,7 @@ export async function onRequestPost(context) {
       env: context.env,
       project,
       user: access.user,
-      pages,
+      pages: bundled.pages,
       bundled
     });
 
@@ -1499,7 +1844,7 @@ export async function onRequestPost(context) {
           data: textToBase64(page.published_html)
         }))
       ],
-      deletes: [],
+      deletes: bundled.assetDeletes,
       message: "Publica cambios desde el editor Excepcional Build"
     });
 
@@ -1539,6 +1884,9 @@ export async function onRequestPost(context) {
     if (deletedBaseFiles) warnings.push(`${deletedBaseFiles} archivo(s) sobrante(s) se borraron de la rama publicada para dejarla alineada con la versión base.`);
     if (bundled.copied) warnings.push(`${bundled.copied} foto(s) del editor se copiaron al repo publicado.`);
     if (bundled.failed) warnings.push(`${bundled.failed} foto(s) no se pudieron copiar y siguen apuntando a Supabase.`);
+    const migratedCount = migratedSupabase.migrated + migratedRepo.migrated;
+    if (migratedCount) warnings.push(`${migratedCount} medio(s) antiguo(s) se trasladaron a R2.`);
+    if (bundled.assetDeletes?.length) warnings.push(`${bundled.assetDeletes.length} copia(s) antigua(s) del repositorio se retiraron después de migrarlas.`);
 
     return json({
       ok: true,
@@ -1554,6 +1902,13 @@ export async function onRequestPost(context) {
       await failVersion({ request: context.request, env: context.env, version: pendingVersion }).catch(cleanupError => {
         console.error("No pudimos limpiar la versión pendiente", cleanupError);
       });
+    }
+    if (!commitAccepted && migratedMediaKeys.length) {
+      await Promise.all(
+        migratedMediaKeys.map(key => deleteProjectMedia(context.env, key).catch(cleanupError => {
+          console.error("No pudimos limpiar medio R2 migrado", cleanupError);
+        }))
+      );
     }
     console.error(error);
     const code = String(error?.message || "");

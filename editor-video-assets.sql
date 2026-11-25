@@ -21,7 +21,7 @@ create table if not exists public.client_site_video_assets (
   constraint client_site_video_assets_kind_check
     check (kind in ('video_embed','video_stream','video_file_raw')),
   constraint client_site_video_assets_provider_check
-    check (provider in ('youtube','vimeo','cloudflare_stream','raw','external')),
+    check (provider in ('youtube','vimeo','cloudflare_stream','raw','r2','external')),
   constraint client_site_video_assets_status_check
     check (status in ('draft','processing','ready','failed','orphan')),
   constraint client_site_video_assets_size_check

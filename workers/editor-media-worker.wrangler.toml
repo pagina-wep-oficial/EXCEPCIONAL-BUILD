@@ -1,0 +1,9 @@
+name = "excepcional-editor-media"
+main = "editor-media-worker.js"
+compatibility_date = "2026-11-24"
+account_id = "d197c3a221e755e9479ed6065ee16b3f"
+workers_dev = true
+
+[[r2_buckets]]
+binding = "EDITOR_MEDIA"
+bucket_name = "excepcional-editor-media"

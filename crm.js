@@ -808,13 +808,21 @@ if(canManageUsers()) await loadUsers();
     let out=null;
     try{out=res.data?JSON.parse(res.data):null;}catch(_){out=null;}
     if(!out||out.result!=="OK"){toast("No pudimos eliminar al cliente.");return;}
+    let cleanupWarning=false;
     if(Array.isArray(out.paths)&&out.paths.length){
       try{
         const {error}=await db.storage.from("site-images").remove(out.paths);
         if(error)throw error;
-      }catch(_){toast("Cliente eliminado, pero no pudimos borrar algunas fotos.");}
+      }catch(_){cleanupWarning=true;}
     }
-    toast("Cliente eliminado por completo.");await loadAll();
+    if(Array.isArray(out.r2_keys)&&out.r2_keys.length){
+      try{
+        const response=await fetch("/api/admin-delete-media",{method:"POST",headers:{Authorization:`Bearer ${state.session.access_token}`,"Content-Type":"application/json"},body:JSON.stringify({r2_keys:out.r2_keys})});
+        const cleanup=await response.json().catch(()=>null);
+        if(!response.ok||!cleanup?.ok)throw new Error("R2_CLEANUP_FAILED");
+      }catch(_){cleanupWarning=true;}
+    }
+    toast(cleanupWarning?"Cliente eliminado, pero algunos archivos pendientes requieren limpieza.":"Cliente eliminado por completo.");await loadAll();
   }
 
   function renderClientDetail(){

@@ -9,7 +9,8 @@
 -- rutas de fotos del cliente en 'paths' y el CRM las borra después con
 -- supabase.storage.from('site-images').remove(paths) (la política
 -- site_images_delete_owner lo permite a administradores).
--- Devuelve texto JSON: {"result":"OK","paths":[...]} o {"result":"NO_EXISTE"}.
+-- Devuelve texto JSON: {"result":"OK","paths":[...],"r2_keys":[...]}
+-- o {"result":"NO_EXISTE"}.
 
 create or replace function public.crm_eliminar_cliente(p_email text)
 returns text
@@ -21,6 +22,7 @@ declare
   v_id uuid;
   v_proyectos uuid[];
   v_paths text[];
+  v_r2_keys text[];
 begin
   if not exists (select 1 from public.app_admins a where a.user_id = auth.uid()) then
     raise exception 'Sin permisos de administrador';
@@ -50,6 +52,26 @@ begin
       )
   );
 
+  -- R2 no se puede borrar con SQL. El CRM recibe estas claves y las elimina
+  -- después mediante la API interna protegida del Worker de medios.
+  v_r2_keys := array(
+    select distinct media_key
+    from (
+      select r2_key as media_key
+      from public.client_project_media_assets
+      where project_id = any (v_proyectos) and r2_key is not null
+      union all
+      select r2_key as media_key
+      from public.client_project_files
+      where project_id = any (v_proyectos) and r2_key is not null
+      union all
+      select r2_key as media_key
+      from public.client_site_video_assets
+      where project_id = any (v_proyectos) and r2_key is not null
+    ) as media_keys
+    where media_key is not null
+  );
+
   -- Dependencias por página (versiones) y por proyecto.
   delete from public.client_site_page_versions
     where page_id in (
@@ -76,7 +98,8 @@ begin
 
   return json_build_object(
     'result', 'OK',
-    'paths', coalesce(v_paths, '{}')
+    'paths', coalesce(v_paths, '{}'),
+    'r2_keys', coalesce(v_r2_keys, '{}')
   )::text;
 end;
 $$;
