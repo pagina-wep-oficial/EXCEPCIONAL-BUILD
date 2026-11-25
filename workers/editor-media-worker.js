@@ -57,6 +57,12 @@ function objectHeaders(object, { privateResponse = false, range = null } = {}) {
   headers.set("Accept-Ranges", "bytes");
   headers.set("X-Content-Type-Options", "nosniff");
   headers.set("Cache-Control", privateResponse ? "private, no-store" : "public, max-age=31536000, immutable");
+  if (!privateResponse) {
+    headers.set("Access-Control-Allow-Origin", "*");
+    headers.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+    headers.set("Access-Control-Allow-Headers", "Range");
+    headers.set("Access-Control-Expose-Headers", "Accept-Ranges, Content-Length, Content-Range, ETag");
+  }
   if (range) {
     headers.set("Content-Range", `bytes ${range.offset}-${range.offset + range.length - 1}/${object.size}`);
     headers.set("Content-Length", String(range.length));
@@ -129,7 +135,17 @@ async function publicObject(request, env, key) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (request.method === "OPTIONS") return new Response(null, { status: 204 });
+    if (request.method === "OPTIONS") {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+          "Access-Control-Allow-Headers": "Range",
+          "Access-Control-Max-Age": "86400"
+        }
+      });
+    }
     if (request.method === "POST" && url.pathname === "/internal/upload") return upload(request, env);
     if (request.method === "GET" && url.pathname === "/internal/private") return privateObject(request, env);
     if (request.method === "DELETE" && url.pathname === "/internal/object") return remove(request, env);
