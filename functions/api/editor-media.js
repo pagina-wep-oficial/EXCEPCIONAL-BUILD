@@ -20,6 +20,9 @@ const ALLOWED = {
 export async function onRequestPost(context) {
   let uploaded = null;
   try {
+    if (!bearer(context.request)) {
+      return json({ ok: false, message: "Necesitas iniciar sesión." }, 401);
+    }
     const form = await context.request.formData();
     const projectId = String(form.get("project_id") || "");
     const kind = String(form.get("kind") || "");
