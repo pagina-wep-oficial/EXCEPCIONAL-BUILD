@@ -3,6 +3,7 @@ import {
   deleteMediaRecord,
   deleteProjectMedia,
   getOwnedMediaRecord,
+  mediaErrorCode,
   mediaErrorMessage,
   uploadProjectMedia
 } from "../_lib/project-media.js";
@@ -73,7 +74,7 @@ export async function onRequestPost(context) {
   } catch (error) {
     console.error("editor-media", error);
     if (uploaded?.r2_key) await deleteProjectMedia(context.env, uploaded.r2_key).catch(() => {});
-    return json({ ok: false, message: mediaErrorMessage(error) }, 500);
+    return json({ ok: false, message: mediaErrorMessage(error), error_code: mediaErrorCode(error) }, 500);
   }
 }
 
@@ -89,6 +90,6 @@ export async function onRequestDelete(context) {
     return json({ ok: true });
   } catch (error) {
     console.error("editor-media-delete", error);
-    return json({ ok: false, message: mediaErrorMessage(error) }, 500);
+    return json({ ok: false, message: mediaErrorMessage(error), error_code: mediaErrorCode(error) }, 500);
   }
 }

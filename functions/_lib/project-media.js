@@ -94,11 +94,35 @@ export async function deleteMediaRecord(request, env, assetId) {
 }
 
 export function mediaErrorMessage(error) {
-  if (String(error?.message || "").includes("EDITOR_MEDIA_NOT_CONFIGURED")) {
+  const code = mediaErrorCode(error);
+  if (code === "R2_NOT_CONFIGURED") {
     return "El almacenamiento de archivos todavía no está configurado.";
   }
-  if (String(error?.message || "").includes("EDITOR_MEDIA_FILE_INVALID")) {
+  if (code === "R2_AUTH") {
+    return "El almacenamiento rechazó la conexión segura.";
+  }
+  if (code === "R2_WORKER") {
+    return "El almacenamiento no respondió correctamente.";
+  }
+  if (code === "PROJECT_ACCESS") {
+    return "No tienes acceso a este proyecto.";
+  }
+  if (code === "MEDIA_DATABASE") {
+    return "La imagen no pudo registrarse en el proyecto.";
+  }
+  if (code === "EDITOR_MEDIA_FILE_INVALID") {
     return "El archivo debe pesar máximo 25 MB.";
   }
   return "No pudimos guardar el archivo. Inténtalo nuevamente.";
+}
+
+export function mediaErrorCode(error) {
+  const raw = String(error?.message || "");
+  if (raw.includes("EDITOR_MEDIA_NOT_CONFIGURED")) return "R2_NOT_CONFIGURED";
+  if (/EDITOR_MEDIA_(401|403)\b/.test(raw)) return "R2_AUTH";
+  if (/EDITOR_MEDIA_(4\d\d|5\d\d)\b/.test(raw)) return "R2_WORKER";
+  if (raw.includes("No tienes acceso a este proyecto")) return "PROJECT_ACCESS";
+  if (raw.includes("client_project_media_assets") || raw.includes("PostgREST")) return "MEDIA_DATABASE";
+  if (raw.includes("EDITOR_MEDIA_FILE_INVALID")) return "EDITOR_MEDIA_FILE_INVALID";
+  return "MEDIA_UPLOAD";
 }

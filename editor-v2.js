@@ -4116,7 +4116,9 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
       payload.set("file", new File([blob], file.name || "imagen.jpg", { type }));
       const response = await editorApiFetch("/api/editor-media", { method: "POST", body: payload });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok || !data?.ok || !data?.asset?.public_url) throw new Error(data?.message || "MEDIA_UPLOAD");
+      if (!response.ok || !data?.ok || !data?.asset?.public_url) {
+        throw new Error(String(data?.error_code || data?.message || "MEDIA_UPLOAD"));
+      }
       const url = data.asset.public_url;
       state.lastPhotoUpload = { url, assetId: data.asset.id, type };
 
@@ -4134,7 +4136,15 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
     } catch (err) {
       console.error("upload photo", err);
       if (imageNode) hideInlineImageLoader(imageNode);
-      showEditorError("EB-MEDIA-001");
+      if (isEditorSessionExpiredError(err)) {
+        openEditorSessionExpiredDialog();
+        return;
+      }
+      const diagnostic = String(err?.message || "").trim();
+      const detail = diagnostic && diagnostic !== "MEDIA_UPLOAD"
+        ? `Código técnico: ${diagnostic}`
+        : "Revisa tu conexión e inténtalo de nuevo.";
+      showEditorError("EB-MEDIA-001", `${detail} Código: EB-MEDIA-001`);
     }
   }
 
