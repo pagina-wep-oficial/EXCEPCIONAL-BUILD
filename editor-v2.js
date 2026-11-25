@@ -2086,7 +2086,13 @@
     });
 
     fields.querySelectorAll(".editor-photo-edit-btn").forEach(btn => {
-      btn.addEventListener("click", () => openPhotoEditor());
+      btn.addEventListener("click", () => {
+        if (btn.disabled) {
+          setStatus(EDITOR_STATUS_COPY.image_pick_first);
+          return;
+        }
+        openPhotoEditor();
+      });
     });
   }
 
@@ -2752,6 +2758,8 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
     }
 
     if (type === "image") {
+      const imageValue = String(value || "").trim();
+      const hasImage = /^(https?:\/\/|data:image\/|\/)/i.test(imageValue);
       return `
         <label class="editor-field">
           <span>Foto</span>
@@ -2759,8 +2767,8 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
             <label class="button button-light editor-photo-btn">Elegir foto<input type="file" class="editor-photo-input" accept="image/*" hidden></label>
             <label class="button button-light editor-photo-btn">Tomar foto<input type="file" class="editor-photo-input" accept="image/*" capture="environment" hidden></label>
           </div>
-          <button type="button" class="button button-light editor-photo-edit-btn">Ajustar imagen</button>
-          <small>Toca "Elegir foto" o "Tomar foto" y la imagen se agrega a tu página.</small>
+          <button type="button" class="button button-light editor-photo-edit-btn" ${hasImage ? "" : "disabled"} aria-disabled="${hasImage ? "false" : "true"}">Ajustar imagen</button>
+          <small>${hasImage ? "Ajusta el encuadre, zoom, posición o giro de esta imagen." : "Primero elige una foto para poder ajustarla."}</small>
         </label>
       `;
     }
@@ -4808,7 +4816,7 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
     if (!backdrop) return;
 
     const url = photoAtValue();
-    if (!url) {
+    if (!/^(https?:\/\/|data:image\/|\/)/i.test(String(url || "").trim())) {
       setStatus(EDITOR_STATUS_COPY.image_pick_first);
       return;
     }
