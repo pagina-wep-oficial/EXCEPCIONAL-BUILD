@@ -2074,6 +2074,12 @@
           renderSidebar();
         });
       });
+
+      fields.querySelectorAll(".editor-video-stream-edit-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          if (!btn.disabled) openVideoEditor();
+        });
+      });
     }
 
     fields.querySelectorAll(".editor-photo-input").forEach(input => {
@@ -2204,6 +2210,30 @@
     return "16 / 9";
   }
 
+  function sanitizeVideoFitMode(value = "") {
+    return String(value || "").trim().toLowerCase() === "contain" ? "contain" : "cover";
+  }
+
+  function sanitizeVideoFocal(value, fallback = 50) {
+    const number = Number(value);
+    return Number.isFinite(number) ? Math.min(100, Math.max(0, number)) : fallback;
+  }
+
+  function sanitizeVideoZoom(value = 1) {
+    const number = Number(value);
+    return Number.isFinite(number) ? Math.min(3, Math.max(1, number)) : 1;
+  }
+
+  function sanitizeVideoRotation(value = 0) {
+    const number = Number(value);
+    return Number.isFinite(number) ? Math.min(180, Math.max(-180, number)) : 0;
+  }
+
+  function sanitizeVideoRadius(value = 0) {
+    const number = Number(value);
+    return Number.isFinite(number) ? Math.min(32, Math.max(0, number)) : 0;
+  }
+
   function defaultVideoEmbedModel(source = {}) {
     const base = source && typeof source === "object" && !Array.isArray(source) ? source : {};
     const url = String(base.url || "").trim();
@@ -2215,6 +2245,12 @@
       title: String(base.title || "").trim(),
       poster_url: String(base.poster_url || "").trim(),
       aspect_ratio: normalizeVideoAspectRatio(base.aspect_ratio || "16 / 9"),
+      fit_mode: sanitizeVideoFitMode(base.fit_mode),
+      focal_x: sanitizeVideoFocal(base.focal_x, 50),
+      focal_y: sanitizeVideoFocal(base.focal_y, 50),
+      zoom: sanitizeVideoZoom(base.zoom),
+      rotation: sanitizeVideoRotation(base.rotation),
+      radius: sanitizeVideoRadius(base.radius),
       autoplay: Boolean(base.autoplay),
       muted: Boolean(base.muted),
       loop: Boolean(base.loop),
@@ -2313,6 +2349,12 @@
       poster_url: node.getAttribute("poster") || "",
       title: node.getAttribute("title") || node.getAttribute("aria-label") || "",
       aspect_ratio: node.getAttribute("data-eb-aspect-ratio") || "16 / 9",
+      fit_mode: node.getAttribute("data-eb-video-fit") || "cover",
+      focal_x: node.getAttribute("data-eb-video-focal-x") || 50,
+      focal_y: node.getAttribute("data-eb-video-focal-y") || 50,
+      zoom: node.getAttribute("data-eb-video-zoom") || 1,
+      rotation: node.getAttribute("data-eb-video-rotation") || 0,
+      radius: node.getAttribute("data-eb-video-radius") || 0,
       autoplay: node.hasAttribute("autoplay"),
       muted: node.hasAttribute("muted"),
       loop: node.hasAttribute("loop"),
@@ -2373,6 +2415,24 @@
 
   function videoStreamFrame(node) {
     return node?.closest(".video-frame, .site-video-frame") || node?.parentElement || null;
+  }
+
+  function applyVideoVisualStyle(node, model) {
+    if (!node) return;
+    const video = defaultVideoStreamModel(model);
+    const frame = videoStreamFrame(node);
+    node.style.objectFit = video.fit_mode;
+    node.style.objectPosition = `${video.focal_x}% ${video.focal_y}%`;
+    node.style.transformOrigin = "center center";
+    node.style.transform = `scale(${video.zoom}) rotate(${video.rotation}deg)`;
+    node.style.borderRadius = `${video.radius}px`;
+    node.setAttribute("data-eb-video-fit", video.fit_mode);
+    node.setAttribute("data-eb-video-focal-x", String(video.focal_x));
+    node.setAttribute("data-eb-video-focal-y", String(video.focal_y));
+    node.setAttribute("data-eb-video-zoom", String(video.zoom));
+    node.setAttribute("data-eb-video-rotation", String(video.rotation));
+    node.setAttribute("data-eb-video-radius", String(video.radius));
+    if (frame) frame.style.overflow = "hidden";
   }
 
   function ensureVideoStreamEditorOverlay(node, model) {
@@ -2444,6 +2504,7 @@
     node.style.width = "100%";
     node.style.height = "100%";
     node.style.background = "#000";
+    applyVideoVisualStyle(node, video);
 
     if (frame) frame.style.aspectRatio = video.aspect_ratio || "16 / 9";
 
@@ -2841,6 +2902,9 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
           </div>
           <small>${safe(video.playback_url ? "Ya hay un video cargado para este espacio." : "Todavía no hay un video cargado en este espacio.")}</small>
         </label>
+
+        <button type="button" class="button button-light editor-video-stream-edit-btn" ${video.playback_url ? "" : "disabled"}>Ajustar video</button>
+        <small>${safe(video.playback_url ? "Ajusta cómo se encuadra el video dentro de su espacio." : "Primero sube un video para poder ajustarlo.")}</small>
 
         <button type="button" class="button button-light editor-video-stream-remove-btn">Quitar video</button>
 
@@ -4178,6 +4242,113 @@ node.innerHTML = renderVideoEmbedEditorCard(parseVideoEmbedValue(decodeEditorVal
     pinchMidY: 0
   };
 
+  const videoEdit = {
+    fit_mode: "cover",
+    focal_x: 50,
+    focal_y: 50,
+    zoom: 1,
+    rotation: 0,
+    radius: 0
+  };
+
+  function updateVideoEditorPreview() {
+    const preview = $("#editor-video-preview");
+    if (!preview) return;
+
+    const fit = sanitizeVideoFitMode(videoEdit.fit_mode);
+    const focalX = sanitizeVideoFocal(videoEdit.focal_x, 50);
+    const focalY = sanitizeVideoFocal(videoEdit.focal_y, 50);
+    const zoom = sanitizeVideoZoom(videoEdit.zoom);
+    const rotation = sanitizeVideoRotation(videoEdit.rotation);
+    const radius = sanitizeVideoRadius(videoEdit.radius);
+
+    preview.style.objectFit = fit;
+    preview.style.objectPosition = `${focalX}% ${focalY}%`;
+    preview.style.transformOrigin = "center center";
+    preview.style.transform = `scale(${zoom}) rotate(${rotation}deg)`;
+    preview.style.borderRadius = `${radius}px`;
+
+    $("#editor-video-fit").value = fit;
+    $("#editor-video-zoom").value = String(zoom);
+    $("#editor-video-focal-x").value = String(focalX);
+    $("#editor-video-focal-y").value = String(focalY);
+    $("#editor-video-rotation").value = String(rotation);
+    $("#editor-video-radius").value = String(radius);
+    $("#editor-video-zoom-value").textContent = `${zoom.toFixed(2)}×`;
+    $("#editor-video-focal-x-value").textContent = `${Math.round(focalX)}%`;
+    $("#editor-video-focal-y-value").textContent = `${Math.round(focalY)}%`;
+    $("#editor-video-rotation-value").textContent = `${Math.round(rotation)}°`;
+    $("#editor-video-radius-value").textContent = `${Math.round(radius)}px`;
+  }
+
+  function openVideoEditor() {
+    const modal = $("#editor-video-modal");
+    const preview = $("#editor-video-preview");
+    const current = currentVideoStreamValue();
+    if (!modal || !preview || !current.playback_url) {
+      setStatus("Primero sube un video para poder ajustarlo.");
+      return;
+    }
+
+    videoEdit.fit_mode = current.fit_mode;
+    videoEdit.focal_x = current.focal_x;
+    videoEdit.focal_y = current.focal_y;
+    videoEdit.zoom = current.zoom;
+    videoEdit.rotation = current.rotation;
+    videoEdit.radius = current.radius;
+
+    preview.pause();
+    preview.src = current.playback_url;
+    if (current.poster_url) preview.poster = current.poster_url;
+    else preview.removeAttribute("poster");
+    preview.load();
+    modal.hidden = false;
+    updateVideoEditorPreview();
+  }
+
+  function closeVideoEditor() {
+    const modal = $("#editor-video-modal");
+    const preview = $("#editor-video-preview");
+    if (modal) modal.hidden = true;
+    if (preview) {
+      preview.pause();
+      preview.removeAttribute("src");
+      preview.load();
+    }
+  }
+
+  function resetVideoEditor() {
+    videoEdit.fit_mode = "cover";
+    videoEdit.focal_x = 50;
+    videoEdit.focal_y = 50;
+    videoEdit.zoom = 1;
+    videoEdit.rotation = 0;
+    videoEdit.radius = 0;
+    updateVideoEditorPreview();
+  }
+
+  function applyVideoEdit() {
+    const current = currentVideoStreamValue();
+    if (!current.playback_url) {
+      closeVideoEditor();
+      setStatus("Primero sube un video para poder ajustarlo.");
+      return;
+    }
+
+    updateCurrentValue(stringifyVideoStreamValue({
+      ...current,
+      fit_mode: videoEdit.fit_mode,
+      focal_x: videoEdit.focal_x,
+      focal_y: videoEdit.focal_y,
+      zoom: videoEdit.zoom,
+      rotation: videoEdit.rotation,
+      radius: videoEdit.radius
+    }));
+    closeVideoEditor();
+    renderSidebar();
+    setStatus("Ajuste de video guardado.", "success");
+  }
+
   function photoAtValue() {
     const data = currentDraftData();
     return data[state.currentKey]?.value ?? state.currentNodeValue;
@@ -5089,6 +5260,32 @@ function readNodeValue(node, type) {
     $("#editor-photo-reset").onclick = () => resetPhotoAdjust();
     photoBackdrop.addEventListener("click", e => {
       if (e.target === photoBackdrop) closePhotoEditor();
+    });
+
+    const videoBackdrop = $("#editor-video-modal");
+    $("#editor-video-cancel").onclick = closeVideoEditor;
+    $("#editor-video-apply").onclick = applyVideoEdit;
+    $("#editor-video-reset").onclick = resetVideoEditor;
+    videoBackdrop.addEventListener("click", e => {
+      if (e.target === videoBackdrop) closeVideoEditor();
+    });
+
+    [
+      ["#editor-video-fit", "fit_mode"],
+      ["#editor-video-zoom", "zoom"],
+      ["#editor-video-focal-x", "focal_x"],
+      ["#editor-video-focal-y", "focal_y"],
+      ["#editor-video-rotation", "rotation"],
+      ["#editor-video-radius", "radius"]
+    ].forEach(([selector, key]) => {
+      $(selector).addEventListener("input", event => {
+        videoEdit[key] = event.currentTarget.value;
+        updateVideoEditorPreview();
+      });
+      $(selector).addEventListener("change", event => {
+        videoEdit[key] = event.currentTarget.value;
+        updateVideoEditorPreview();
+      });
     });
 
     const stage = $("#editor-photo-stage");

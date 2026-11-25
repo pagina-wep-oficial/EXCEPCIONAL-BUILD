@@ -216,6 +216,51 @@
     </div>
   </div>
 
+  <div class="editor-modal-backdrop" id="editor-video-modal" hidden>
+    <div class="editor-modal editor-video-modal" role="dialog" aria-modal="true" aria-labelledby="editor-video-title">
+      <p class="editor-eyebrow">Ajuste de video</p>
+      <h2 id="editor-video-title">Ajustar video</h2>
+      <p class="editor-modal-copy">Define cómo se encuadra el video dentro del espacio. El archivo original no se modifica.</p>
+      <div class="editor-video-stage" id="editor-video-stage">
+        <video id="editor-video-preview" playsinline muted></video>
+      </div>
+      <div class="editor-video-controls" role="group" aria-label="Controles del video">
+        <label class="editor-field">
+          <span>Cómo se muestra</span>
+          <select id="editor-video-fit">
+            <option value="cover">Llenar espacio</option>
+            <option value="contain">Mostrar completo</option>
+          </select>
+        </label>
+        <label class="editor-range-field">
+          <span>Acercar <output id="editor-video-zoom-value">1×</output></span>
+          <input id="editor-video-zoom" type="range" min="1" max="3" step="0.01" value="1">
+        </label>
+        <label class="editor-range-field">
+          <span>Posición horizontal <output id="editor-video-focal-x-value">50%</output></span>
+          <input id="editor-video-focal-x" type="range" min="0" max="100" step="1" value="50">
+        </label>
+        <label class="editor-range-field">
+          <span>Posición vertical <output id="editor-video-focal-y-value">50%</output></span>
+          <input id="editor-video-focal-y" type="range" min="0" max="100" step="1" value="50">
+        </label>
+        <label class="editor-range-field">
+          <span>Girar <output id="editor-video-rotation-value">0°</output></span>
+          <input id="editor-video-rotation" type="range" min="-180" max="180" step="1" value="0">
+        </label>
+        <label class="editor-range-field">
+          <span>Redondear esquinas <output id="editor-video-radius-value">0px</output></span>
+          <input id="editor-video-radius" type="range" min="0" max="32" step="1" value="0">
+        </label>
+      </div>
+      <div class="editor-modal-actions">
+        <button class="button button-light" id="editor-video-cancel" type="button">Cancelar</button>
+        <button class="button button-light" id="editor-video-reset" type="button">Restablecer</button>
+        <button class="button button-primary" id="editor-video-apply" type="button">Guardar</button>
+      </div>
+    </div>
+  </div>
+
   <div class="editor-modal-backdrop" id="editor-exit-modal" hidden>
     <div class="editor-modal editor-exit-modal" role="dialog" aria-modal="true" aria-labelledby="editor-exit-title">
       <p class="editor-eyebrow">Salir del editor</p>

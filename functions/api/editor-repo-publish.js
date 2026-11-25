@@ -822,6 +822,26 @@ function parsePublishedVideo(value = "") {
   }
 }
 
+function publishedVideoVisualStyle(video = {}) {
+  const fit = String(video.fit_mode || "").trim().toLowerCase() === "contain" ? "contain" : "cover";
+  const number = (value, fallback, min, max) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : fallback;
+  };
+  const focalX = number(video.focal_x, 50, 0, 100);
+  const focalY = number(video.focal_y, 50, 0, 100);
+  const zoom = number(video.zoom, 1, 1, 3);
+  const rotation = number(video.rotation, 0, -180, 180);
+  const radius = number(video.radius, 0, 0, 32);
+  return {
+    "object-fit": fit,
+    "object-position": `${focalX}% ${focalY}%`,
+    "transform-origin": "center center",
+    transform: `scale(${zoom}) rotate(${rotation}deg)`,
+    "border-radius": `${radius}px`
+  };
+}
+
 function legacyFileName(url, mimeType, fallback = "archivo") {
   try {
     const name = decodeURIComponent(new URL(url).pathname.split("/").pop() || "");
@@ -1181,6 +1201,11 @@ async function applyEditorPatchesToHtml(sourceHtml, elements = {}) {
           else element.removeAttribute("loop");
           if (video.controls !== false) element.setAttribute("controls", "");
           else element.removeAttribute("controls");
+          element.setAttribute("style", styleValue(element.getAttribute("style"), publishedVideoVisualStyle(video)));
+          const parent = element.parentElement;
+          if (parent) {
+            parent.setAttribute("style", styleValue(parent.getAttribute("style"), { overflow: "hidden" }));
+          }
         }
       });
     }
