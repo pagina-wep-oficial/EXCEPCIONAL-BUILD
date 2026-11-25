@@ -1244,6 +1244,7 @@ if(canManageUsers()) await loadUsers();
       if(videosResult.error){warnings.push("No se pudieron revisar los videos del proyecto.");console.error("storage video assets",videosResult.error);}
       if(warnings.length)throw new Error(warnings.join(" "));
       const repoDrafts=repoResult.data||[],mediaAssets=assetsResult.data||[],projectFiles=filesResult.data||[],videoAssets=videosResult.data||[];
+      const draftContent=JSON.stringify(repoDrafts);
       const storageRefs=new Map(),mediaRefs=collectMediaAssetRefs(repoDrafts);
       const registerLegacy=value=>collectStorageRefsFromValue(value,new Map()).forEach((amount,path)=>storageRefs.set(path,(storageRefs.get(path)||0)+amount));
       repoDrafts.forEach(row=>{registerLegacy(row.edited_html);registerLegacy(row.original_html);registerLegacy(row.elements||{});});
@@ -1256,7 +1257,13 @@ if(canManageUsers()) await loadUsers();
         const id=String(asset.id),key=String(asset.r2_key),url=String(asset.public_url||""),reasons=[];
         if(mediaRefs.assetIds.has(id))reasons.push(`Editor: ${mediaRefs.assetIds.get(id)} referencia${mediaRefs.assetIds.get(id)===1?"":"s"}`);
         if(mediaRefs.keys.has(key)&&!reasons.length)reasons.push("Referencia R2 en contenido");
+        if(!reasons.length&&draftContent.includes(key))reasons.push("Referencia R2 en contenido");
         if(url&&mediaRefs.urls.has(url))reasons.push("URL pública en contenido");
+        if(url&&draftContent.includes(url)&&!reasons.includes("URL pública en contenido"))reasons.push("URL pública en contenido");
+        if(!reasons.length&&(asset.page_path||asset.asset_key)){
+          const location=[asset.page_path,asset.asset_key].filter(Boolean).join(" · ");
+          reasons.push(`Editor: ${location}`);
+        }
         if(linkedFiles.has(id))reasons.push("Archivo del proyecto");
         if(linkedVideos.has(id))reasons.push("Video del proyecto");
         const used=Boolean(reasons.length);files.push({name:asset.original_name||key.split("/").pop()||"Archivo R2",path:key,url,size:Number(asset.size_bytes||0)||0,createdAt:asset.created_at,updatedAt:asset.created_at,source:"r2",assetId:id,r2Key:key,used,candidate:!used,managed:true,reasons:reasons.length?reasons:["Sin referencia actual"]});
