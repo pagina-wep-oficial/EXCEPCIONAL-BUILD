@@ -144,6 +144,11 @@
 .storage-pill{display:inline-flex;align-items:center;padding:4px 9px;border-radius:999px;font-size:11px;font-weight:800}
 .storage-pill.used{background:#def5e5;color:#167c42}
 .storage-pill.candidate{background:#ffe7b0;color:#9a6200}
+.storage-pill.source{background:#e8eef7;color:#405a7a}
+.storage-pill.source.r2{background:#dff5ee;color:#16705a}
+.storage-pill.source.supabase{background:#fff0d9;color:#966000}
+.storage-pill.source.drive{background:#ece8f7;color:#62508e}
+.storage-file-row.legacy{background:#faf9fc;border-color:#d8d0e8}
 .storage-empty{color:var(--muted);font-size:13px}
 @media(max-width:980px){.storage-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.storage-admin-head{flex-direction:column}.storage-admin-head .row-actions{width:100%;display:grid;grid-template-columns:1fr}.storage-admin-head .row-actions .button{width:100%}.storage-summary-grid{grid-template-columns:1fr}.storage-file-row{grid-template-columns:1fr}.storage-file-check{justify-content:flex-start}.storage-file-actions{justify-content:flex-start}}

@@ -1173,38 +1173,44 @@ if(canManageUsers()) await loadUsers();
     return out;
   }
 
-  function storageReasonLabels(meta){
-    const out=[];
-    if(meta.repoDraft)out.push(`Repo borrador (${meta.repoDraft})`);
-    return out;
+  function collectMediaAssetRefs(value,refs={assetIds:new Map(),keys:new Map(),urls:new Map()}){
+    const add=(map,key)=>{const normalized=String(key||"").trim();if(normalized)map.set(normalized,(map.get(normalized)||0)+1);};
+    const visit=(current,field="")=>{
+      if(current==null)return;
+      if(typeof current==="string"){
+        if(/(?:media_asset_id|asset_id)$/i.test(field))add(refs.assetIds,current);
+        if(/(?:r2_key|storage_key)$/i.test(field))add(refs.keys,current);
+        if(/(?:public_url|source_url|playback_url)$/i.test(field))add(refs.urls,current);
+        return;
+      }
+      if(Array.isArray(current)){current.forEach(item=>visit(item,field));return;}
+      if(typeof current==="object")Object.entries(current).forEach(([key,item])=>visit(item,key));
+    };
+    visit(value);
+    return refs;
   }
 
-  function selectedProjectStoragePaths(){
-    return $$('[data-storage-path]:checked',$("#project-storage-list")).map(input=>input.dataset.storagePath).filter(Boolean);
+  function sourceLabel(source){
+    return source==="r2"?"R2 actual":source==="supabase"?"Supabase heredado":"Drive antiguo";
+  }
+
+  function selectedProjectStorageItems(){
+    return $$('[data-storage-item]:checked',$("#project-storage-list")).map(input=>({source:input.dataset.storageSource||"",path:input.dataset.storagePath||"",assetId:input.dataset.storageAssetId||"",r2Key:input.dataset.storageKey||""})).filter(item=>item.path||item.r2Key);
   }
 
   function updateProjectStorageButtons(){
-    const projectId=state.currentProject?.id||"";
-    const audit=state.projectStorageAudit[projectId]||null;
-    const selected=selectedProjectStoragePaths();
-    const selectedBtn=$("#project-storage-delete-selected");
-    const unusedBtn=$("#project-storage-delete-unused");
-    if(selectedBtn){
-      selectedBtn.disabled=!audit?.safeDelete||!selected.length;
-      selectedBtn.textContent=selected.length?`Borrar seleccionados (${selected.length})`:"Borrar seleccionados";
-    }
-    if(unusedBtn){
-      unusedBtn.disabled=!audit?.safeDelete||!audit?.candidateFiles;
-      unusedBtn.textContent=audit?.candidateFiles?`Borrar candidatos (${audit.candidateFiles})`:"Borrar candidatos";
-    }
+    const audit=state.projectStorageAudit[state.currentProject?.id||""]||null,selected=selectedProjectStorageItems(),selectedBtn=$("#project-storage-delete-selected"),unusedBtn=$("#project-storage-delete-unused");
+    if(selectedBtn){selectedBtn.disabled=!audit?.safeDelete||!selected.length;selectedBtn.textContent=selected.length?`Borrar seleccionados (${selected.length})`:"Borrar seleccionados";}
+    if(unusedBtn){unusedBtn.disabled=!audit?.safeDelete||!audit?.candidateFiles;unusedBtn.textContent=audit?.candidateFiles?`Borrar candidatos (${audit.candidateFiles})`:"Borrar candidatos";}
   }
 
   function renderProjectStorageAudit(audit){
     const summary=$("#project-storage-summary"),count=$("#project-storage-count"),list=$("#project-storage-list");
     if(!summary||!count||!list)return;
-    summary.innerHTML=`<article class="storage-stat-card"><span>Total en Supabase</span><strong>${fmtBytes(audit.totalBytes)}</strong><small>${audit.totalFiles} archivo${audit.totalFiles===1?"":"s"} del editor dentro de Supabase.</small></article><article class="storage-stat-card"><span>En uso</span><strong>${fmtBytes(audit.usedBytes)}</strong><small>${audit.usedFiles} archivo${audit.usedFiles===1?"":"s"} con referencias activas.</small></article><article class="storage-stat-card"><span>Candidatos</span><strong>${fmtBytes(audit.candidateBytes)}</strong><small>${audit.candidateFiles} archivo${audit.candidateFiles===1?"":"s"} sin referencias actuales.</small></article><article class="storage-stat-card"><span>Estado</span><strong>${audit.safeDelete?"Listo para limpiar":"Análisis incompleto"}</strong><small>${audit.safeDelete?`Última revisión: ${fmtDateTime(audit.scannedAt)}.`:"No borres hasta resolver los avisos del análisis."}</small></article>`;
+    const sourceSummary=Object.entries(audit.sources||{}).filter(([,value])=>value.files).map(([source,value])=>`${sourceLabel(source)}: ${value.files}`).join(" · ")||"Sin archivos";
+    summary.innerHTML=`<article class="storage-stat-card"><span>Total del proyecto</span><strong>${fmtBytes(audit.totalBytes)}</strong><small>${audit.totalFiles} archivo${audit.totalFiles===1?"":"s"} en todas las fuentes detectadas.</small></article><article class="storage-stat-card"><span>En uso</span><strong>${fmtBytes(audit.usedBytes)}</strong><small>${audit.usedFiles} archivo${audit.usedFiles===1?"":"s"} con referencias activas.</small></article><article class="storage-stat-card"><span>Candidatos</span><strong>${fmtBytes(audit.candidateBytes)}</strong><small>${audit.candidateFiles} administrable${audit.candidateFiles===1?"":"s"} sin referencia actual.</small></article><article class="storage-stat-card"><span>Fuentes</span><strong>${esc(sourceSummary)}</strong><small>${audit.safeDelete?`Revisión: ${fmtDateTime(audit.scannedAt)}.`:"No borres hasta resolver los avisos."}</small></article>`;
     count.textContent=audit.totalFiles?`${audit.totalFiles} archivo${audit.totalFiles===1?"":"s"}`:"";
-    list.innerHTML=audit.files.length?audit.files.map(file=>`<div class="storage-file-row ${file.used?"used":"candidate"}"><label class="storage-file-check">${audit.safeDelete&&!file.used?`<input type="checkbox" data-storage-path="${esc(file.path)}">`:`<input type="checkbox" disabled>`}</label><div class="storage-file-main"><div class="storage-file-title"><strong title="${esc(file.path)}">${esc(file.name)}</strong><span class="storage-pill ${file.used?"used":"candidate"}">${file.used?"En uso":"Candidato"}</span></div><div class="storage-file-meta"><span>${fmtBytes(file.size)}</span><span>${fmtDateTime(file.updatedAt||file.createdAt)}</span><span>${esc(file.reasons.join(" · ")||"Sin referencias actuales")}</span></div></div><div class="storage-file-actions">${file.url?`<a class="tiny-btn" href="${file.url}" target="_blank" rel="noopener">Abrir</a>`:""}</div></div>`).join(""):`<div class="storage-empty">No hay archivos del editor en Supabase para este proyecto.</div>`;
+    list.innerHTML=audit.files.length?audit.files.map(file=>{const canSelect=audit.safeDelete&&file.candidate&&file.managed;const checkbox=canSelect?`<input type="checkbox" data-storage-item data-storage-source="${esc(file.source)}" data-storage-path="${esc(file.path||"")}" data-storage-asset-id="${esc(file.assetId||"")}" data-storage-key="${esc(file.r2Key||"")}">`:`<input type="checkbox" disabled aria-label="Archivo protegido">`;return `<div class="storage-file-row ${file.used?"used":"candidate"} ${file.source==="drive"?"legacy":""}"><label class="storage-file-check">${checkbox}</label><div class="storage-file-main"><div class="storage-file-title"><strong title="${esc(file.path||file.name)}">${esc(file.name)}</strong><span class="storage-pill source ${esc(file.source)}">${sourceLabel(file.source)}</span><span class="storage-pill ${file.used?"used":"candidate"}">${file.used?"En uso":file.managed?"Candidato":"Conservado"}</span></div><div class="storage-file-meta"><span>${fmtBytes(file.size)}</span><span>${fmtDateTime(file.updatedAt||file.createdAt)}</span><span>${esc(file.reasons.join(" · ")||"Sin referencias actuales")}</span></div></div><div class="storage-file-actions">${file.url?`<a class="tiny-btn" href="${esc(file.url)}" target="_blank" rel="noopener">Abrir</a>`:""}</div></div>`;}).join(""):"<div class=\"storage-empty\">No hay archivos registrados para este proyecto.</div>";
     updateProjectStorageButtons();
   }
 
@@ -1213,118 +1219,75 @@ if(canManageUsers()) await loadUsers();
     if(!summary||!count||!list)return;
     const audit=project?.id?state.projectStorageAudit[project.id]:null;
     if(audit){renderProjectStorageAudit(audit);return;}
-    summary.innerHTML=`<article class="storage-stat-card"><span>Total en Supabase</span><strong>—</strong><small>Abre Analizar para revisar este proyecto.</small></article><article class="storage-stat-card"><span>En uso</span><strong>—</strong><small>Se llena al terminar el análisis.</small></article><article class="storage-stat-card"><span>Candidatos</span><strong>—</strong><small>Archivos sin referencias actuales.</small></article><article class="storage-stat-card"><span>Estado</span><strong>Sin análisis</strong><small>La limpieza manual se habilita solo cuando el análisis termina completo.</small></article>`;
-    count.textContent="";
-    list.innerHTML=project?.id?`<div class="storage-empty">Abre este apartado y pulsa Analizar.</div>`:`<div class="storage-empty">Guarda el proyecto primero.</div>`;
-    setLine("#project-storage-line",project?.id?"Aquí verás el consumo del editor en Supabase y los candidatos a limpieza.":"Guarda el proyecto para poder analizar su almacenamiento.");
+    summary.innerHTML=`<article class="storage-stat-card"><span>Total del proyecto</span><strong>—</strong><small>Analiza para revisar todas las fuentes.</small></article><article class="storage-stat-card"><span>En uso</span><strong>—</strong><small>Archivos vinculados a páginas o recursos.</small></article><article class="storage-stat-card"><span>Candidatos</span><strong>—</strong><small>Solo se pueden borrar candidatos administrables.</small></article><article class="storage-stat-card"><span>Fuentes</span><strong>Sin análisis</strong><small>R2 actual · Supabase y Drive heredados.</small></article>`;
+    count.textContent="";list.innerHTML=project?.id?`<div class="storage-empty">Abre este apartado y pulsa Analizar.</div>`:`<div class="storage-empty">Guarda el proyecto primero.</div>`;
+    setLine("#project-storage-line",project?.id?"Aquí verás R2, los archivos heredados y los candidatos seguros de este proyecto.":"Guarda el proyecto para poder analizar su almacenamiento.");
     updateProjectStorageButtons();
   }
 
   async function analyzeProjectStorage(force=false){
     const project=state.currentProject;
-    if(!project?.id)return;
-    if(state.projectStorageBusy[project.id])return;
-    if(!force&&state.projectStorageAudit[project.id]){
-      renderProjectStorageAudit(state.projectStorageAudit[project.id]);
-      return;
-    }
-    state.projectStorageBusy[project.id]=true;
-    setLine("#project-storage-line","Analizando almacenamiento del editor…");
+    if(!project?.id||state.projectStorageBusy[project.id])return;
+    if(!force&&state.projectStorageAudit[project.id]){renderProjectStorageAudit(state.projectStorageAudit[project.id]);return;}
+    state.projectStorageBusy[project.id]=true;setLine("#project-storage-line","Analizando R2 y archivos heredados…");
     try{
       const warnings=[];
-      let repoDrafts=[];
-
-      try{
-        const repoResult=await db.from("client_site_repo_drafts").select("page_path,edited_html,original_html,elements,updated_at,published_at").eq("project_id",project.id);
-        if(repoResult.error)throw repoResult.error;
-        repoDrafts=repoResult.data||[];
-      }catch(err){
-        warnings.push("No se pudieron revisar los borradores del modo repo.");
-        console.error("storage repo drafts",err);
-      }
-
-      const refMeta=new Map();
-      const register=(bucket,value)=>{
-        const hits=collectStorageRefsFromValue(value,new Map());
-        hits.forEach((count,path)=>{
-          const current=refMeta.get(path)||{repoDraft:0};
-          current[bucket]=(current[bucket]||0)+count;
-          refMeta.set(path,current);
-        });
-      };
-
-      repoDrafts.forEach(row=>{
-        register("repoDraft",row.edited_html);
-        register("repoDraft",row.original_html);
-        register("repoDraft",row.elements||{});
+      const [repoResult,assetsResult,filesResult,videosResult]=await Promise.all([
+        db.from("client_site_repo_drafts").select("page_path,edited_html,original_html,elements,updated_at,published_at").eq("project_id",project.id),
+        db.from("client_project_media_assets").select("id,project_id,purpose,storage_provider,r2_key,public_url,original_name,mime_type,size_bytes,page_path,asset_key,status,created_at,deleted_at").eq("project_id",project.id).is("deleted_at",null),
+        db.from("client_project_files").select("*").eq("project_id",project.id),
+        db.from("client_site_video_assets").select("*").eq("project_id",project.id)
+      ]);
+      if(repoResult.error){warnings.push("No se pudieron revisar los borradores del editor.");console.error("storage repo drafts",repoResult.error);}
+      if(assetsResult.error){warnings.push("No se pudo leer el inventario de R2.");console.error("storage media assets",assetsResult.error);}
+      if(filesResult.error){warnings.push("No se pudieron revisar los archivos del proyecto.");console.error("storage project files",filesResult.error);}
+      if(videosResult.error){warnings.push("No se pudieron revisar los videos del proyecto.");console.error("storage video assets",videosResult.error);}
+      if(warnings.length)throw new Error(warnings.join(" "));
+      const repoDrafts=repoResult.data||[],mediaAssets=assetsResult.data||[],projectFiles=filesResult.data||[],videoAssets=videosResult.data||[];
+      const storageRefs=new Map(),mediaRefs=collectMediaAssetRefs(repoDrafts);
+      const registerLegacy=value=>collectStorageRefsFromValue(value,new Map()).forEach((amount,path)=>storageRefs.set(path,(storageRefs.get(path)||0)+amount));
+      repoDrafts.forEach(row=>{registerLegacy(row.edited_html);registerLegacy(row.original_html);registerLegacy(row.elements||{});});
+      projectFiles.forEach(row=>{registerLegacy(row);if(row.media_asset_id)mediaRefs.assetIds.set(String(row.media_asset_id),(mediaRefs.assetIds.get(String(row.media_asset_id))||0)+1);if(row.r2_key)mediaRefs.keys.set(String(row.r2_key),(mediaRefs.keys.get(String(row.r2_key))||0)+1);});
+      videoAssets.forEach(row=>{registerLegacy(row);if(row.media_asset_id)mediaRefs.assetIds.set(String(row.media_asset_id),(mediaRefs.assetIds.get(String(row.media_asset_id))||0)+1);if(row.r2_key)mediaRefs.keys.set(String(row.r2_key),(mediaRefs.keys.get(String(row.r2_key))||0)+1);});
+      const linkedFiles=new Set(projectFiles.filter(row=>row.media_asset_id).map(row=>String(row.media_asset_id)));
+      const linkedVideos=new Set(videoAssets.filter(row=>row.media_asset_id).map(row=>String(row.media_asset_id)));
+      const files=[];
+      mediaAssets.filter(asset=>asset.storage_provider==="r2"&&asset.r2_key).forEach(asset=>{
+        const id=String(asset.id),key=String(asset.r2_key),url=String(asset.public_url||""),reasons=[];
+        if(mediaRefs.assetIds.has(id))reasons.push(`Editor: ${mediaRefs.assetIds.get(id)} referencia${mediaRefs.assetIds.get(id)===1?"":"s"}`);
+        if(mediaRefs.keys.has(key)&&!reasons.length)reasons.push("Referencia R2 en contenido");
+        if(url&&mediaRefs.urls.has(url))reasons.push("URL pública en contenido");
+        if(linkedFiles.has(id))reasons.push("Archivo del proyecto");
+        if(linkedVideos.has(id))reasons.push("Video del proyecto");
+        const used=Boolean(reasons.length);files.push({name:asset.original_name||key.split("/").pop()||"Archivo R2",path:key,url,size:Number(asset.size_bytes||0)||0,createdAt:asset.created_at,updatedAt:asset.created_at,source:"r2",assetId:id,r2Key:key,used,candidate:!used,managed:true,reasons:reasons.length?reasons:["Sin referencia actual"]});
       });
-
-      const files=(await listProjectStorageObjects(project.id)).map(file=>{
-        const meta=refMeta.get(file.path)||{repoDraft:0};
-        const reasons=storageReasonLabels(meta);
-        return {...file,used:Boolean(reasons.length),reasons};
-      }).sort((a,b)=>{
-        if(a.used!==b.used)return a.used?1:-1;
-        return (b.size||0)-(a.size||0);
-      });
-
-      const totalBytes=files.reduce((sum,file)=>sum+file.size,0);
-      const usedFiles=files.filter(file=>file.used);
-      const candidateFiles=files.filter(file=>!file.used);
-      const audit={
-        projectId:project.id,
-        scannedAt:new Date().toISOString(),
-        warnings,
-        safeDelete:!warnings.length,
-        files,
-        totalFiles:files.length,
-        totalBytes,
-        usedFiles:usedFiles.length,
-        usedBytes:usedFiles.reduce((sum,file)=>sum+file.size,0),
-        candidateFiles:candidateFiles.length,
-        candidateBytes:candidateFiles.reduce((sum,file)=>sum+file.size,0)
-      };
-
-      state.projectStorageAudit[project.id]=audit;
-      renderProjectStorageAudit(audit);
-      setLine("#project-storage-line",warnings.length?`Análisis terminado con avisos: ${warnings.join(" ")}`:`Análisis terminado. Ya puedes revisar y limpiar candidatos.` ,warnings.length?"error":"success");
-    }catch(err){
-      console.error("analyze project storage",err);
-      setLine("#project-storage-line",err?.message||"No pudimos analizar el almacenamiento del editor.","error");
-    }finally{
-      delete state.projectStorageBusy[project.id];
-    }
+      (await listProjectStorageObjects(project.id)).forEach(file=>{const used=storageRefs.has(file.path);files.push({...file,source:"supabase",used,candidate:!used,managed:true,reasons:used?["Supabase heredado",`Editor: ${storageRefs.get(file.path)} referencia${storageRefs.get(file.path)===1?"":"s"}`]:["Supabase heredado","Sin referencia actual"]});});
+      projectFiles.filter(row=>row.storage_provider!=="r2"&&row.drive_file_id).forEach(row=>files.push({name:row.file_name||"Archivo Drive",path:"",url:"",size:Number(row.size_bytes||0)||0,createdAt:row.created_at,updatedAt:row.created_at,source:"drive",used:true,candidate:false,managed:false,reasons:["Drive antiguo","Se conserva como compatibilidad"]}));
+      files.sort((a,b)=>{if(a.used!==b.used)return a.used?1:-1;if(a.source!==b.source)return a.source.localeCompare(b.source);return(b.size||0)-(a.size||0);});
+      const totalBytes=files.reduce((sum,file)=>sum+file.size,0),usedFiles=files.filter(file=>file.used),candidateFiles=files.filter(file=>file.candidate&&file.managed),sources={};
+      files.forEach(file=>{sources[file.source]??={files:0,bytes:0};sources[file.source].files++;sources[file.source].bytes+=file.size;});
+      const audit={projectId:project.id,scannedAt:new Date().toISOString(),warnings,safeDelete:true,files,totalFiles:files.length,totalBytes,usedFiles:usedFiles.length,usedBytes:usedFiles.reduce((sum,file)=>sum+file.size,0),candidateFiles:candidateFiles.length,candidateBytes:candidateFiles.reduce((sum,file)=>sum+file.size,0),sources};
+      state.projectStorageAudit[project.id]=audit;renderProjectStorageAudit(audit);setLine("#project-storage-line","Análisis terminado. R2, Supabase heredado y Drive fueron revisados.","success");
+    }catch(err){console.error("analyze project storage",err);setLine("#project-storage-line",err?.message||"No pudimos analizar el almacenamiento del proyecto.","error");}
+    finally{delete state.projectStorageBusy[project.id];}
   }
 
-  async function ensureProjectStorageAudit(force=false){
-    const project=state.currentProject;
-    if(!project?.id)return;
-    if(force||!state.projectStorageAudit[project.id]){
-      await analyzeProjectStorage(true);
-      return;
-    }
-    renderProjectStorageAudit(state.projectStorageAudit[project.id]);
-  }
+  async function ensureProjectStorageAudit(force=false){const project=state.currentProject;if(!project?.id)return;if(force||!state.projectStorageAudit[project.id]){await analyzeProjectStorage(true);return;}renderProjectStorageAudit(state.projectStorageAudit[project.id]);}
 
-  async function deleteProjectStoragePaths(paths){
-    const project=state.currentProject;
-    const list=(paths||[]).filter(Boolean);
+  async function deleteProjectStorageItems(items){
+    const project=state.currentProject,audit=state.projectStorageAudit[project?.id||""],list=(items||[]).filter(item=>item&&((item.source&&item.path)||item.r2Key));
     if(!project?.id||!list.length)return;
-    const audit=state.projectStorageAudit[project.id];
-    if(!audit?.safeDelete){
-      setLine("#project-storage-line","El análisis no está completo. No borres archivos hasta resolver los avisos.","error");
-      return;
-    }
-    if(!confirm(`¿Borrar ${list.length} archivo(s) de Supabase para ${project.name||"este proyecto"}? Esta acción no se puede deshacer.`))return;
-    setLine("#project-storage-line",`Borrando ${list.length} archivo(s)…`);
-    const {error}=await db.storage.from(STORAGE_BUCKET).remove(list);
-    if(error){
-      setLine("#project-storage-line",error.message||"No pudimos borrar los archivos.","error");
-      return;
-    }
-    delete state.projectStorageAudit[project.id];
-    setLine("#project-storage-line",`${list.length} archivo(s) borrados.`,"success");
-    await ensureProjectStorageAudit(true);
+    if(!audit?.safeDelete){setLine("#project-storage-line","El análisis no está completo. No borres archivos hasta resolver los avisos.","error");return;}
+    const allowed=list.filter(item=>audit.files.some(file=>file.candidate&&file.managed&&((item.source==="r2"&&file.assetId===item.assetId&&file.r2Key===item.r2Key)||(item.source==="supabase"&&file.path===item.path))));
+    if(!allowed.length)return;
+    if(!confirm(`¿Borrar ${allowed.length} archivo(s) candidato(s) de ${project.name||"este proyecto"}? Drive no se toca. Esta acción no se puede deshacer.`))return;
+    setLine("#project-storage-line",`Borrando ${allowed.length} archivo(s)…`);let deleted=0;
+    try{
+      const r2=allowed.filter(item=>item.source==="r2"),legacy=allowed.filter(item=>item.source==="supabase");
+      if(r2.length){const response=await fetch("/api/admin-delete-media",{method:"POST",headers:{Authorization:`Bearer ${state.session.access_token}`,"Content-Type":"application/json"},body:JSON.stringify({assets:r2.map(item=>({id:item.assetId,r2_key:item.r2Key}))})});const result=await response.json().catch(()=>null);if(!response.ok||!result?.ok)throw new Error(result?.code||"R2_CLEANUP_FAILED");deleted+=Number(result.deleted||0);}
+      if(legacy.length){const result=await db.storage.from(STORAGE_BUCKET).remove(legacy.map(item=>item.path));if(result.error)throw result.error;deleted+=legacy.length;}
+      delete state.projectStorageAudit[project.id];setLine("#project-storage-line",`${deleted} archivo(s) eliminados.`,"success");await ensureProjectStorageAudit(true);
+    }catch(err){setLine("#project-storage-line",err?.message||"No pudimos completar la limpieza.","error");}
   }
   function setProjectTab(name="summary"){
     const projectId=state.currentProject?.id||$("#project-form")?.elements?.id?.value||"new";
@@ -2192,14 +2155,14 @@ if(canManageUsers()) await loadUsers();
   $("#save-editor-repo")?.addEventListener("click",saveEditorRepoConfig);
   $("#cancel-editor-access")?.addEventListener("click",cancelEditorAccess);
   $("#project-storage-refresh")?.addEventListener("click",()=>ensureProjectStorageAudit(true));
-  $("#project-storage-delete-selected")?.addEventListener("click",()=>deleteProjectStoragePaths(selectedProjectStoragePaths()));
+  $("#project-storage-delete-selected")?.addEventListener("click",()=>deleteProjectStorageItems(selectedProjectStorageItems()));
   $("#project-storage-delete-unused")?.addEventListener("click",()=>{
   const audit=state.projectStorageAudit[state.currentProject?.id||""];
-  const paths=(audit?.files||[]).filter(file=>!file.used).map(file=>file.path);
-  deleteProjectStoragePaths(paths);
+  const items=(audit?.files||[]).filter(file=>file.candidate&&file.managed).map(file=>({source:file.source,path:file.path,assetId:file.assetId,r2Key:file.r2Key}));
+  deleteProjectStorageItems(items);
 });
 $("#project-storage-list")?.addEventListener("change",e=>{
-  if(e.target?.matches("[data-storage-path]"))updateProjectStorageButtons();
+  if(e.target?.matches("[data-storage-item]"))updateProjectStorageButtons();
 });
   $$("[data-project-tab]").forEach(b=>b.addEventListener("click",()=>setProjectTab(b.dataset.projectTab)));
   initPublishPanel();
